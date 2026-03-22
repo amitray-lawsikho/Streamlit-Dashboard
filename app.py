@@ -7,14 +7,11 @@ import os
 import json
 
 # --- 1. Cloud Credentials Setup ---
-# This part checks if we are on the Cloud (Secrets) or Local (File)
 if "gcp_service_account" in st.secrets:
-    # For Streamlit Cloud Deployment
     info = dict(st.secrets["gcp_service_account"])
     credentials = service_account.Credentials.from_service_account_info(info)
     client = bigquery.Client(credentials=credentials, project=info["project_id"])
 else:
-    # For your local testing / Colab
     SERVICE_ACCOUNT_FILE = "/content/drive/MyDrive/Lawsikho/credentials/bigquery_key.json"
     if os.path.exists(SERVICE_ACCOUNT_FILE):
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = SERVICE_ACCOUNT_FILE
@@ -41,7 +38,11 @@ def get_global_last_update():
     query = "SELECT MAX(updated_at_ampm) as last_update FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`"
     try:
         res = client.query(query).to_dataframe()
-        return res['last_update'].iloc[0] if not res.empty else "N/A"
+        if not res.empty and res['last_update'].iloc[0] != "N/A":
+            # Formats the BigQuery timestamp to DD-MM-YYYY HH:MM AM/PM
+            dt_val = pd.to_datetime(res['last_update'].iloc[0])
+            return dt_val.strftime('%d-%m-%Y %I:%M %p')
+        return "N/A"
     except: return "N/A"
 
 @st.cache_data(ttl=3600)
@@ -71,7 +72,15 @@ def format_duration_clean(total_seconds):
 # --- 4. Sidebar Filters ---
 st.sidebar.header("Report Filters")
 min_d, max_d = get_available_dates()
-selected_dates = st.sidebar.date_input("Select Date Range", value=(max_d, max_d), min_value=min_d, max_value=max_d)
+
+# CHANGED: Added format parameter for DD-MM-YYYY display in sidebar
+selected_dates = st.sidebar.date_input(
+    "Select Date Range", 
+    value=(max_d, max_d), 
+    min_value=min_d, 
+    max_value=max_d,
+    format="DD-MM-YYYY"
+)
 
 if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
     start_date, end_date = selected_dates
@@ -87,9 +96,13 @@ search_query = st.sidebar.text_input("🔍 Search Agent Name")
 st.markdown("<h1 style='text-align: center; margin-bottom: 5px; font-family: sans-serif;'>CALLERWISE DURATION METRICS</h1>", unsafe_allow_html=True)
 sub_style = "font-size: 15px; color: #A0A0A0; font-family: sans-serif; margin-top: 0px;"
 
+# CHANGED: Reformatting dates to string for display
+display_start = start_date.strftime('%d-%m-%Y')
+display_end = end_date.strftime('%d-%m-%Y')
+
 col_sub_l, col_sub_r = st.columns([3, 1])
 with col_sub_l:
-    st.markdown(f"<p style='{sub_style}'>Report Period: <b>{start_date}</b> to <b>{end_date}</b></p>", unsafe_allow_html=True)
+    st.markdown(f"<p style='{sub_style}'>Report Period: <b>{display_start}</b> to <b>{display_end}</b></p>", unsafe_allow_html=True)
 with col_sub_r:
     last_up = get_global_last_update()
     st.markdown(f"<p style='{sub_style} text-align: right;'>System Last Updated: <b>{last_up}</b></p>", unsafe_allow_html=True)
@@ -145,10 +158,15 @@ if st.sidebar.button("Generate Report"):
                     elif len(issues) == 1: zone = "🟡 YELLOW"
                     
                     agents.append({
-                        "AGENT": owner, "TEAM": group['Team Name'].iloc[0] if not pd.isna(group['Team Name'].iloc[0]) else "Others",
-                        "ZONE": zone, "TOTAL CALLS": int(total_calls_count), "DAYS ACTIVE": int(num_active_days),
-                        "CALLS > 3 MINS": int(above_3min_count), "20+ MIN CALLS": int(long_calls_count),
-                        "LONG BREAKS": int(break_count), "LONG BREAK DURATION": format_duration_clean(total_break_secs),
+                        "AGENT": owner, 
+                        "TEAM": group['Team Name'].iloc[0] if not pd.isna(group['Team Name'].iloc[0]) else "Others",
+                        "ZONE": zone, 
+                        "TOTAL CALLS": int(total_calls_count), 
+                        "DAYS ACTIVE": int(num_active_days),
+                        "CALLS > 3 MINS": int(above_3min_count), 
+                        "20+ MIN CALLS": int(long_calls_count),
+                        "LONG BREAKS": int(break_count), 
+                        "LONG BREAK DURATION": format_duration_clean(total_break_secs),
                         "CALL DURATION > 3 MINS": format_duration_clean(total_valid_duration),
                         "ISSUES": ", ".join(issues) if issues else "None",
                         "raw_dur": total_valid_duration, "raw_break": total_break_secs, "is_total": 0
@@ -191,4 +209,11 @@ if st.sidebar.button("Generate Report"):
                 
                 cdr_data = df.drop(columns=['Team Name', 'Vertical', 'Caller Name', 'Team', 'Zone'], errors='ignore')
                 csv_cdr = cdr_data.to_csv(index=False).encode('utf-8')
-                st.download_button("📥 Download CDR", data=csv_cdr, file_name=f"CDR_{start_date}.csv", mime='text/csv')
+                
+                # CHANGED: Filename now uses formatted display dates
+                st.download_button(
+                    "📥 Download CDR", 
+                    data=csv_cdr, 
+                    file_name=f"CDR_{display_start}_to_{display_end}.csv", 
+                    mime='text/csv'
+                )
