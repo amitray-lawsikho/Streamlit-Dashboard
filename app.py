@@ -141,23 +141,23 @@ if st.sidebar.button("Generate Report"):
                         out_t = day_group['call_datetime'].max().strftime('%I:%M %p')
                         daily_io_list.append(f"{c_date.strftime('%d/%m')}: In {in_t} · Out {out_t}")
 
-                        # --- STRICT BREAK LOGIC (10 AM - 8 PM) ---
+                        # --- REFINED BREAK LOGIC (10 AM - 8 PM) ---
                         start_office = datetime.combine(c_date, time(10, 0)).replace(tzinfo=pytz.timezone("Asia/Kolkata"))
                         end_office = datetime.combine(c_date, time(20, 0)).replace(tzinfo=pytz.timezone("Asia/Kolkata"))
                         
                         day_breaks = []
                         day_break_sec = 0
 
-                        # 1. 10:00 AM to First Call Start
+                        # 1. Start of Office (10:00 AM) to First Call
                         first_call_start = day_group['call_datetime'].iloc[0]
                         gap_start = (first_call_start - start_office).total_seconds()
                         if gap_start >= 1200:
                             day_breaks.append({'s': start_office, 'e': first_call_start, 'g': gap_start})
                             day_break_sec += gap_start
                         
-                        # 2. Between Calls
+                        # 2. Gaps Between Calls
                         if len(day_group) > 1:
-                            # Calculate End Time of each call
+                            # Calculate Actual End Time of each call
                             day_group['actual_end'] = day_group['call_datetime'] + pd.to_timedelta(day_group['call_duration'], unit='s')
                             for i in range(len(day_group)-1):
                                 # Gap = Next Call Start - Current Call End
@@ -166,7 +166,7 @@ if st.sidebar.button("Generate Report"):
                                     day_breaks.append({'s': day_group['actual_end'].iloc[i], 'e': day_group['call_datetime'].iloc[i+1], 'g': g_sec})
                                     day_break_sec += g_sec
                         
-                        # 3. Last Call End to 08:00 PM
+                        # 3. Last Call End to End of Office (08:00 PM)
                         last_call_end = day_group['call_datetime'].iloc[-1] + pd.to_timedelta(day_group['call_duration'].iloc[-1], unit='s')
                         gap_end = (end_office - last_call_end).total_seconds()
                         if gap_end >= 1200:
@@ -178,11 +178,11 @@ if st.sidebar.button("Generate Report"):
                         if day_breaks:
                             b_str = f"{c_date.strftime('%d/%m')}: {len(day_breaks)} breaks"
                             for b in day_breaks:
-                                # Final verification: format duration based strictly on start/end timestamps shown
+                                # This ensures the duration shown in brackets matches the timestamps shown
                                 b_str += f"\n  {b['s'].strftime('%H:%M')}→{b['e'].strftime('%H:%M')} ({format_dur_hm(b['g'])})"
                             daily_break_list.append(b_str)
 
-                        # Issues
+                        # Productive Hours calculation (10 Hours - total long breaks)
                         day_prod_sec = 36000 - day_break_sec
                         if len(day_group[day_group['call_duration'] >= 180]) < 40: all_issues.append("Low Calls")
                         if day_dur < 11700: all_issues.append("Low Duration")
@@ -191,7 +191,6 @@ if st.sidebar.button("Generate Report"):
 
                     total_duration_agg += agent_valid_dur
                     pickup_ratio = round((total_ans / total_calls * 100)) if total_calls > 0 else 0
-                    
                     prod_sec_total = (36000 * total_active_days) - total_break_sec_all_days
 
                     agents_list.append({
@@ -212,7 +211,6 @@ if st.sidebar.button("Generate Report"):
 
                 report_df = pd.DataFrame(agents_list)
                 
-                # Metrics cards
                 m1, m2, m3, m4 = st.columns(4)
                 m1.metric("Total Unique Calls", df['call_id'].nunique())
                 ans_total = len(df[df['status'].str.lower() == 'answered'])
@@ -223,7 +221,6 @@ if st.sidebar.button("Generate Report"):
                 
                 st.divider()
                 
-                # TOTAL ROW
                 total_row = pd.DataFrame([{
                     "IN/OUT TIME": "-", "CALLER": "TOTAL", "TEAM": "-", "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()), "CALL STATUS": "-", "PICK UP RATIO %": "-", "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()), "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()), "CALL DURATION > 3 MINS": format_dur_hm(total_duration_agg), "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod"].sum()), "LONG BREAKS (>=20 MINS)": "-", "ISSUES": "-"
                 }])
