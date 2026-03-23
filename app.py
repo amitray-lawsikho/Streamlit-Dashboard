@@ -232,3 +232,18 @@ if st.sidebar.button("Generate Report"):
                 
                 final_df = pd.concat([report_df, total_row], ignore_index=True)
                 def style_row(row):
+                    return ['font-weight: bold; background-color: #262730; color: white'] * len(row) if row["CALLER"] == "TOTAL" else [''] * len(row)
+
+                display_cols = ["IN/OUT TIME", "ZONE", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "LONG BREAKS (>=20 MINS)", "ISSUES"]
+                column_config = {
+                    "IN/OUT TIME": st.column_config.TextColumn("IN/OUT TIME", width="small"),
+                    "ZONE": st.column_config.TextColumn("ZONE", width="small"),
+                    "CALLER": st.column_config.TextColumn("CALLER", width="medium"),
+                }
+
+                st.dataframe(final_df.style.apply(style_row, axis=1).set_properties(**{'white-space': 'pre-wrap'}), 
+                             column_order=display_cols, column_config=column_config, use_container_width=True, hide_index=True)
+                
+                cdr_data = df.copy()
+                if not cdr_data.empty: cdr_data['call_datetime'] = cdr_data['call_datetime'].dt.strftime('%Y-%m-%d %H:%M:%S')
+                st.download_button("📥 Download CDR", data=cdr_data.drop(columns=['merge_key','Caller Name'], errors='ignore').to_csv(index=False).encode('utf-8'), file_name=f"CDR_{display_start}_to_{display_end}.csv", mime='text/csv')
