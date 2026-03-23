@@ -141,6 +141,7 @@ if st.sidebar.button("Generate Report"):
                         out_t = day_group['call_datetime'].max().strftime('%I:%M %p')
                         daily_io_list.append(f"{c_date.strftime('%d/%m')}: In {in_t} · Out {out_t}")
 
+                        # --- STRICT BREAK LOGIC (10 AM - 8 PM) ---
                         start_office = datetime.combine(c_date, time(10, 0)).replace(tzinfo=pytz.timezone("Asia/Kolkata"))
                         end_office = datetime.combine(c_date, time(20, 0)).replace(tzinfo=pytz.timezone("Asia/Kolkata"))
                         
@@ -156,11 +157,13 @@ if st.sidebar.button("Generate Report"):
                         
                         # 2. Between Calls
                         if len(day_group) > 1:
-                            day_group['prev_end'] = day_group['call_datetime'] + pd.to_timedelta(day_group['call_duration'], unit='s')
+                            # Calculate End Time of each call
+                            day_group['actual_end'] = day_group['call_datetime'] + pd.to_timedelta(day_group['call_duration'], unit='s')
                             for i in range(len(day_group)-1):
-                                g_sec = (day_group['call_datetime'].iloc[i+1] - day_group['prev_end'].iloc[i]).total_seconds()
+                                # Gap = Next Call Start - Current Call End
+                                g_sec = (day_group['call_datetime'].iloc[i+1] - day_group['actual_end'].iloc[i]).total_seconds()
                                 if g_sec >= 1200:
-                                    day_breaks.append({'s': day_group['prev_end'].iloc[i], 'e': day_group['call_datetime'].iloc[i+1], 'g': g_sec})
+                                    day_breaks.append({'s': day_group['actual_end'].iloc[i], 'e': day_group['call_datetime'].iloc[i+1], 'g': g_sec})
                                     day_break_sec += g_sec
                         
                         # 3. Last Call End to 08:00 PM
@@ -175,9 +178,11 @@ if st.sidebar.button("Generate Report"):
                         if day_breaks:
                             b_str = f"{c_date.strftime('%d/%m')}: {len(day_breaks)} breaks"
                             for b in day_breaks:
+                                # Final verification: format duration based strictly on start/end timestamps shown
                                 b_str += f"\n  {b['s'].strftime('%H:%M')}→{b['e'].strftime('%H:%M')} ({format_dur_hm(b['g'])})"
                             daily_break_list.append(b_str)
 
+                        # Issues
                         day_prod_sec = 36000 - day_break_sec
                         if len(day_group[day_group['call_duration'] >= 180]) < 40: all_issues.append("Low Calls")
                         if day_dur < 11700: all_issues.append("Low Duration")
@@ -186,6 +191,7 @@ if st.sidebar.button("Generate Report"):
 
                     total_duration_agg += agent_valid_dur
                     pickup_ratio = round((total_ans / total_calls * 100)) if total_calls > 0 else 0
+                    
                     prod_sec_total = (36000 * total_active_days) - total_break_sec_all_days
 
                     agents_list.append({
@@ -206,7 +212,7 @@ if st.sidebar.button("Generate Report"):
 
                 report_df = pd.DataFrame(agents_list)
                 
-                # --- Metrics cards ---
+                # Metrics cards
                 m1, m2, m3, m4 = st.columns(4)
                 m1.metric("Total Unique Calls", df['call_id'].nunique())
                 ans_total = len(df[df['status'].str.lower() == 'answered'])
@@ -217,25 +223,12 @@ if st.sidebar.button("Generate Report"):
                 
                 st.divider()
                 
-                # --- TOTAL ROW LOGIC ---
+                # TOTAL ROW
                 total_row = pd.DataFrame([{
-                    "IN/OUT TIME": "-",
-                    "CALLER": "TOTAL", 
-                    "TEAM": "-", 
-                    "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
-                    "CALL STATUS": "-", 
-                    "PICK UP RATIO %": "-",
-                    "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
-                    "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
-                    "CALL DURATION > 3 MINS": format_dur_hm(total_duration_agg),
-                    "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod"].sum()),
-                    "LONG BREAKS (>=20 MINS)": "-", 
-                    "ISSUES": "-"
+                    "IN/OUT TIME": "-", "CALLER": "TOTAL", "TEAM": "-", "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()), "CALL STATUS": "-", "PICK UP RATIO %": "-", "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()), "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()), "CALL DURATION > 3 MINS": format_dur_hm(total_duration_agg), "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod"].sum()), "LONG BREAKS (>=20 MINS)": "-", "ISSUES": "-"
                 }])
                 
                 final_df = pd.concat([report_df, total_row], ignore_index=True)
-                
-                # Custom Styling for the TOTAL row
                 def style_total_row(row):
                     if row["CALLER"] == "TOTAL":
                         return ['font-weight: bold; background-color: #262730; color: white'] * len(row)
@@ -248,14 +241,8 @@ if st.sidebar.button("Generate Report"):
                     "CALLER": st.column_config.TextColumn("CALLER", width="medium"),
                 }
 
-                # Display dataframe with text wrapping and specific TOTAL row styling
-                st.dataframe(
-                    final_df.style.apply(style_total_row, axis=1).set_properties(**{'white-space': 'pre-wrap'}), 
-                    column_order=display_cols, 
-                    column_config=column_config, 
-                    use_container_width=True, 
-                    hide_index=True
-                )
+                st.dataframe(final_df.style.apply(style_total_row, axis=1).set_properties(**{'white-space': 'pre-wrap'}), 
+                             column_order=display_cols, column_config=column_config, use_container_width=True, hide_index=True)
                 
                 st.divider()
                 cdr_csv = df.copy()
