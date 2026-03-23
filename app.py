@@ -31,18 +31,9 @@ st.set_page_config(
 # --- CLEAN UI CSS ---
 st.markdown("""
     <style>
-    /* 1. Ensure the top header (Theme/Settings) is visible */
-    header[data-testid="stHeader"] {
-        visibility: visible !important;
-    }
-
-    /* 2. Hide only the 'Made with Streamlit' footer */
+    header[data-testid="stHeader"] { visibility: visible !important; }
     footer {visibility: hidden;}
-
-    /* 3. Ensure the main content area expands when sidebar is collapsed */
-    [data-testid="stMainViewContainer"] {
-        padding-top: 2rem;
-    }
+    [data-testid="stMainViewContainer"] { padding-top: 2rem; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -237,3 +228,21 @@ if st.sidebar.button("Generate Report"):
 
                 st.dataframe(final_df.style.apply(style_row, axis=1).set_properties(**{'white-space': 'pre-wrap'}), 
                              column_order=display_cols, column_config=column_config, use_container_width=True, hide_index=True)
+                
+                # RESTORED DOWNLOAD BUTTON
+                st.divider()
+                cdr_csv = df.copy()
+                if not cdr_csv.empty:
+                    # Clean up the export file by removing temporary merge keys
+                    cols_to_drop = ['merge_key', 'Caller Name']
+                    cdr_csv = cdr_csv.drop(columns=[c for c in cols_to_drop if c in cdr_csv.columns])
+                    # Format datetime for CSV compatibility
+                    if 'call_datetime' in cdr_csv.columns:
+                        cdr_csv['call_datetime'] = cdr_csv['call_datetime'].dt.strftime('%Y-%m-%d %H:%M:%S')
+                
+                st.download_button(
+                    label="📥 Download CDR (Filtered)",
+                    data=cdr_csv.to_csv(index=False).encode('utf-8'),
+                    file_name=f"CDR_{display_start}_to_{display_end}.csv",
+                    mime='text/csv'
+                )
