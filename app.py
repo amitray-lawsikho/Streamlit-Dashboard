@@ -292,4 +292,4 @@ if st.sidebar.button("Generate Report"):
                         cdr_csv = cdr_csv.drop(columns=[c for c in cols_to_drop if c in cdr_csv.columns])
                         if 'call_datetime' in cdr_csv.columns:
                             cdr_csv['call_datetime'] = cdr_csv['call_datetime'].dt.strftime('%Y-%m-%d %H:%M:%S')
-                        st.download_button(label="📥 Download CDR (Filtered)", data=cdr_csv.to_csv(index=False).encode('utf-8'), file_name=f"CDR_{display_start}_to_{display_end}.csv", mime='text/csv')
+                        st.download_button(label="📥 Download CDR CSV", data=cdr_csv.to_csv(index=False).encode('utf-8'), file_name=f"CDR_{display_start}_to_{display_end}.csv", mime='text/csv')
