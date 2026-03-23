@@ -24,6 +24,16 @@ CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRT73ztvPNZSvIu5WLxo-
 # --- 2. Page Configuration ---
 st.set_page_config(layout="wide", page_title="CALLERWISE DURATION METRICS")
 
+# HIDE STREAMLIT BRANDING & MENU FOR SHARED LINKS
+st.markdown("""
+    <style>
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    header {visibility: hidden;}
+    .stAppDeployButton {display:none;}
+    </style>
+    """, unsafe_allow_html=True)
+
 # --- 3. Data Fetching Functions ---
 @st.cache_data(ttl=3600)
 def get_metadata():
@@ -94,11 +104,12 @@ if st.sidebar.button("Generate Report"):
         if df_raw.empty:
             st.warning("No data found for selection.")
         else:
-            df_raw = df_raw[df_raw['call_duration'] > 0]
+            # First, clean name mapping
             df_raw['merge_key'] = df_raw['call_owner'].str.strip().str.lower()
             df = pd.merge(df_raw, df_team_mapping, on='merge_key', how='left')
             df['call_owner'] = df['Caller Name'].fillna(df['call_owner'])
             
+            # Apply Sidebar Filters
             if selected_team: df = df[df['Team Name'].isin(selected_team)]
             if selected_vertical: df = df[df['Vertical'].isin(selected_vertical)]
             if search_query: df = df[df['call_owner'].str.contains(search_query, case=False, na=False)]
@@ -108,8 +119,11 @@ if st.sidebar.button("Generate Report"):
             else:
                 agents_list = []
                 total_duration_agg = 0 
+                
+                # Filter for only calls > 0s for productivity calculations
+                df_prod = df[df['call_duration'] > 0]
 
-                for owner, agent_group in df.groupby('call_owner'):
+                for owner, agent_group in df_prod.groupby('call_owner'):
                     total_ans, total_miss, total_calls = 0, 0, 0
                     total_above_3min, total_long_calls, agent_valid_dur = 0, 0, 0
                     daily_io_list, daily_break_list, daily_zone_list, all_issues = [], [], [], []
@@ -191,7 +205,10 @@ if st.sidebar.button("Generate Report"):
                 m1.metric("🔴 Red", len(report_df[report_df['ZONE'] == "🔴 RED"]))
                 m2.metric("🟡 Yellow", len(report_df[report_df['ZONE'] == "🟡 YELLOW"]))
                 m3.metric("🟢 Green", len(report_df[report_df['ZONE'] == "🟢 GREEN"]))
+                
+                # TOTAL UNIQUE CALLS: Counts every single row in 'df' (absolute total)
                 m4.metric("Total Unique Calls", df['call_id'].nunique())
+                
                 ans_total = len(df[df['status'].str.lower() == 'answered'])
                 ans_pct = (ans_total / df['call_id'].nunique() * 100) if not df.empty else 0
                 m5.metric("Pick Up Ratio %", f"{ans_pct:.1f}%")
@@ -219,7 +236,6 @@ if st.sidebar.button("Generate Report"):
 
                 display_cols = ["IN/OUT TIME", "ZONE", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "LONG BREAKS (>=20 MINS)", "ISSUES"]
                 
-                # Column Configuration for width
                 column_config = {
                     "IN/OUT TIME": st.column_config.TextColumn("IN/OUT TIME", width="small"),
                     "ZONE": st.column_config.TextColumn("ZONE", width="small"),
