@@ -141,14 +141,14 @@ if st.sidebar.button("Generate Report"):
                         out_t = day_group['call_datetime'].max().strftime('%I:%M %p')
                         daily_io_list.append(f"{c_date.strftime('%d/%m')}: In {in_t} · Out {out_t}")
 
-                        # --- FIXING BREAK LOGIC (10 AM - 8 PM) ---
+                        # --- REFINED BREAK LOGIC (10 AM - 8 PM) ---
                         start_office = datetime.combine(c_date, time(10, 0)).replace(tzinfo=pytz.timezone("Asia/Kolkata"))
                         end_office = datetime.combine(c_date, time(20, 0)).replace(tzinfo=pytz.timezone("Asia/Kolkata"))
                         
                         day_breaks = []
                         day_break_sec = 0
 
-                        # 1. Start of Day to First Call
+                        # 1. Start of Office (10:00 AM) to First Call
                         first_call_start = day_group['call_datetime'].iloc[0]
                         gap_start = (first_call_start - start_office).total_seconds()
                         if gap_start >= 1200:
@@ -164,7 +164,7 @@ if st.sidebar.button("Generate Report"):
                                     day_breaks.append({'s': day_group['prev_end'].iloc[i], 'e': day_group['call_datetime'].iloc[i+1], 'g': g_sec})
                                     day_break_sec += g_sec
                         
-                        # 3. Last Call End to 8:00 PM
+                        # 3. Last Call End to End of Office (08:00 PM)
                         last_call_end = day_group['call_datetime'].iloc[-1] + pd.to_timedelta(day_group['call_duration'].iloc[-1], unit='s')
                         gap_end = (end_office - last_call_end).total_seconds()
                         if gap_end >= 1200:
@@ -179,7 +179,7 @@ if st.sidebar.button("Generate Report"):
                                 b_str += f"\n  {b['s'].strftime('%H:%M')}→{b['e'].strftime('%H:%M')} ({format_dur_hm(b['g'])})"
                             daily_break_list.append(b_str)
 
-                        # Logic for issues
+                        # Issue Tracking Logic
                         day_prod_hours = (36000 - day_break_sec) / 3600 # 36000s = 10 Hours
                         if len(day_group[day_group['call_duration'] >= 180]) < 40: all_issues.append("Low Calls")
                         if day_dur < 11700: all_issues.append("Low Duration")
@@ -211,7 +211,7 @@ if st.sidebar.button("Generate Report"):
 
                 report_df = pd.DataFrame(agents_list)
                 
-                # Metric Cards (Cleaned)
+                # Metric Cards
                 m1, m2, m3, m4 = st.columns(4)
                 m1.metric("Total Unique Calls", df['call_id'].nunique())
                 ans_total = len(df[df['status'].str.lower() == 'answered'])
