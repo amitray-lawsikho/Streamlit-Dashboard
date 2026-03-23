@@ -107,7 +107,7 @@ if st.sidebar.button("Generate Report"):
                 st.error("No results match filters.")
             else:
                 agents = []
-                total_duration_agg = 0 # To track total duration for bottom row without raw_dur
+                total_duration_agg = 0 
 
                 for owner, agent_group in df.groupby('call_owner'):
                     total_ans, total_miss, total_calls = 0, 0, 0
@@ -168,6 +168,7 @@ if st.sidebar.button("Generate Report"):
                     else: final_zone = "🟢 GREEN"
 
                     total_duration_agg += agent_valid_dur
+                    pickup_ratio = round((total_ans / total_calls * 100)) if total_calls > 0 else 0
 
                     agents.append({
                         "IN/OUT TIME": "\n".join(daily_io_list),
@@ -176,6 +177,7 @@ if st.sidebar.button("Generate Report"):
                         "TEAM": agent_group['Team Name'].iloc[0] if not pd.isna(agent_group['Team Name'].iloc[0]) else "Others",
                         "TOTAL CALLS": int(total_calls),
                         "CALL STATUS": f"{total_ans} Ans / {total_miss} Unans",
+                        "PICK UP RATIO %": f"{pickup_ratio}%",
                         "CALLS > 3 MINS": int(total_above_3min),
                         "20+ MIN CALLS": int(total_long_calls),
                         "CALL DURATION > 3 MINS": format_dur_hm(agent_valid_dur),
@@ -185,7 +187,6 @@ if st.sidebar.button("Generate Report"):
 
                 report_df = pd.DataFrame(agents)
                 
-                # Metric display
                 m1, m2, m3, m4, m5, m6 = st.columns(6)
                 m1.metric("🔴 Red", len(report_df[report_df['ZONE'] == "🔴 RED"]))
                 m2.metric("🟡 Yellow", len(report_df[report_df['ZONE'] == "🟡 YELLOW"]))
@@ -200,7 +201,7 @@ if st.sidebar.button("Generate Report"):
                 
                 # FINAL TOTAL ROW
                 total_row = pd.DataFrame([{
-                    "AGENT": "TOTAL", "IN/OUT TIME": "-", "TEAM": "-", "ZONE": "-", "CALL STATUS": "-",
+                    "AGENT": "TOTAL", "IN/OUT TIME": "-", "TEAM": "-", "ZONE": "-", "CALL STATUS": "-", "PICK UP RATIO %": "-",
                     "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
                     "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
                     "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
@@ -216,7 +217,7 @@ if st.sidebar.button("Generate Report"):
                         return ['font-weight: bold; background-color: #262730; color: white'] * len(row)
                     return [''] * len(row)
 
-                display_cols = ["IN/OUT TIME", "ZONE", "AGENT", "TEAM", "TOTAL CALLS", "CALL STATUS", "CALLS > 3 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "LONG BREAKS (>=20 MINS)", "ISSUES"]
+                display_cols = ["IN/OUT TIME", "ZONE", "AGENT", "TEAM", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "LONG BREAKS (>=20 MINS)", "ISSUES"]
                 
                 st.dataframe(
                     final_df.style.apply(style_row, axis=1).set_properties(**{'white-space': 'pre-wrap'}), 
