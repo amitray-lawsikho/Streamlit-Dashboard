@@ -28,27 +28,21 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# --- CUSTOM CSS: Fixes Visibility & Sidebar Lock ---
+# --- CLEAN UI CSS ---
 st.markdown("""
     <style>
-    /* 1. Restore the Header so you can see Theme/Settings options */
+    /* 1. Ensure the top header (Theme/Settings) is visible */
     header[data-testid="stHeader"] {
         visibility: visible !important;
     }
 
-    /* 2. Hide only the 'X' collapse button so users can't hide filters */
-    [data-testid="sidebar-collapsible-control"] {
-        display: none !important;
-    }
-
-    /* 3. Ensure sidebar is visible and has a fixed width */
-    section[data-testid="stSidebar"] {
-        min-width: 320px !important;
-        max-width: 320px !important;
-    }
-
-    /* 4. Optional: Hide the Streamlit footer branding */
+    /* 2. Hide only the 'Made with Streamlit' footer */
     footer {visibility: hidden;}
+
+    /* 3. Ensure the main content area expands when sidebar is collapsed */
+    [data-testid="stMainViewContainer"] {
+        padding-top: 2rem;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -243,7 +237,3 @@ if st.sidebar.button("Generate Report"):
 
                 st.dataframe(final_df.style.apply(style_row, axis=1).set_properties(**{'white-space': 'pre-wrap'}), 
                              column_order=display_cols, column_config=column_config, use_container_width=True, hide_index=True)
-                
-                cdr_data = df.copy()
-                if not cdr_data.empty: cdr_data['call_datetime'] = cdr_data['call_datetime'].dt.strftime('%Y-%m-%d %H:%M:%S')
-                st.download_button("📥 Download CDR", data=cdr_data.drop(columns=['merge_key','Caller Name'], errors='ignore').to_csv(index=False).encode('utf-8'), file_name=f"CDR_{display_start}_to_{display_end}.csv", mime='text/csv')
