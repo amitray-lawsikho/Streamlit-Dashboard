@@ -12,6 +12,7 @@ if "gcp_service_account" in st.secrets:
     credentials = service_account.Credentials.from_service_account_info(info)
     client = bigquery.Client(credentials=credentials, project=info["project_id"])
 else:
+    # Fallback for local testing
     SERVICE_ACCOUNT_FILE = "/content/drive/MyDrive/Lawsikho/credentials/bigquery_key.json"
     if os.path.exists(SERVICE_ACCOUNT_FILE):
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = SERVICE_ACCOUNT_FILE
@@ -123,6 +124,8 @@ if st.sidebar.button("Generate Report"):
                 agents_list = []
                 total_duration_agg = 0
                 df_prod = df[df['call_duration'] > 0]
+                # Define Timezone once
+                ist_tz = pytz.timezone("Asia/Kolkata")
                 
                 for owner, agent_group in df_prod.groupby('call_owner'):
                     total_ans, total_miss, total_calls = 0, 0, 0
@@ -145,16 +148,17 @@ if st.sidebar.button("Generate Report"):
                         out_t = day_group['call_datetime'].max().strftime('%I:%M %p')
                         daily_io_list.append(f"{c_date.strftime('%d/%m')}: In {in_t} · Out {out_t}")
                         
-                        # --- OFFICE BOUNDS (10 AM - 8 PM) ---
-                        start_office = datetime.combine(c_date, time(10, 0)).replace(tzinfo=pytz.timezone("Asia/Kolkata"))
-                        end_office = datetime.combine(c_date, time(20, 0)).replace(tzinfo=pytz.timezone("Asia/Kolkata"))
+                        # --- CORRECTED OFFICE BOUNDS (Avoids the 23-minute error) ---
+                        start_office = ist_tz.localize(datetime.combine(c_date, time(10, 0)))
+                        end_office = ist_tz.localize(datetime.combine(c_date, time(20, 0)))
+                        
                         day_breaks = []
                         day_break_sec = 0
                         
                         # Calculate actual call end times
                         day_group['actual_end'] = day_group['call_datetime'] + pd.to_timedelta(day_group['call_duration'], unit='s')
                         
-                        # 1. 10:00 AM to First Call Start (If call is after 10:20 AM)
+                        # 1. Start Gap: 10:00 AM to First Call Start
                         first_call_start = day_group['call_datetime'].iloc[0]
                         if first_call_start > start_office:
                             g_start = (first_call_start - start_office).total_seconds()
@@ -162,7 +166,7 @@ if st.sidebar.button("Generate Report"):
                                 day_breaks.append({'s': start_office, 'e': first_call_start, 'dur': g_start})
                                 day_break_sec += g_start
                                 
-                        # 2. Gaps Between Calls
+                        # 2. Mid Gaps: Gaps Between Calls
                         if len(day_group) > 1:
                             for i in range(len(day_group)-1):
                                 gap_s = day_group['actual_end'].iloc[i]
@@ -176,7 +180,7 @@ if st.sidebar.button("Generate Report"):
                                         day_breaks.append({'s': act_s, 'e': act_e, 'dur': g_mid})
                                         day_break_sec += g_mid
                                         
-                        # 3. Last Call End to 08:00 PM (If end is before 7:40 PM)
+                        # 3. End Gap: Last Call End to 08:00 PM
                         last_call_end = day_group['actual_end'].iloc[-1]
                         if last_call_end < end_office:
                             g_end = (end_office - last_call_end).total_seconds()
@@ -189,7 +193,6 @@ if st.sidebar.button("Generate Report"):
                         if day_breaks:
                             b_str = f"{c_date.strftime('%d/%m')}: {len(day_breaks)} breaks"
                             for b in day_breaks:
-                                # Mathematical check: show duration based strictly on the displayed timestamps
                                 b_str += f"\n  {b['s'].strftime('%H:%M')}→{b['e'].strftime('%H:%M')} ({format_dur_hm(b['dur'])})"
                             daily_break_list.append(b_str)
                             
