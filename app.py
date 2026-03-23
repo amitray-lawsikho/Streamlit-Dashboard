@@ -140,7 +140,6 @@ if st.sidebar.button("Generate Report"):
             if df.empty:
                 st.error("No results match filters.")
             else:
-                # Sync logic: Only include agents with at least one answered call
                 active_callers = df[df['call_duration'] > 0]['call_owner'].unique()
                 df_filtered = df[df['call_owner'].isin(active_callers)]
                 
@@ -165,9 +164,7 @@ if st.sidebar.button("Generate Report"):
                             miss = len(day_group[day_group['status'].str.lower() == 'missed'])
                             total_ans += ans; total_miss += miss; total_calls += len(day_group)
                             
-                            # Counts
                             total_above_3min += len(day_group[day_group['call_duration'] >= 180])
-                            # Logic: >= 15m (900s) AND < 20m (1200s)
                             total_mid_calls += len(day_group[(day_group['call_duration'] >= 900) & (day_group['call_duration'] < 1200)])
                             total_long_calls += len(day_group[day_group['call_duration'] >= 1200])
                             
@@ -304,10 +301,26 @@ if st.sidebar.button("Generate Report"):
                     )
                     st.divider()
                     
+                    # --- 7. Download Logic (Updated Columns) ---
                     cdr_csv = df_filtered.copy()
                     if not cdr_csv.empty:
-                        cols_to_drop = ['merge_key', 'Caller Name', 'raw_prod']
-                        cdr_csv = cdr_csv.drop(columns=[c for c in cols_to_drop if c in cdr_csv.columns])
+                        # Define exactly which columns the user wants
+                        target_cols = [
+                            "client_number", "call_datetime", "call_duration", "status", 
+                            "direction", "service", "reason", "call_owner", 
+                            "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst"
+                        ]
+                        
+                        # Filter for existing columns only to prevent errors
+                        existing_cols = [c for c in target_cols if c in cdr_csv.columns]
+                        cdr_csv = cdr_csv[existing_cols]
+                        
                         if 'call_datetime' in cdr_csv.columns:
                             cdr_csv['call_datetime'] = cdr_csv['call_datetime'].dt.strftime('%Y-%m-%d %H:%M:%S')
-                        st.download_button(label="📥 Download CDR CSV", data=cdr_csv.to_csv(index=False).encode('utf-8'), file_name=f"CDR_{display_start}_to_{display_end}.csv", mime='text/csv')
+                        
+                        st.download_button(
+                            label="📥 Download CDR CSV", 
+                            data=cdr_csv.to_csv(index=False).encode('utf-8'), 
+                            file_name=f"CDR_{display_start}_to_{display_end}.csv", 
+                            mime='text/csv'
+                        )
