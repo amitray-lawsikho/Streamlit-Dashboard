@@ -110,6 +110,17 @@ if st.sidebar.button("Generate Report"):
                 for owner, group in df.groupby(['call_owner', 'Call Date']):
                     group = group.sort_values('call_datetime')
                     active_day = 1 if group['call_duration'].max() >= 180 else 0
+                    
+                    # --- CALL STATUS LOGIC ---
+                    ans_count = len(group[group['status'].str.lower() == 'answered'])
+                    miss_count = len(group[group['status'].str.lower() == 'missed'])
+                    status_text = f"{ans_count} Answered / {miss_count} Unanswered"
+
+                    # --- IN/OUT TIME LOGIC ---
+                    in_time = group['call_datetime'].min().strftime('%I:%M %p')
+                    out_time = group['call_datetime'].max().strftime('%I:%M %p')
+                    io_text = f"In {in_time} · Out {out_time}"
+
                     total_calls = len(group)
                     above_3min = len(group[group['call_duration'] >= 180])
                     long_calls = len(group[group['call_duration'] >= 1200])
@@ -121,13 +132,11 @@ if st.sidebar.button("Generate Report"):
                     end_office = datetime.combine(current_date, time(20, 0)).replace(tzinfo=pytz.timezone("Asia/Kolkata"))
                     
                     breaks = []
-                    # 1. Start of day to First Call
                     first_call_start = group['call_datetime'].iloc[0]
                     if (first_call_start - start_office).total_seconds() >= 1200:
                         gap = (first_call_start - start_office).total_seconds()
                         breaks.append({'start': start_office, 'end': first_call_start, 'gap': gap})
                     
-                    # 2. Between Calls
                     if len(group) > 1:
                         group['prev_end'] = group['call_datetime'] + pd.to_timedelta(group['call_duration'], unit='s')
                         for i in range(len(group)-1):
@@ -135,7 +144,6 @@ if st.sidebar.button("Generate Report"):
                             if gap_sec >= 1200:
                                 breaks.append({'start': group['prev_end'].iloc[i], 'end': group['call_datetime'].iloc[i+1], 'gap': gap_sec})
                     
-                    # 3. Last Call to End of day
                     last_call_end = group['call_datetime'].iloc[-1] + pd.to_timedelta(group['call_duration'].iloc[-1], unit='s')
                     if (end_office - last_call_end).total_seconds() >= 1200:
                         gap = (end_office - last_call_end).total_seconds()
@@ -157,10 +165,17 @@ if st.sidebar.button("Generate Report"):
                     elif len(issues) == 1: zone = "🟡 YELLOW"
 
                     agents.append({
-                        "AGENT": owner[0], "TEAM": group['Team Name'].iloc[0] if not pd.isna(group['Team Name'].iloc[0]) else "Others",
-                        "ZONE": zone, "TOTAL CALLS": int(total_calls), "CALLS > 3 MINS": int(above_3min),
-                        "20+ MIN CALLS": int(long_calls), "LONG BREAKS (>=20 MINS)": "\n".join(break_lines) if breaks else "0",
-                        "CALL DURATION > 3 MINS": format_dur_hm(valid_duration), "ISSUES": ", ".join(issues) if issues else "None",
+                        "AGENT": owner[0],
+                        "IN/OUT TIME": io_text,
+                        "TEAM": group['Team Name'].iloc[0] if not pd.isna(group['Team Name'].iloc[0]) else "Others",
+                        "ZONE": zone,
+                        "CALL STATUS": status_text,
+                        "TOTAL CALLS": int(total_calls),
+                        "CALLS > 3 MINS": int(above_3min),
+                        "20+ MIN CALLS": int(long_calls),
+                        "LONG BREAKS (>=20 MINS)": "\n".join(break_lines) if breaks else "0",
+                        "CALL DURATION > 3 MINS": format_dur_hm(valid_duration),
+                        "ISSUES": ", ".join(issues) if issues else "None",
                         "raw_dur": valid_duration, "is_total": 0
                     })
 
@@ -170,19 +185,25 @@ if st.sidebar.button("Generate Report"):
                 m2.metric("🟡 Yellow", len(report_df[report_df['ZONE'] == "🟡 YELLOW"]))
                 m3.metric("🟢 Green", len(report_df[report_df['ZONE'] == "🟢 GREEN"]))
                 m4.metric("Total Unique Calls", df['call_id'].nunique())
-                ans_pct = (len(df[df['status'].str.lower()=='answered'])/df['call_id'].nunique()*100) if not df.empty else 0
+                ans_total = len(df[df['status'].str.lower() == 'answered'])
+                ans_pct = (ans_total / df['call_id'].nunique() * 100) if not df.empty else 0
                 m5.metric("Pick Up Ratio %", f"{ans_pct:.1f}%")
                 m6.metric("Active Agents", len(report_df))
                 
                 st.divider()
-                total_row = pd.DataFrame([{"AGENT": "TOTAL", "TEAM": "-", "ZONE": "-", "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
-                    "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()), "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
+                total_row = pd.DataFrame([{
+                    "AGENT": "TOTAL", "IN/OUT TIME": "-", "TEAM": "-", "ZONE": "-", "CALL STATUS": "-",
+                    "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
+                    "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
+                    "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
                     "LONG BREAKS (>=20 MINS)": str(report_df["LONG BREAKS (>=20 MINS)"].apply(lambda x: int(x.split()[0]) if ' ' in str(x) else 0).sum()),
-                    "CALL DURATION > 3 MINS": format_dur_hm(report_df["raw_dur"].sum()), "ISSUES": "-", "is_total": 1}])
+                    "CALL DURATION > 3 MINS": format_dur_hm(report_df["raw_dur"].sum()),
+                    "ISSUES": "-", "is_total": 1
+                }])
                 
                 final_df = pd.concat([report_df, total_row], ignore_index=True)
                 def style_row(row): return ['font-weight: bold; background-color: #262730; color: white'] * len(row) if row["is_total"] == 1 else [''] * len(row)
-                display_cols = ["AGENT", "TEAM", "ZONE", "TOTAL CALLS", "CALLS > 3 MINS", "20+ MIN CALLS", "LONG BREAKS (>=20 MINS)", "CALL DURATION > 3 MINS", "ISSUES"]
+                display_cols = ["AGENT", "IN/OUT TIME", "TEAM", "ZONE", "CALL STATUS", "TOTAL CALLS", "CALLS > 3 MINS", "20+ MIN CALLS", "LONG BREAKS (>=20 MINS)", "CALL DURATION > 3 MINS", "ISSUES"]
                 st.dataframe(final_df.style.apply(style_row, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=display_cols, use_container_width=True, hide_index=True)
                 
                 cdr_data = df.copy()
