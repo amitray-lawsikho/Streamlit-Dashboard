@@ -5,6 +5,7 @@ import pandas as pd
 from datetime import datetime, date
 import os
 import json
+import pytz
 
 # --- 1. Cloud Credentials Setup ---
 if "gcp_service_account" in st.secrets:
@@ -35,32 +36,39 @@ def get_metadata():
 
 @st.cache_data(ttl=60)
 def get_global_last_update():
+    # Fetching the last update string directly
     query = "SELECT MAX(updated_at_ampm) as last_update FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`"
     try:
         res = client.query(query).to_dataframe()
-        if not res.empty and res['last_update'].iloc[0] != "N/A":
-            # Formats the BigQuery timestamp to DD-MM-YYYY HH:MM AM/PM
-            dt_val = pd.to_datetime(res['last_update'].iloc[0])
-            return dt_val.strftime('%d-%m-%Y %I:%M %p')
+        if not res.empty:
+            return str(res['last_update'].iloc[0])
         return "N/A"
     except: return "N/A"
 
 @st.cache_data(ttl=3600)
 def get_available_dates():
-    query = "SELECT MIN(DATE(call_datetime)) as min_date, MAX(DATE(call_datetime)) as max_date FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`"
+    # Use the pre-calculated 'Call Date' column for range bounds
+    query = "SELECT MIN(`Call Date`) as min_date, MAX(`Call Date`) as max_date FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`"
     df_dates = client.query(query).to_dataframe()
     if not df_dates.empty and not pd.isna(df_dates['min_date'].iloc[0]):
         return df_dates['min_date'].iloc[0], df_dates['max_date'].iloc[0]
     return date.today(), date.today()
 
 def fetch_call_data(start_date, end_date):
+    # Filter using the IST 'Call Date' column instead of DATE(call_datetime)
     query = f"""
     SELECT *
     FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`
-    WHERE DATE(call_datetime) BETWEEN '{start_date}' AND '{end_date}'
+    WHERE `Call Date` BETWEEN '{start_date}' AND '{end_date}'
     ORDER BY call_owner, call_datetime ASC
     """
-    return client.query(query).to_dataframe()
+    df = client.query(query).to_dataframe()
+    
+    # CRITICAL: Convert UTC timestamp to IST for internal logic (Breaks/Gaps)
+    if not df.empty and 'call_datetime' in df.columns:
+        df['call_datetime'] = pd.to_datetime(df['call_datetime'], utc=True).dt.tz_convert('Asia/Kolkata')
+    
+    return df
 
 def format_duration_clean(total_seconds):
     if pd.isna(total_seconds) or total_seconds <= 0: return "0h 0m"
@@ -73,7 +81,6 @@ def format_duration_clean(total_seconds):
 st.sidebar.header("Report Filters")
 min_d, max_d = get_available_dates()
 
-# CHANGED: Added format parameter for DD-MM-YYYY display in sidebar
 selected_dates = st.sidebar.date_input(
     "Select Date Range", 
     value=(max_d, max_d), 
@@ -96,7 +103,6 @@ search_query = st.sidebar.text_input("🔍 Search Agent Name")
 st.markdown("<h1 style='text-align: center; margin-bottom: 5px; font-family: sans-serif;'>CALLERWISE DURATION METRICS</h1>", unsafe_allow_html=True)
 sub_style = "font-size: 15px; color: #A0A0A0; font-family: sans-serif; margin-top: 0px;"
 
-# CHANGED: Reformatting dates to string for display
 display_start = start_date.strftime('%d-%m-%Y')
 display_end = end_date.strftime('%d-%m-%Y')
 
@@ -127,9 +133,13 @@ if st.sidebar.button("Generate Report"):
             else:
                 agents = []
                 for owner, group in df.groupby('call_owner'):
+                    # Group is already shifted to IST via fetch_call_data
                     group = group.sort_values('call_datetime')
-                    daily_max = group.groupby(group['call_datetime'].dt.date)['call_duration'].max()
+                    
+                    # Use 'Call Date' column for activity to ensure IST alignment
+                    daily_max = group.groupby('Call Date')['call_duration'].max()
                     num_active_days = len(daily_max[daily_max >= 180])
+                    
                     total_calls_count = len(group)
                     long_calls_count = len(group[group['call_duration'] >= 1200])
                     above_3min_count = len(group[group['call_duration'] >= 180])
@@ -139,6 +149,7 @@ if st.sidebar.button("Generate Report"):
                     total_break_secs = 0
                     break_count = 0
                     if len(group) > 1:
+                        # Calculations now happen on IST timestamps
                         group['prev_end'] = group['call_datetime'] + pd.to_timedelta(group['call_duration'], unit='s')
                         group['gap'] = (group['call_datetime'].shift(-1) - group['prev_end']).dt.total_seconds()
                         long_breaks = group[group['gap'] >= 1200]
@@ -207,10 +218,14 @@ if st.sidebar.button("Generate Report"):
                 
                 st.dataframe(final_df.style.apply(style_row, axis=1), column_order=display_cols, use_container_width=True, hide_index=True)
                 
-                cdr_data = df.drop(columns=['Team Name', 'Vertical', 'Caller Name', 'Team', 'Zone'], errors='ignore')
+                # Cleanup for CDR download: ensures call_datetime is readable IST string
+                cdr_data = df.copy()
+                if not cdr_data.empty:
+                    cdr_data['call_datetime'] = cdr_data['call_datetime'].dt.strftime('%Y-%m-%d %H:%M:%S')
+                
+                cdr_data = cdr_data.drop(columns=['Team Name', 'Vertical', 'Caller Name', 'Team', 'Zone'], errors='ignore')
                 csv_cdr = cdr_data.to_csv(index=False).encode('utf-8')
                 
-                # CHANGED: Filename now uses formatted display dates
                 st.download_button(
                     "📥 Download CDR", 
                     data=csv_cdr, 
