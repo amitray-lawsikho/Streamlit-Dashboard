@@ -68,14 +68,19 @@ def fetch_call_data(start_date, end_date):
     return df
 
 def format_dur_hm(total_seconds):
-    """Formats seconds into hours and minutes with standard rounding."""
+    """Formats seconds into rounded hours and minutes."""
     if pd.isna(total_seconds) or total_seconds <= 0:
         return "0h 0m"
-    # Use +0.5 logic to ensure 0.5 rounds UP (Standard Math)
-    total_minutes = int((total_seconds / 60) + 0.5)
+    total_minutes = int(round(total_seconds / 60))
     hours = total_minutes // 60
     minutes = total_minutes % 60
     return f"{hours}h {minutes}m"
+
+def get_display_gap_seconds(start_time, end_time):
+    """Calculates gap by stripping seconds to match HH:MM display math."""
+    s = start_time.replace(second=0, microsecond=0)
+    e = end_time.replace(second=0, microsecond=0)
+    return (e - s).total_seconds()
 
 # --- 4. Sidebar Filters ---
 st.sidebar.header("Report Filters")
@@ -144,29 +149,37 @@ if st.sidebar.button("Generate Report"):
                         total_long_calls += len(day_group[day_group['call_duration'] >= 1200])
                         day_dur = day_group.loc[day_group['call_duration'] >= 180, 'call_duration'].sum()
                         agent_valid_dur += day_dur
-                        in_t = day_group['call_datetime'].min().strftime('%I:%M %p')
-                        out_t = day_group['call_datetime'].max().strftime('%I:%M %p')
-                        daily_io_list.append(f"{c_date.strftime('%d/%m')}: In {in_t} · Out {out_t}")
+                        
+                        first_call_start = day_group['call_datetime'].min()
+                        last_call_end_time = (day_group['call_datetime'] + pd.to_timedelta(day_group['call_duration'], unit='s')).max()
+                        
+                        in_t_str = first_call_start.strftime('%I:%M %p')
+                        out_t_str = last_call_end_time.strftime('%I:%M %p')
+                        daily_io_list.append(f"{c_date.strftime('%d/%m')}: In {in_t_str} · Out {out_t_str}")
                         
                         # --- OFFICE BOUNDS (10 AM - 8 PM) ---
                         start_office = ist_tz.localize(datetime.combine(c_date, time(10, 0)))
                         end_office = ist_tz.localize(datetime.combine(c_date, time(20, 0)))
+                        late_threshold = ist_tz.localize(datetime.combine(c_date, time(10, 15)))
                         
+                        # New Issue Flags
+                        if first_call_start > late_threshold:
+                            all_issues.append("Late Check-In")
+                        if last_call_end_time < end_office:
+                            all_issues.append("Early Check-Out")
+
                         day_breaks = []
                         day_break_sec = 0
-                        
-                        # Calculate actual call end times
                         day_group['actual_end'] = day_group['call_datetime'] + pd.to_timedelta(day_group['call_duration'], unit='s')
                         
-                        # 1. Start Gap: 10:00 AM to First Call Start
-                        first_call_start = day_group['call_datetime'].iloc[0]
+                        # 1. Start Gap (10:00 AM to First Call)
                         if first_call_start > start_office:
-                            g_start = (first_call_start - start_office).total_seconds()
-                            if g_start >= 1200:
-                                day_breaks.append({'s': start_office, 'e': first_call_start, 'dur': g_start})
-                                day_break_sec += g_start
+                            g_start_sec = get_display_gap_seconds(start_office, first_call_start)
+                            if g_start_sec >= 1200:
+                                day_breaks.append({'s': start_office, 'e': first_call_start, 'dur': g_start_sec})
+                                day_break_sec += g_start_sec
                                 
-                        # 2. Mid Gaps: Gaps Between Calls
+                        # 2. Mid Gaps (Between Calls)
                         if len(day_group) > 1:
                             for i in range(len(day_group)-1):
                                 gap_s = day_group['actual_end'].iloc[i]
@@ -174,30 +187,28 @@ if st.sidebar.button("Generate Report"):
                                 act_s = max(gap_s, start_office)
                                 act_e = min(gap_e, end_office)
                                 if act_e > act_s:
-                                    g_mid = (act_e - act_s).total_seconds()
-                                    if g_mid >= 1200:
-                                        day_breaks.append({'s': act_s, 'e': act_e, 'dur': g_mid})
-                                        day_break_sec += g_mid
+                                    g_mid_sec = get_display_gap_seconds(act_s, act_e)
+                                    if g_mid_sec >= 1200:
+                                        day_breaks.append({'s': act_s, 'e': act_e, 'dur': g_mid_sec})
+                                        day_break_sec += g_mid_sec
                                         
-                        # 3. End Gap: Last Call End to 08:00 PM
-                        last_call_end = day_group['actual_end'].iloc[-1]
-                        if last_call_end < end_office:
-                            g_end = (end_office - last_call_end).total_seconds()
-                            if g_end >= 1200:
-                                day_breaks.append({'s': last_call_end, 'e': end_office, 'dur': g_end})
-                                day_break_sec += g_end
+                        # 3. End Gap (Last Call to 8:00 PM)
+                        if last_call_end_time < end_office:
+                            g_end_sec = get_display_gap_seconds(last_call_end_time, end_office)
+                            if g_end_sec >= 1200:
+                                day_breaks.append({'s': last_call_end_time, 'e': end_office, 'dur': g_end_sec})
+                                day_break_sec += g_end_sec
                                 
                         total_break_sec_all_days += day_break_sec
                         
                         if day_breaks:
-                            # Header shows the daily sum for that specific date
                             day_sum_formatted = format_dur_hm(day_break_sec)
                             b_str = f"{c_date.strftime('%d/%m')}: {len(day_breaks)} breaks : {day_sum_formatted}"
                             for b in day_breaks:
                                 b_str += f"\n  {b['s'].strftime('%H:%M')}→{b['e'].strftime('%H:%M')} ({format_dur_hm(b['dur'])})"
                             daily_break_list.append(b_str)
                             
-                        # Issue Logic
+                        # Existing Issue Logic
                         day_prod_sec = 36000 - day_break_sec
                         if len(day_group[day_group['call_duration'] >= 180]) < 40:
                             all_issues.append("Low Calls")
@@ -210,7 +221,6 @@ if st.sidebar.button("Generate Report"):
                             
                     total_duration_agg += agent_valid_dur
                     pickup_ratio = round((total_ans / total_calls * 100)) if total_calls > 0 else 0
-                    # Standard 10-hour shift (36000s) minus break time
                     prod_sec_total = (36000 * total_active_days) - total_break_sec_all_days
                     
                     agents_list.append({
@@ -230,6 +240,7 @@ if st.sidebar.button("Generate Report"):
                     })
                     
                 report_df = pd.DataFrame(agents_list)
+                # ... [Rest of the metric/display code remains exactly the same] ...
                 m1, m2, m3, m4 = st.columns(4)
                 m1.metric("Total Unique Calls", df['call_id'].nunique())
                 ans_total = len(df[df['status'].str.lower() == 'answered'])
