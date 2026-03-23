@@ -107,79 +107,94 @@ if st.sidebar.button("Generate Report"):
                 st.error("No results match filters.")
             else:
                 agents = []
-                for owner, group in df.groupby(['call_owner', 'Call Date']):
-                    group = group.sort_values('call_datetime')
-                    active_day = 1 if group['call_duration'].max() >= 180 else 0
+                # Group by call_owner ONLY to aggregate across multiple days
+                for owner, agent_group in df.groupby('call_owner'):
                     
-                    # --- CALL STATUS LOGIC ---
-                    ans_count = len(group[group['status'].str.lower() == 'answered'])
-                    miss_count = len(group[group['status'].str.lower() == 'missed'])
-                    status_text = f"{ans_count} Answered / {miss_count} Unanswered"
+                    # Accumulators for the agent across the whole date range
+                    total_ans, total_miss, total_calls = 0, 0, 0
+                    total_above_3min, total_long_calls, total_valid_dur = 0, 0, 0
+                    daily_io_list, daily_break_list, daily_zone_list = [], [], []
 
-                    # --- IN/OUT TIME LOGIC ---
-                    in_time = group['call_datetime'].min().strftime('%I:%M %p')
-                    out_time = group['call_datetime'].max().strftime('%I:%M %p')
-                    io_text = f"In {in_time} · Out {out_time}"
+                    # Process day-by-day for this specific agent to handle IN/OUT and Breaks correctly
+                    for c_date, day_group in agent_group.groupby('Call Date'):
+                        day_group = day_group.sort_values('call_datetime')
+                        
+                        # Call Status
+                        ans = len(day_group[day_group['status'].str.lower() == 'answered'])
+                        miss = len(day_group[day_group['status'].str.lower() == 'missed'])
+                        total_ans += ans
+                        total_miss += miss
+                        total_calls += len(day_group)
 
-                    total_calls = len(group)
-                    above_3min = len(group[group['call_duration'] >= 180])
-                    long_calls = len(group[group['call_duration'] >= 1200])
-                    valid_duration = group.loc[group['call_duration'] >= 180, 'call_duration'].sum()
-                    
-                    # --- OFFICE HOUR BREAK LOGIC (10 AM - 8 PM) ---
-                    current_date = owner[1]
-                    start_office = datetime.combine(current_date, time(10, 0)).replace(tzinfo=pytz.timezone("Asia/Kolkata"))
-                    end_office = datetime.combine(current_date, time(20, 0)).replace(tzinfo=pytz.timezone("Asia/Kolkata"))
-                    
-                    breaks = []
-                    first_call_start = group['call_datetime'].iloc[0]
-                    if (first_call_start - start_office).total_seconds() >= 1200:
-                        gap = (first_call_start - start_office).total_seconds()
-                        breaks.append({'start': start_office, 'end': first_call_start, 'gap': gap})
-                    
-                    if len(group) > 1:
-                        group['prev_end'] = group['call_datetime'] + pd.to_timedelta(group['call_duration'], unit='s')
-                        for i in range(len(group)-1):
-                            gap_sec = (group['call_datetime'].iloc[i+1] - group['prev_end'].iloc[i]).total_seconds()
-                            if gap_sec >= 1200:
-                                breaks.append({'start': group['prev_end'].iloc[i], 'end': group['call_datetime'].iloc[i+1], 'gap': gap_sec})
-                    
-                    last_call_end = group['call_datetime'].iloc[-1] + pd.to_timedelta(group['call_duration'].iloc[-1], unit='s')
-                    if (end_office - last_call_end).total_seconds() >= 1200:
-                        gap = (end_office - last_call_end).total_seconds()
-                        breaks.append({'start': last_call_end, 'end': end_office, 'gap': gap})
+                        # Duration Metrics
+                        total_above_3min += len(day_group[day_group['call_duration'] >= 180])
+                        total_long_calls += len(day_group[day_group['call_duration'] >= 1200])
+                        day_valid_dur = day_group.loc[day_group['call_duration'] >= 180, 'call_duration'].sum()
+                        total_valid_dur += day_valid_dur
 
-                    break_lines = [f"{len(breaks)} long breaks"]
-                    for b in breaks:
-                        break_lines.append(f"{b['start'].strftime('%H:%M')} → {b['end'].strftime('%H:%M')}")
-                        break_lines.append(format_dur_hm(b['gap']))
-                    
-                    issues = []
-                    if above_3min < 40: issues.append(f"Low Calls ({above_3min})")
-                    if valid_duration < 11700: issues.append("Low Duration")
-                    if len(breaks) > 2: issues.append(f"Excessive Breaks ({len(breaks)})")
-                    
-                    zone = "🟢 GREEN"
-                    if active_day == 0: zone = ""
-                    elif len(issues) >= 2: zone = "🔴 RED"
-                    elif len(issues) == 1: zone = "🟡 YELLOW"
+                        # IN/OUT
+                        in_t = day_group['call_datetime'].min().strftime('%I:%M %p')
+                        out_t = day_group['call_datetime'].max().strftime('%I:%M %p')
+                        daily_io_list.append(f"{c_date.strftime('%d/%m')}: In {in_t} · Out {out_t}")
+
+                        # Breaks (10 AM - 8 PM)
+                        start_office = datetime.combine(c_date, time(10, 0)).replace(tzinfo=pytz.timezone("Asia/Kolkata"))
+                        end_office = datetime.combine(c_date, time(20, 0)).replace(tzinfo=pytz.timezone("Asia/Kolkata"))
+                        
+                        day_breaks = []
+                        f_call = day_group['call_datetime'].iloc[0]
+                        if (f_call - start_office).total_seconds() >= 1200:
+                            day_breaks.append({'s': start_office, 'e': f_call, 'g': (f_call - start_office).total_seconds()})
+                        
+                        if len(day_group) > 1:
+                            day_group['prev_end'] = day_group['call_datetime'] + pd.to_timedelta(day_group['call_duration'], unit='s')
+                            for i in range(len(day_group)-1):
+                                g_sec = (day_group['call_datetime'].iloc[i+1] - day_group['prev_end'].iloc[i]).total_seconds()
+                                if g_sec >= 1200:
+                                    day_breaks.append({'s': day_group['prev_end'].iloc[i], 'e': day_group['call_datetime'].iloc[i+1], 'g': g_sec})
+                        
+                        l_call_e = day_group['call_datetime'].iloc[-1] + pd.to_timedelta(day_group['call_duration'].iloc[-1], unit='s')
+                        if (end_office - l_call_e).total_seconds() >= 1200:
+                            day_breaks.append({'s': l_call_e, 'e': end_office, 'g': (end_office - l_call_e).total_seconds()})
+
+                        if day_breaks:
+                            b_str = f"{c_date.strftime('%d/%m')}: {len(day_breaks)} breaks"
+                            for b in day_breaks:
+                                b_str += f"\n  {b['s'].strftime('%H:%M')}→{b['e'].strftime('%H:%M')} ({format_dur_hm(b['g'])})"
+                            daily_break_list.append(b_str)
+
+                        # Logic for Daily Zone (Internal for Issue tracking)
+                        day_issues = []
+                        if len(day_group[day_group['call_duration'] >= 180]) < 40: day_issues.append("Calls")
+                        if day_valid_dur < 11700: day_issues.append("Dur")
+                        if len(day_breaks) > 2: day_issues.append("Breaks")
+                        
+                        if len(day_issues) >= 2: daily_zone_list.append("🔴")
+                        elif len(day_issues) == 1: daily_zone_list.append("🟡")
+                        else: daily_zone_list.append("🟢")
+
+                    # Decide final ZONE: If any day was RED, show RED. Else if any day YELLOW, show YELLOW.
+                    if "🔴" in daily_zone_list: final_zone = "🔴 RED"
+                    elif "🟡" in daily_zone_list: final_zone = "🟡 YELLOW"
+                    else: final_zone = "🟢 GREEN"
 
                     agents.append({
-                        "AGENT": owner[0],
-                        "IN/OUT TIME": io_text,
-                        "TEAM": group['Team Name'].iloc[0] if not pd.isna(group['Team Name'].iloc[0]) else "Others",
-                        "ZONE": zone,
-                        "CALL STATUS": status_text,
+                        "AGENT": owner,
+                        "IN/OUT TIME": "\n".join(daily_io_list),
+                        "TEAM": agent_group['Team Name'].iloc[0] if not pd.isna(agent_group['Team Name'].iloc[0]) else "Others",
+                        "ZONE": final_zone,
+                        "CALL STATUS": f"{total_ans} Ans / {total_miss} Unans",
                         "TOTAL CALLS": int(total_calls),
-                        "CALLS > 3 MINS": int(above_3min),
-                        "20+ MIN CALLS": int(long_calls),
-                        "LONG BREAKS (>=20 MINS)": "\n".join(break_lines) if breaks else "0",
-                        "CALL DURATION > 3 MINS": format_dur_hm(valid_duration),
-                        "ISSUES": ", ".join(issues) if issues else "None",
-                        "raw_dur": valid_duration, "is_total": 0
+                        "CALLS > 3 MINS": int(total_above_3min),
+                        "20+ MIN CALLS": int(total_long_calls),
+                        "LONG BREAKS (>=20 MINS)": "\n---\n".join(daily_break_list) if daily_break_list else "0",
+                        "CALL DURATION > 3 MINS": format_dur_hm(total_valid_dur),
+                        "raw_dur": total_valid_dur, "is_total": 0
                     })
 
                 report_df = pd.DataFrame(agents)
+                
+                # Summary Metrics
                 m1, m2, m3, m4, m5, m6 = st.columns(6)
                 m1.metric("🔴 Red", len(report_df[report_df['ZONE'] == "🔴 RED"]))
                 m2.metric("🟡 Yellow", len(report_df[report_df['ZONE'] == "🟡 YELLOW"]))
@@ -191,19 +206,22 @@ if st.sidebar.button("Generate Report"):
                 m6.metric("Active Agents", len(report_df))
                 
                 st.divider()
+                
+                # TOTAL ROW
                 total_row = pd.DataFrame([{
                     "AGENT": "TOTAL", "IN/OUT TIME": "-", "TEAM": "-", "ZONE": "-", "CALL STATUS": "-",
                     "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
                     "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
                     "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
-                    "LONG BREAKS (>=20 MINS)": str(report_df["LONG BREAKS (>=20 MINS)"].apply(lambda x: int(x.split()[0]) if ' ' in str(x) else 0).sum()),
+                    "LONG BREAKS (>=20 MINS)": "-", 
                     "CALL DURATION > 3 MINS": format_dur_hm(report_df["raw_dur"].sum()),
-                    "ISSUES": "-", "is_total": 1
+                    "is_total": 1
                 }])
                 
                 final_df = pd.concat([report_df, total_row], ignore_index=True)
                 def style_row(row): return ['font-weight: bold; background-color: #262730; color: white'] * len(row) if row["is_total"] == 1 else [''] * len(row)
-                display_cols = ["AGENT", "IN/OUT TIME", "TEAM", "ZONE", "CALL STATUS", "TOTAL CALLS", "CALLS > 3 MINS", "20+ MIN CALLS", "LONG BREAKS (>=20 MINS)", "CALL DURATION > 3 MINS", "ISSUES"]
+                display_cols = ["AGENT", "IN/OUT TIME", "TEAM", "ZONE", "CALL STATUS", "TOTAL CALLS", "CALLS > 3 MINS", "20+ MIN CALLS", "LONG BREAKS (>=20 MINS)", "CALL DURATION > 3 MINS"]
+                
                 st.dataframe(final_df.style.apply(style_row, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=display_cols, use_container_width=True, hide_index=True)
                 
                 cdr_data = df.copy()
