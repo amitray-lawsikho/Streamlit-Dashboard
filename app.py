@@ -77,7 +77,7 @@ else:
 teams, verticals, df_team_mapping = get_metadata()
 selected_team = st.sidebar.multiselect("Filter by Team", options=teams)
 selected_vertical = st.sidebar.multiselect("Filter by Vertical", options=verticals)
-search_query = st.sidebar.text_input("🔍 Search  Name")
+search_query = st.sidebar.text_input("🔍 Search Name")
 
 # --- 5. Header Section ---
 st.markdown("<h1 style='text-align: center; margin-bottom: 5px;'>CALLERWISE DURATION METRICS</h1>", unsafe_allow_html=True)
@@ -106,15 +106,15 @@ if st.sidebar.button("Generate Report"):
             if df.empty:
                 st.error("No results match filters.")
             else:
-                s = []
+                agents_list = []
                 total_duration_agg = 0 
 
-                for owner, _group in df.groupby('call_owner'):
+                for owner, agent_group in df.groupby('call_owner'):
                     total_ans, total_miss, total_calls = 0, 0, 0
-                    total_above_3min, total_long_calls, _valid_dur = 0, 0, 0
+                    total_above_3min, total_long_calls, agent_valid_dur = 0, 0, 0
                     daily_io_list, daily_break_list, daily_zone_list, all_issues = [], [], [], []
 
-                    for c_date, day_group in _group.groupby('Call Date'):
+                    for c_date, day_group in agent_group.groupby('Call Date'):
                         day_group = day_group.sort_values('call_datetime')
                         
                         ans = len(day_group[day_group['status'].str.lower() == 'answered'])
@@ -125,7 +125,7 @@ if st.sidebar.button("Generate Report"):
                         total_above_3min += len(day_group[day_group['call_duration'] >= 180])
                         total_long_calls += len(day_group[day_group['call_duration'] >= 1200])
                         day_dur = day_group.loc[day_group['call_duration'] >= 180, 'call_duration'].sum()
-                        _valid_dur += day_dur
+                        agent_valid_dur += day_dur
 
                         in_t = day_group['call_datetime'].min().strftime('%I:%M %p')
                         out_t = day_group['call_datetime'].max().strftime('%I:%M %p')
@@ -167,13 +167,13 @@ if st.sidebar.button("Generate Report"):
                     elif "🟡" in daily_zone_list: final_zone = "🟡 YELLOW"
                     else: final_zone = "🟢 GREEN"
 
-                    total_duration_agg += _valid_dur
+                    total_duration_agg += agent_valid_dur
                     pickup_ratio = round((total_ans / total_calls * 100)) if total_calls > 0 else 0
 
-                    s.append({
+                    agents_list.append({
                         "IN/OUT TIME": "\n".join(daily_io_list),
                         "ZONE": final_zone,
-                        "": owner,
+                        "CALLER": owner,
                         "TEAM": agent_group['Team Name'].iloc[0] if not pd.isna(agent_group['Team Name'].iloc[0]) else "Others",
                         "TOTAL CALLS": int(total_calls),
                         "CALL STATUS": f"{total_ans} Ans / {total_miss} Unans",
@@ -185,7 +185,7 @@ if st.sidebar.button("Generate Report"):
                         "ISSUES": ", ".join(sorted(list(set(all_issues)))) if all_issues else "None"
                     })
 
-                report_df = pd.DataFrame(agents)
+                report_df = pd.DataFrame(agents_list)
                 
                 m1, m2, m3, m4, m5, m6 = st.columns(6)
                 m1.metric("🔴 Red", len(report_df[report_df['ZONE'] == "🔴 RED"]))
@@ -213,15 +213,23 @@ if st.sidebar.button("Generate Report"):
                 final_df = pd.concat([report_df, total_row], ignore_index=True)
                 
                 def style_row(row):
-                    if row["CALLERS"] == "TOTAL":
+                    if row["CALLER"] == "TOTAL":
                         return ['font-weight: bold; background-color: #262730; color: white'] * len(row)
                     return [''] * len(row)
 
-                display_cols = ["IN/OUT TIME", "ZONE", "CALLERS", "TEAM", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "LONG BREAKS (>=20 MINS)", "ISSUES"]
+                display_cols = ["IN/OUT TIME", "ZONE", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "LONG BREAKS (>=20 MINS)", "ISSUES"]
                 
+                # Column Configuration for width
+                column_config = {
+                    "IN/OUT TIME": st.column_config.TextColumn("IN/OUT TIME", width="small"),
+                    "ZONE": st.column_config.TextColumn("ZONE", width="small"),
+                    "CALLER": st.column_config.TextColumn("CALLER", width="medium"),
+                }
+
                 st.dataframe(
                     final_df.style.apply(style_row, axis=1).set_properties(**{'white-space': 'pre-wrap'}), 
                     column_order=display_cols, 
+                    column_config=column_config,
                     use_container_width=True, 
                     hide_index=True
                 )
