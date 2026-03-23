@@ -30,13 +30,15 @@ st.set_page_config(layout="wide", page_title="CALLERWISE DURATION METRICS")
 def get_metadata():
     df_meta = pd.read_csv(CSV_URL)
     df_meta.columns = df_meta.columns.str.strip()
+    # Normalize mapping keys to lowercase to avoid case issues
+    df_meta['merge_key'] = df_meta['Caller Name'].str.strip().str.lower()
+    
     teams = sorted(df_meta['Team Name'].dropna().unique())
     verticals = sorted(df_meta['Vertical'].dropna().unique())
     return teams, verticals, df_meta
 
 @st.cache_data(ttl=60)
 def get_global_last_update():
-    # Fetching the last update string directly
     query = "SELECT MAX(updated_at_ampm) as last_update FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`"
     try:
         res = client.query(query).to_dataframe()
@@ -47,7 +49,6 @@ def get_global_last_update():
 
 @st.cache_data(ttl=3600)
 def get_available_dates():
-    # Use the pre-calculated 'Call Date' column for range bounds
     query = "SELECT MIN(`Call Date`) as min_date, MAX(`Call Date`) as max_date FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`"
     df_dates = client.query(query).to_dataframe()
     if not df_dates.empty and not pd.isna(df_dates['min_date'].iloc[0]):
@@ -55,7 +56,6 @@ def get_available_dates():
     return date.today(), date.today()
 
 def fetch_call_data(start_date, end_date):
-    # Filter using the IST 'Call Date' column instead of DATE(call_datetime)
     query = f"""
     SELECT *
     FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`
@@ -63,11 +63,8 @@ def fetch_call_data(start_date, end_date):
     ORDER BY call_owner, call_datetime ASC
     """
     df = client.query(query).to_dataframe()
-    
-    # CRITICAL: Convert UTC timestamp to IST for internal logic (Breaks/Gaps)
     if not df.empty and 'call_datetime' in df.columns:
         df['call_datetime'] = pd.to_datetime(df['call_datetime'], utc=True).dt.tz_convert('Asia/Kolkata')
-    
     return df
 
 def format_duration_clean(total_seconds):
@@ -123,7 +120,17 @@ if st.sidebar.button("Generate Report"):
         if df_raw.empty:
             st.warning("No data found for selection.")
         else:
-            df = pd.merge(df_raw, df_team_mapping, left_on='call_owner', right_on='Caller Name', how='left')
+            # --- FIX: CASE INSENSITIVE JOIN ---
+            # 1. Create a lowercase key in Acefone data
+            df_raw['merge_key'] = df_raw['call_owner'].str.strip().str.lower()
+            
+            # 2. Merge with Team Mapping (which also has a lowercase merge_key from get_metadata)
+            df = pd.merge(df_raw, df_team_mapping, on='merge_key', how='left')
+            
+            # 3. CRITICAL: Replace Acefone name with 'Pretty Name' from Team List
+            # If not found in Team List, keep the original Acefone name
+            df['call_owner'] = df['Caller Name'].fillna(df['call_owner'])
+            
             if selected_team: df = df[df['Team Name'].isin(selected_team)]
             if selected_vertical: df = df[df['Vertical'].isin(selected_vertical)]
             if search_query: df = df[df['call_owner'].str.contains(search_query, case=False, na=False)]
@@ -132,11 +139,10 @@ if st.sidebar.button("Generate Report"):
                 st.error("No results match filters.")
             else:
                 agents = []
+                # Grouping by call_owner now uses the 'Pretty Name'
                 for owner, group in df.groupby('call_owner'):
-                    # Group is already shifted to IST via fetch_call_data
                     group = group.sort_values('call_datetime')
                     
-                    # Use 'Call Date' column for activity to ensure IST alignment
                     daily_max = group.groupby('Call Date')['call_duration'].max()
                     num_active_days = len(daily_max[daily_max >= 180])
                     
@@ -149,7 +155,6 @@ if st.sidebar.button("Generate Report"):
                     total_break_secs = 0
                     break_count = 0
                     if len(group) > 1:
-                        # Calculations now happen on IST timestamps
                         group['prev_end'] = group['call_datetime'] + pd.to_timedelta(group['call_duration'], unit='s')
                         group['gap'] = (group['call_datetime'].shift(-1) - group['prev_end']).dt.total_seconds()
                         long_breaks = group[group['gap'] >= 1200]
@@ -218,12 +223,12 @@ if st.sidebar.button("Generate Report"):
                 
                 st.dataframe(final_df.style.apply(style_row, axis=1), column_order=display_cols, use_container_width=True, hide_index=True)
                 
-                # Cleanup for CDR download: ensures call_datetime is readable IST string
                 cdr_data = df.copy()
                 if not cdr_data.empty:
                     cdr_data['call_datetime'] = cdr_data['call_datetime'].dt.strftime('%Y-%m-%d %H:%M:%S')
                 
-                cdr_data = cdr_data.drop(columns=['Team Name', 'Vertical', 'Caller Name', 'Team', 'Zone'], errors='ignore')
+                # Cleanup temporary columns
+                cdr_data = cdr_data.drop(columns=['Team Name', 'Vertical', 'Caller Name', 'Team', 'Zone', 'merge_key'], errors='ignore')
                 csv_cdr = cdr_data.to_csv(index=False).encode('utf-8')
                 
                 st.download_button(
