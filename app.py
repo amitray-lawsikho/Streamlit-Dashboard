@@ -141,48 +141,59 @@ if st.sidebar.button("Generate Report"):
                         out_t = day_group['call_datetime'].max().strftime('%I:%M %p')
                         daily_io_list.append(f"{c_date.strftime('%d/%m')}: In {in_t} · Out {out_t}")
 
-                        # --- REFINED BREAK LOGIC (10 AM - 8 PM) ---
+                        # --- BREAK LOGIC (Calculated purely within 10 AM - 8 PM) ---
                         start_office = datetime.combine(c_date, time(10, 0)).replace(tzinfo=pytz.timezone("Asia/Kolkata"))
                         end_office = datetime.combine(c_date, time(20, 0)).replace(tzinfo=pytz.timezone("Asia/Kolkata"))
                         
                         day_breaks = []
                         day_break_sec = 0
 
-                        # 1. Start of Office (10:00 AM) to First Call
-                        first_call_start = day_group['call_datetime'].iloc[0]
-                        gap_start = (first_call_start - start_office).total_seconds()
-                        if gap_start >= 1200:
-                            day_breaks.append({'s': start_office, 'e': first_call_start, 'g': gap_start})
-                            day_break_sec += gap_start
+                        # Get only calls that impact office hours
+                        office_calls = day_group.copy()
+                        office_calls['actual_end'] = office_calls['call_datetime'] + pd.to_timedelta(office_calls['call_duration'], unit='s')
+
+                        # 1. Start of Office (10:00 AM) to First Call within/after office hours
+                        first_call_start = office_calls['call_datetime'].iloc[0]
+                        if first_call_start > start_office:
+                            gap_start = (first_call_start - start_office).total_seconds()
+                            if gap_start >= 1200:
+                                day_breaks.append({'s': start_office, 'e': first_call_start, 'g': gap_start})
+                                day_break_sec += gap_start
                         
-                        # 2. Gaps Between Calls
-                        if len(day_group) > 1:
-                            # Calculate Actual End Time of each call
-                            day_group['actual_end'] = day_group['call_datetime'] + pd.to_timedelta(day_group['call_duration'], unit='s')
-                            for i in range(len(day_group)-1):
-                                # Gap = Next Call Start - Current Call End
-                                g_sec = (day_group['call_datetime'].iloc[i+1] - day_group['actual_end'].iloc[i]).total_seconds()
-                                if g_sec >= 1200:
-                                    day_breaks.append({'s': day_group['actual_end'].iloc[i], 'e': day_group['call_datetime'].iloc[i+1], 'g': g_sec})
-                                    day_break_sec += g_sec
+                        # 2. Gaps Between Calls (Only if they happen within office window)
+                        if len(office_calls) > 1:
+                            for i in range(len(office_calls)-1):
+                                # We only care about the gap between end of call A and start of call B
+                                gap_s = office_calls['actual_end'].iloc[i]
+                                gap_e = office_calls['call_datetime'].iloc[i+1]
+                                
+                                # Intersect gap with office hours
+                                actual_gap_s = max(gap_s, start_office)
+                                actual_gap_e = min(gap_e, end_office)
+                                
+                                if actual_gap_e > actual_gap_s:
+                                    g_sec = (actual_gap_e - actual_gap_s).total_seconds()
+                                    if g_sec >= 1200:
+                                        day_breaks.append({'s': actual_gap_s, 'e': actual_gap_e, 'g': g_sec})
+                                        day_break_sec += g_sec
                         
                         # 3. Last Call End to End of Office (08:00 PM)
-                        last_call_end = day_group['call_datetime'].iloc[-1] + pd.to_timedelta(day_group['call_duration'].iloc[-1], unit='s')
-                        gap_end = (end_office - last_call_end).total_seconds()
-                        if gap_end >= 1200:
-                            day_breaks.append({'s': last_call_end, 'e': end_office, 'g': gap_end})
-                            day_break_sec += gap_end
+                        last_call_end = office_calls['actual_end'].iloc[-1]
+                        if last_call_end < end_office:
+                            gap_end = (end_office - last_call_end).total_seconds()
+                            if gap_end >= 1200:
+                                day_breaks.append({'s': last_call_end, 'e': end_office, 'g': gap_end})
+                                day_break_sec += gap_end
 
                         total_break_sec_all_days += day_break_sec
 
                         if day_breaks:
                             b_str = f"{c_date.strftime('%d/%m')}: {len(day_breaks)} breaks"
                             for b in day_breaks:
-                                # This ensures the duration shown in brackets matches the timestamps shown
                                 b_str += f"\n  {b['s'].strftime('%H:%M')}→{b['e'].strftime('%H:%M')} ({format_dur_hm(b['g'])})"
                             daily_break_list.append(b_str)
 
-                        # Productive Hours calculation (10 Hours - total long breaks)
+                        # Issues calculation
                         day_prod_sec = 36000 - day_break_sec
                         if len(day_group[day_group['call_duration'] >= 180]) < 40: all_issues.append("Low Calls")
                         if day_dur < 11700: all_issues.append("Low Duration")
@@ -191,6 +202,8 @@ if st.sidebar.button("Generate Report"):
 
                     total_duration_agg += agent_valid_dur
                     pickup_ratio = round((total_ans / total_calls * 100)) if total_calls > 0 else 0
+                    
+                    # PRODUCTIVE HOURS: (10 hrs * Days) - Total Office Gaps
                     prod_sec_total = (36000 * total_active_days) - total_break_sec_all_days
 
                     agents_list.append({
@@ -211,6 +224,7 @@ if st.sidebar.button("Generate Report"):
 
                 report_df = pd.DataFrame(agents_list)
                 
+                # --- Metrics ---
                 m1, m2, m3, m4 = st.columns(4)
                 m1.metric("Total Unique Calls", df['call_id'].nunique())
                 ans_total = len(df[df['status'].str.lower() == 'answered'])
@@ -221,6 +235,7 @@ if st.sidebar.button("Generate Report"):
                 
                 st.divider()
                 
+                # --- TOTAL ROW ---
                 total_row = pd.DataFrame([{
                     "IN/OUT TIME": "-", "CALLER": "TOTAL", "TEAM": "-", "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()), "CALL STATUS": "-", "PICK UP RATIO %": "-", "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()), "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()), "CALL DURATION > 3 MINS": format_dur_hm(total_duration_agg), "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod"].sum()), "LONG BREAKS (>=20 MINS)": "-", "ISSUES": "-"
                 }])
@@ -233,13 +248,8 @@ if st.sidebar.button("Generate Report"):
 
                 display_cols = ["IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "PRODUCTIVE HOURS", "LONG BREAKS (>=20 MINS)", "ISSUES"]
                 
-                column_config = {
-                    "IN/OUT TIME": st.column_config.TextColumn("IN/OUT TIME", width="small"),
-                    "CALLER": st.column_config.TextColumn("CALLER", width="medium"),
-                }
-
                 st.dataframe(final_df.style.apply(style_total_row, axis=1).set_properties(**{'white-space': 'pre-wrap'}), 
-                             column_order=display_cols, column_config=column_config, use_container_width=True, hide_index=True)
+                             column_order=display_cols, use_container_width=True, hide_index=True)
                 
                 st.divider()
                 cdr_csv = df.copy()
