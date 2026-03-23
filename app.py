@@ -2,7 +2,7 @@ import streamlit as st
 from google.cloud import bigquery
 from google.oauth2 import service_account
 import pandas as pd
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timedelta
 import os
 import pytz
 
@@ -22,11 +22,7 @@ else:
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRT73ztvPNZSvIu5WLxo-3WQ76JMAnt4P9dITd4EAbjSvuDytfgvdfri1WPXotCjm_Etnb80_Q7S-wf/pub?gid=0&single=true&output=csv"
 
 # --- 2. Page Configuration ---
-st.set_page_config(
-    layout="wide", 
-    page_title="CALLERWISE DURATION METRICS", 
-    initial_sidebar_state="expanded"
-)
+st.set_page_config(layout="wide", page_title="CALLERWISE DURATION METRICS", initial_sidebar_state="expanded")
 
 # --- CLEAN UI CSS ---
 st.markdown("""
@@ -141,22 +137,30 @@ if st.sidebar.button("Generate Report"):
                         out_t = day_group['call_datetime'].max().strftime('%I:%M %p')
                         daily_io_list.append(f"{c_date.strftime('%d/%m')}: In {in_t} · Out {out_t}")
 
+                        # --- IMPROVED LONG BREAK LOGIC (10 AM - 8 PM) ---
                         start_office = datetime.combine(c_date, time(10, 0)).replace(tzinfo=pytz.timezone("Asia/Kolkata"))
                         end_office = datetime.combine(c_date, time(20, 0)).replace(tzinfo=pytz.timezone("Asia/Kolkata"))
                         
                         day_breaks = []
-                        f_call = day_group['call_datetime'].iloc[0]
-                        if (f_call - start_office).total_seconds() >= 1200:
-                            day_breaks.append({'s': start_office, 'e': f_call, 'g': (f_call - start_office).total_seconds()})
+                        # 1. Gap from 10:00 AM to First Call
+                        first_call_start = day_group['call_datetime'].iloc[0]
+                        if (first_call_start - start_office).total_seconds() >= 1200:
+                            gap = (first_call_start - start_office).total_seconds()
+                            day_breaks.append({'s': start_office, 'e': first_call_start, 'g': gap})
+                        
+                        # 2. Gaps Between Calls
                         if len(day_group) > 1:
                             day_group['prev_end'] = day_group['call_datetime'] + pd.to_timedelta(day_group['call_duration'], unit='s')
                             for i in range(len(day_group)-1):
                                 g_sec = (day_group['call_datetime'].iloc[i+1] - day_group['prev_end'].iloc[i]).total_seconds()
                                 if g_sec >= 1200:
                                     day_breaks.append({'s': day_group['prev_end'].iloc[i], 'e': day_group['call_datetime'].iloc[i+1], 'g': g_sec})
-                        l_call_e = day_group['call_datetime'].iloc[-1] + pd.to_timedelta(day_group['call_duration'].iloc[-1], unit='s')
-                        if (end_office - l_call_e).total_seconds() >= 1200:
-                            day_breaks.append({'s': l_call_e, 'e': end_office, 'g': (end_office - l_call_e).total_seconds()})
+                        
+                        # 3. Gap from Last Call to 08:00 PM
+                        last_call_end = day_group['call_datetime'].iloc[-1] + pd.to_timedelta(day_group['call_duration'].iloc[-1], unit='s')
+                        if (end_office - last_call_end).total_seconds() >= 1200:
+                            gap = (end_office - last_call_end).total_seconds()
+                            day_breaks.append({'s': last_call_end, 'e': end_office, 'g': gap})
 
                         if day_breaks:
                             b_str = f"{c_date.strftime('%d/%m')}: {len(day_breaks)} breaks"
@@ -164,17 +168,18 @@ if st.sidebar.button("Generate Report"):
                                 b_str += f"\n  {b['s'].strftime('%H:%M')}→{b['e'].strftime('%H:%M')} ({format_dur_hm(b['g'])})"
                             daily_break_list.append(b_str)
 
+                        # Issue Tracking
                         day_issues = []
                         if len(day_group[day_group['call_duration'] >= 180]) < 40: day_issues.append("Low Calls")
                         if day_dur < 11700: day_issues.append("Low Duration")
                         if len(day_breaks) > 2: day_issues.append("Excessive Breaks")
                         all_issues.extend(day_issues)
                         
-                        if len(day_issues) >= 2: daily_zone_list.append("🔴")
-                        elif len(day_issues) == 1: daily_zone_list.append("🟡")
-                        else: daily_zone_list.append("🟢")
+                        if len(day_issues) >= 2: daily_zone_list.append("RED")
+                        elif len(day_issues) == 1: daily_zone_list.append("YELLOW")
+                        else: daily_zone_list.append("GREEN")
 
-                    final_zone = "🔴 RED" if "🔴" in daily_zone_list else ("🟡 YELLOW" if "🟡" in daily_zone_list else "🟢 GREEN")
+                    final_zone = "RED" if "RED" in daily_zone_list else ("YELLOW" if "YELLOW" in daily_zone_list else "GREEN")
                     total_duration_agg += agent_valid_dur
                     pickup_ratio = round((total_ans / total_calls * 100)) if total_calls > 0 else 0
 
@@ -194,10 +199,12 @@ if st.sidebar.button("Generate Report"):
                     })
 
                 report_df = pd.DataFrame(agents_list)
+                
+                # Metric Cards (Color circles removed)
                 m1, m2, m3, m4, m5, m6 = st.columns(6)
-                m1.metric("🔴 Red", len(report_df[report_df['ZONE'] == "🔴 RED"]))
-                m2.metric("🟡 Yellow", len(report_df[report_df['ZONE'] == "🟡 YELLOW"]))
-                m3.metric("🟢 Green", len(report_df[report_df['ZONE'] == "🟢 GREEN"]))
+                m1.metric("Red", len(report_df[report_df['ZONE'] == "RED"]))
+                m2.metric("Yellow", len(report_df[report_df['ZONE'] == "YELLOW"]))
+                m3.metric("Green", len(report_df[report_df['ZONE'] == "GREEN"]))
                 m4.metric("Total Unique Calls", df['call_id'].nunique())
                 ans_total = len(df[df['status'].str.lower() == 'answered'])
                 ans_pct = (ans_total / df['call_id'].nunique() * 100) if not df.empty else 0
@@ -205,6 +212,7 @@ if st.sidebar.button("Generate Report"):
                 m6.metric("Active Callers", len(report_df))
                 
                 st.divider()
+                
                 total_row = pd.DataFrame([{
                     "CALLER": "TOTAL", "IN/OUT TIME": "-", "TEAM": "-", "ZONE": "-", "CALL STATUS": "-", "PICK UP RATIO %": "-",
                     "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
@@ -216,8 +224,6 @@ if st.sidebar.button("Generate Report"):
                 }])
                 
                 final_df = pd.concat([report_df, total_row], ignore_index=True)
-                def style_row(row):
-                    return ['font-weight: bold; background-color: #262730; color: white'] * len(row) if row["CALLER"] == "TOTAL" else [''] * len(row)
 
                 display_cols = ["IN/OUT TIME", "ZONE", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "LONG BREAKS (>=20 MINS)", "ISSUES"]
                 column_config = {
@@ -226,17 +232,15 @@ if st.sidebar.button("Generate Report"):
                     "CALLER": st.column_config.TextColumn("CALLER", width="medium"),
                 }
 
-                st.dataframe(final_df.style.apply(style_row, axis=1).set_properties(**{'white-space': 'pre-wrap'}), 
+                # Coloring logic completely removed from st.dataframe
+                st.dataframe(final_df.set_properties(**{'white-space': 'pre-wrap'}) if hasattr(final_df, 'set_properties') else final_df, 
                              column_order=display_cols, column_config=column_config, use_container_width=True, hide_index=True)
                 
-                # RESTORED DOWNLOAD BUTTON
                 st.divider()
                 cdr_csv = df.copy()
                 if not cdr_csv.empty:
-                    # Clean up the export file by removing temporary merge keys
                     cols_to_drop = ['merge_key', 'Caller Name']
                     cdr_csv = cdr_csv.drop(columns=[c for c in cols_to_drop if c in cdr_csv.columns])
-                    # Format datetime for CSV compatibility
                     if 'call_datetime' in cdr_csv.columns:
                         cdr_csv['call_datetime'] = cdr_csv['call_datetime'].dt.strftime('%Y-%m-%d %H:%M:%S')
                 
