@@ -71,6 +71,7 @@ def get_available_dates():
         return df_dates['min_date'].iloc[0], df_dates['max_date'].iloc[0]
     return date.today(), date.today()
 
+@st.cache_data(ttl=600)  # Caching main fetch for 10 minutes to make dashboard fast
 def fetch_call_data(start_date, end_date):
     query = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls` WHERE `Call Date` BETWEEN '{start_date}' AND '{end_date}' ORDER BY call_owner, call_datetime ASC"
     df = client.query(query).to_dataframe()
