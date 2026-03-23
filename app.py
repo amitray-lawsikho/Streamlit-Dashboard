@@ -317,7 +317,7 @@ if st.sidebar.button("Generate Report"):
                             cdr_csv['call_datetime'] = cdr_csv['call_datetime'].dt.strftime('%Y-%m-%d %H:%M:%S')
                         
                         st.download_button(
-                            label="📥 Download CDR CSV", 
+                            label="📥 Download CDR", 
                             data=cdr_csv.to_csv(index=False).encode('utf-8'), 
                             file_name=f"CDR_{display_start}_to_{display_end}.csv", 
                             mime='text/csv'
