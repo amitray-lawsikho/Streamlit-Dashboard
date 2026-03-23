@@ -30,7 +30,7 @@ st.set_page_config(layout="wide", page_title="CALLERWISE DURATION METRICS")
 def get_metadata():
     df_meta = pd.read_csv(CSV_URL)
     df_meta.columns = df_meta.columns.str.strip()
-    # Normalize mapping keys to lowercase to avoid case issues
+    # Create clean key for Simran Kapoor mapping fix
     df_meta['merge_key'] = df_meta['Caller Name'].str.strip().str.lower()
     
     teams = sorted(df_meta['Team Name'].dropna().unique())
@@ -120,15 +120,14 @@ if st.sidebar.button("Generate Report"):
         if df_raw.empty:
             st.warning("No data found for selection.")
         else:
-            # --- FIX: CASE INSENSITIVE JOIN ---
-            # 1. Create a lowercase key in Acefone data
-            df_raw['merge_key'] = df_raw['call_owner'].str.strip().str.lower()
+            # --- FIX 1: HIDE 0 DURATION CALLS ---
+            df_raw = df_raw[df_raw['call_duration'] > 0]
             
-            # 2. Merge with Team Mapping (which also has a lowercase merge_key from get_metadata)
+            # --- FIX 2: CASE INSENSITIVE JOIN ---
+            df_raw['merge_key'] = df_raw['call_owner'].str.strip().str.lower()
             df = pd.merge(df_raw, df_team_mapping, on='merge_key', how='left')
             
-            # 3. CRITICAL: Replace Acefone name with 'Pretty Name' from Team List
-            # If not found in Team List, keep the original Acefone name
+            # Use Team Sheet name as priority
             df['call_owner'] = df['Caller Name'].fillna(df['call_owner'])
             
             if selected_team: df = df[df['Team Name'].isin(selected_team)]
@@ -136,10 +135,9 @@ if st.sidebar.button("Generate Report"):
             if search_query: df = df[df['call_owner'].str.contains(search_query, case=False, na=False)]
             
             if df.empty:
-                st.error("No results match filters.")
+                st.error("No results match filters or all selected agents had 0 duration.")
             else:
                 agents = []
-                # Grouping by call_owner now uses the 'Pretty Name'
                 for owner, group in df.groupby('call_owner'):
                     group = group.sort_values('call_datetime')
                     
@@ -227,7 +225,6 @@ if st.sidebar.button("Generate Report"):
                 if not cdr_data.empty:
                     cdr_data['call_datetime'] = cdr_data['call_datetime'].dt.strftime('%Y-%m-%d %H:%M:%S')
                 
-                # Cleanup temporary columns
                 cdr_data = cdr_data.drop(columns=['Team Name', 'Vertical', 'Caller Name', 'Team', 'Zone', 'merge_key'], errors='ignore')
                 csv_cdr = cdr_data.to_csv(index=False).encode('utf-8')
                 
