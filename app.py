@@ -259,7 +259,7 @@ if st.sidebar.button("Generate Report"):
                     m1, m2, m3, m4 = st.columns(4)
                     
                     total_filtered_calls = df_filtered['call_id'].nunique()
-                    m1.metric("Total Unique Calls", total_filtered_calls)
+                    m1.metric("Total Attempted Calls", total_filtered_calls)
                     
                     ans_total = len(df_filtered[df_filtered['status'].str.lower() == 'answered'])
                     ans_pct = (ans_total / total_filtered_calls * 100) if total_filtered_calls > 0 else 0
