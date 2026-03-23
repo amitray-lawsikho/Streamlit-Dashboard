@@ -20,7 +20,7 @@ else:
     else:
         st.error("Credentials not found!")
 
-CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRT73ztvPNZSvIu5WLxo-3WQ76JMAnt4P9dITd4EAbjSvuDytfgvdfri1WPXotCjm_Etnb80_Q7S-wf/pub?gid=0&single=true&output=csv"
+CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRT73ztvPNZSvIIu5WLxo-3WQ76JMAnt4P9dITd4EAbjSvuDytfgvdfri1WPXotCjm_Etnb80_Q7S-wf/pub?gid=0&single=true&output=csv"
 
 # --- 2. Page Configuration ---
 st.set_page_config(layout="wide", page_title="CALLERWISE DURATION METRICS", initial_sidebar_state="expanded")
@@ -69,11 +69,13 @@ def fetch_call_data(start_date, end_date):
     return df
 
 def format_dur_hm(total_seconds):
+    """Formats seconds into rounded hours and minutes."""
     if pd.isna(total_seconds) or total_seconds <= 0:
         return "0h 0m"
-    total_seconds = int(total_seconds)
-    hours = total_seconds // 3600
-    minutes = (total_seconds % 3600) // 60
+    # Round to the nearest minute to avoid floor calculation errors
+    total_minutes = int(round(total_seconds / 60))
+    hours = total_minutes // 60
+    minutes = total_minutes % 60
     return f"{hours}h {minutes}m"
 
 # --- 4. Sidebar Filters ---
@@ -124,7 +126,6 @@ if st.sidebar.button("Generate Report"):
                 agents_list = []
                 total_duration_agg = 0
                 df_prod = df[df['call_duration'] > 0]
-                # Define Timezone once
                 ist_tz = pytz.timezone("Asia/Kolkata")
                 
                 for owner, agent_group in df_prod.groupby('call_owner'):
@@ -148,7 +149,7 @@ if st.sidebar.button("Generate Report"):
                         out_t = day_group['call_datetime'].max().strftime('%I:%M %p')
                         daily_io_list.append(f"{c_date.strftime('%d/%m')}: In {in_t} · Out {out_t}")
                         
-                        # --- CORRECTED OFFICE BOUNDS (Avoids the 23-minute error) ---
+                        # --- CORRECTED OFFICE BOUNDS (10 AM - 8 PM) ---
                         start_office = ist_tz.localize(datetime.combine(c_date, time(10, 0)))
                         end_office = ist_tz.localize(datetime.combine(c_date, time(20, 0)))
                         
@@ -171,7 +172,6 @@ if st.sidebar.button("Generate Report"):
                             for i in range(len(day_group)-1):
                                 gap_s = day_group['actual_end'].iloc[i]
                                 gap_e = day_group['call_datetime'].iloc[i+1]
-                                # Only consider gaps overlapping with office hours
                                 act_s = max(gap_s, start_office)
                                 act_e = min(gap_e, end_office)
                                 if act_e > act_s:
@@ -191,7 +191,9 @@ if st.sidebar.button("Generate Report"):
                         total_break_sec_all_days += day_break_sec
                         
                         if day_breaks:
-                            b_str = f"{c_date.strftime('%d/%m')}: {len(day_breaks)} breaks"
+                            # Added total daily sum to the header
+                            day_sum_formatted = format_dur_hm(day_break_sec)
+                            b_str = f"{c_date.strftime('%d/%m')}: {len(day_breaks)} breaks : {day_sum_formatted}"
                             for b in day_breaks:
                                 b_str += f"\n  {b['s'].strftime('%H:%M')}→{b['e'].strftime('%H:%M')} ({format_dur_hm(b['dur'])})"
                             daily_break_list.append(b_str)
