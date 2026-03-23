@@ -84,7 +84,7 @@ st.markdown("<h1 style='text-align: center; margin-bottom: 5px;'>CALLERWISE DURA
 display_start, display_end = start_date.strftime('%d-%m-%Y'), end_date.strftime('%d-%m-%Y')
 col_sub_l, col_sub_r = st.columns([3, 1])
 with col_sub_l: st.markdown(f"<p style='color: #A0A0A0;'>Report Period: <b>{display_start}</b> to <b>{display_end}</b></p>", unsafe_allow_html=True)
-with col_sub_r: st.markdown(f"<p style='color: #A0A0A0; text-align: right;'>System Last Updated: <b>{get_global_last_update()}</b></p>", unsafe_allow_html=True)
+with col_sub_r: st.markdown(f"<p style='color: #A0A0A0; text-align: right;'>Last Updated: <b>{get_global_last_update()}</b></p>", unsafe_allow_html=True)
 st.divider()
 
 # --- 6. Main Logic ---
@@ -195,13 +195,13 @@ if st.sidebar.button("Generate Report"):
                 ans_total = len(df[df['status'].str.lower() == 'answered'])
                 ans_pct = (ans_total / df['call_id'].nunique() * 100) if not df.empty else 0
                 m5.metric("Pick Up Ratio %", f"{ans_pct:.1f}%")
-                m6.metric("Active Agents", len(report_df))
+                m6.metric("Active Callers", len(report_df))
                 
                 st.divider()
                 
                 # FINAL TOTAL ROW
                 total_row = pd.DataFrame([{
-                    "AGENT": "TOTAL", "IN/OUT TIME": "-", "TEAM": "-", "ZONE": "-", "CALL STATUS": "-", "PICK UP RATIO %": "-",
+                    "CALLER": "TOTAL", "IN/OUT TIME": "-", "TEAM": "-", "ZONE": "-", "CALL STATUS": "-", "PICK UP RATIO %": "-",
                     "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
                     "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
                     "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
