@@ -22,15 +22,24 @@ else:
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRT73ztvPNZSvIu5WLxo-3WQ76JMAnt4P9dITd4EAbjSvuDytfgvdfri1WPXotCjm_Etnb80_Q7S-wf/pub?gid=0&single=true&output=csv"
 
 # --- 2. Page Configuration ---
-st.set_page_config(layout="wide", page_title="CALLERWISE DURATION METRICS")
+st.set_page_config(layout="wide", page_title="CALLERWISE DURATION METRICS", initial_sidebar_state="expanded")
 
-# HIDE STREAMLIT BRANDING & MENU FOR SHARED LINKS
+# HIDE STREAMLIT BRANDING & LOCK SIDEBAR (User cannot hide filters)
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     header {visibility: hidden;}
     .stAppDeployButton {display:none;}
+    
+    /* This section locks the sidebar and hides the collapse button */
+    [data-testid="sidebar-collapsible-control"] {
+        display: none;
+    }
+    [data-testid="stSidebar"] {
+        min-width: 300px;
+        max-width: 300px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -154,102 +163,4 @@ if st.sidebar.button("Generate Report"):
                         if len(day_group) > 1:
                             day_group['prev_end'] = day_group['call_datetime'] + pd.to_timedelta(day_group['call_duration'], unit='s')
                             for i in range(len(day_group)-1):
-                                g_sec = (day_group['call_datetime'].iloc[i+1] - day_group['prev_end'].iloc[i]).total_seconds()
-                                if g_sec >= 1200:
-                                    day_breaks.append({'s': day_group['prev_end'].iloc[i], 'e': day_group['call_datetime'].iloc[i+1], 'g': g_sec})
-                        l_call_e = day_group['call_datetime'].iloc[-1] + pd.to_timedelta(day_group['call_duration'].iloc[-1], unit='s')
-                        if (end_office - l_call_e).total_seconds() >= 1200:
-                            day_breaks.append({'s': l_call_e, 'e': end_office, 'g': (end_office - l_call_e).total_seconds()})
-
-                        if day_breaks:
-                            b_str = f"{c_date.strftime('%d/%m')}: {len(day_breaks)} breaks"
-                            for b in day_breaks:
-                                b_str += f"\n  {b['s'].strftime('%H:%M')}→{b['e'].strftime('%H:%M')} ({format_dur_hm(b['g'])})"
-                            daily_break_list.append(b_str)
-
-                        day_issues = []
-                        if len(day_group[day_group['call_duration'] >= 180]) < 40: day_issues.append("Low Calls")
-                        if day_dur < 11700: day_issues.append("Low Duration")
-                        if len(day_breaks) > 2: day_issues.append("Excessive Breaks")
-                        all_issues.extend(day_issues)
-                        
-                        if len(day_issues) >= 2: daily_zone_list.append("🔴")
-                        elif len(day_issues) == 1: daily_zone_list.append("🟡")
-                        else: daily_zone_list.append("🟢")
-
-                    if "🔴" in daily_zone_list: final_zone = "🔴 RED"
-                    elif "🟡" in daily_zone_list: final_zone = "🟡 YELLOW"
-                    else: final_zone = "🟢 GREEN"
-
-                    total_duration_agg += agent_valid_dur
-                    pickup_ratio = round((total_ans / total_calls * 100)) if total_calls > 0 else 0
-
-                    agents_list.append({
-                        "IN/OUT TIME": "\n".join(daily_io_list),
-                        "ZONE": final_zone,
-                        "CALLER": owner,
-                        "TEAM": agent_group['Team Name'].iloc[0] if not pd.isna(agent_group['Team Name'].iloc[0]) else "Others",
-                        "TOTAL CALLS": int(total_calls),
-                        "CALL STATUS": f"{total_ans} Ans / {total_miss} Unans",
-                        "PICK UP RATIO %": f"{pickup_ratio}%",
-                        "CALLS > 3 MINS": int(total_above_3min),
-                        "20+ MIN CALLS": int(total_long_calls),
-                        "CALL DURATION > 3 MINS": format_dur_hm(agent_valid_dur),
-                        "LONG BREAKS (>=20 MINS)": "\n---\n".join(daily_break_list) if daily_break_list else "0",
-                        "ISSUES": ", ".join(sorted(list(set(all_issues)))) if all_issues else "None"
-                    })
-
-                report_df = pd.DataFrame(agents_list)
-                
-                m1, m2, m3, m4, m5, m6 = st.columns(6)
-                m1.metric("🔴 Red", len(report_df[report_df['ZONE'] == "🔴 RED"]))
-                m2.metric("🟡 Yellow", len(report_df[report_df['ZONE'] == "🟡 YELLOW"]))
-                m3.metric("🟢 Green", len(report_df[report_df['ZONE'] == "🟢 GREEN"]))
-                
-                # TOTAL UNIQUE CALLS: Counts every single row in 'df' (absolute total)
-                m4.metric("Total Unique Calls", df['call_id'].nunique())
-                
-                ans_total = len(df[df['status'].str.lower() == 'answered'])
-                ans_pct = (ans_total / df['call_id'].nunique() * 100) if not df.empty else 0
-                m5.metric("Pick Up Ratio %", f"{ans_pct:.1f}%")
-                m6.metric("Active Callers", len(report_df))
-                
-                st.divider()
-                
-                # FINAL TOTAL ROW
-                total_row = pd.DataFrame([{
-                    "CALLER": "TOTAL", "IN/OUT TIME": "-", "TEAM": "-", "ZONE": "-", "CALL STATUS": "-", "PICK UP RATIO %": "-",
-                    "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
-                    "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
-                    "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
-                    "LONG BREAKS (>=20 MINS)": "-", 
-                    "CALL DURATION > 3 MINS": format_dur_hm(total_duration_agg),
-                    "ISSUES": "-"
-                }])
-                
-                final_df = pd.concat([report_df, total_row], ignore_index=True)
-                
-                def style_row(row):
-                    if row["CALLER"] == "TOTAL":
-                        return ['font-weight: bold; background-color: #262730; color: white'] * len(row)
-                    return [''] * len(row)
-
-                display_cols = ["IN/OUT TIME", "ZONE", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "LONG BREAKS (>=20 MINS)", "ISSUES"]
-                
-                column_config = {
-                    "IN/OUT TIME": st.column_config.TextColumn("IN/OUT TIME", width="small"),
-                    "ZONE": st.column_config.TextColumn("ZONE", width="small"),
-                    "CALLER": st.column_config.TextColumn("CALLER", width="medium"),
-                }
-
-                st.dataframe(
-                    final_df.style.apply(style_row, axis=1).set_properties(**{'white-space': 'pre-wrap'}), 
-                    column_order=display_cols, 
-                    column_config=column_config,
-                    use_container_width=True, 
-                    hide_index=True
-                )
-                
-                cdr_data = df.copy()
-                if not cdr_data.empty: cdr_data['call_datetime'] = cdr_data['call_datetime'].dt.strftime('%Y-%m-%d %H:%M:%S')
-                st.download_button("📥 Download CDR", data=cdr_data.drop(columns=['merge_key','Caller Name'], errors='ignore').to_csv(index=False).encode('utf-8'), file_name=f"CDR_{display_start}_to_{display_end}.csv", mime='text/csv')
+                                g_sec = (day_group['call_datetime'].iloc
