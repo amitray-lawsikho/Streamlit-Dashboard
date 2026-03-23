@@ -241,7 +241,7 @@ if st.sidebar.button("Generate Report"):
                             "CALL DURATION > 3 MINS": format_dur_hm(agent_valid_dur),
                             "PRODUCTIVE HOURS": format_dur_hm(prod_sec_total),
                             "LONG BREAKS (>=20 MINS)": "\n---\n".join(daily_break_list) if daily_break_list else "0",
-                            "ISSUES": ", ".join(sorted(list(set(all_issues)))) if all_issues else "None",
+                            "REMARKS": ", ".join(sorted(list(set(all_issues)))) if all_issues else "None",
                             "raw_prod": prod_sec_total
                         })
                         
@@ -272,7 +272,7 @@ if st.sidebar.button("Generate Report"):
                         "CALL DURATION > 3 MINS": format_dur_hm(total_duration_agg),
                         "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod"].sum()),
                         "LONG BREAKS (>=20 MINS)": "-",
-                        "ISSUES": "-"
+                        "REMARKS": "-"
                     }])
                     final_df = pd.concat([report_df, total_row], ignore_index=True)
                     
@@ -281,7 +281,7 @@ if st.sidebar.button("Generate Report"):
                             return ['font-weight: bold; background-color: #262730; color: white'] * len(row)
                         return [''] * len(row)
                         
-                    display_cols = ["IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "PRODUCTIVE HOURS", "LONG BREAKS (>=20 MINS)", "ISSUES"]
+                    display_cols = ["IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "PRODUCTIVE HOURS", "LONG BREAKS (>=20 MINS)", "REMARKS"]
                     
                     st.dataframe(final_df.style.apply(style_total_row, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=display_cols, use_container_width=True, hide_index=True)
                     st.divider()
