@@ -164,7 +164,7 @@ if st.sidebar.button("Generate Report"):
                     if break_count > 2: issues.append(f"Excessive Breaks ({break_count})")
                     
                     zone = "🟢 GREEN"
-                    if num_active_days == 0: zone = "⚪ N/A"
+                    if num_active_days == 0: zone = ""
                     elif len(issues) >= 2: zone = "🔴 RED"
                     elif len(issues) == 1: zone = "🟡 YELLOW"
                     
