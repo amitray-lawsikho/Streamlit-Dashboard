@@ -12,7 +12,6 @@ if "gcp_service_account" in st.secrets:
     credentials = service_account.Credentials.from_service_account_info(info)
     client = bigquery.Client(credentials=credentials, project=info["project_id"])
 else:
-    # Fallback for local testing
     SERVICE_ACCOUNT_FILE = "/content/drive/MyDrive/Lawsikho/credentials/bigquery_key.json"
     if os.path.exists(SERVICE_ACCOUNT_FILE):
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = SERVICE_ACCOUNT_FILE
@@ -20,7 +19,7 @@ else:
     else:
         st.error("Credentials not found!")
 
-CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRT73ztvPNZSvIIu5WLxo-3WQ76JMAnt4P9dITd4EAbjSvuDytfgvdfri1WPXotCjm_Etnb80_Q7S-wf/pub?gid=0&single=true&output=csv"
+CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRT73ztvPNZSvIu5WLxo-3WQ76JMAnt4P9dITd4EAbjSvuDytfgvdfri1WPXotCjm_Etnb80_Q7S-wf/pub?gid=0&single=true&output=csv"
 
 # --- 2. Page Configuration ---
 st.set_page_config(layout="wide", page_title="CALLERWISE DURATION METRICS", initial_sidebar_state="expanded")
@@ -69,11 +68,11 @@ def fetch_call_data(start_date, end_date):
     return df
 
 def format_dur_hm(total_seconds):
-    """Formats seconds into rounded hours and minutes."""
+    """Formats seconds into hours and minutes with standard rounding."""
     if pd.isna(total_seconds) or total_seconds <= 0:
         return "0h 0m"
-    # Round to the nearest minute to avoid floor calculation errors
-    total_minutes = int(round(total_seconds / 60))
+    # Use +0.5 logic to ensure 0.5 rounds UP (Standard Math)
+    total_minutes = int((total_seconds / 60) + 0.5)
     hours = total_minutes // 60
     minutes = total_minutes % 60
     return f"{hours}h {minutes}m"
@@ -149,7 +148,7 @@ if st.sidebar.button("Generate Report"):
                         out_t = day_group['call_datetime'].max().strftime('%I:%M %p')
                         daily_io_list.append(f"{c_date.strftime('%d/%m')}: In {in_t} · Out {out_t}")
                         
-                        # --- CORRECTED OFFICE BOUNDS (10 AM - 8 PM) ---
+                        # --- OFFICE BOUNDS (10 AM - 8 PM) ---
                         start_office = ist_tz.localize(datetime.combine(c_date, time(10, 0)))
                         end_office = ist_tz.localize(datetime.combine(c_date, time(20, 0)))
                         
@@ -191,7 +190,7 @@ if st.sidebar.button("Generate Report"):
                         total_break_sec_all_days += day_break_sec
                         
                         if day_breaks:
-                            # Added total daily sum to the header
+                            # Header shows the daily sum for that specific date
                             day_sum_formatted = format_dur_hm(day_break_sec)
                             b_str = f"{c_date.strftime('%d/%m')}: {len(day_breaks)} breaks : {day_sum_formatted}"
                             for b in day_breaks:
@@ -211,6 +210,7 @@ if st.sidebar.button("Generate Report"):
                             
                     total_duration_agg += agent_valid_dur
                     pickup_ratio = round((total_ans / total_calls * 100)) if total_calls > 0 else 0
+                    # Standard 10-hour shift (36000s) minus break time
                     prod_sec_total = (36000 * total_active_days) - total_break_sec_all_days
                     
                     agents_list.append({
