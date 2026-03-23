@@ -31,7 +31,6 @@ header[data-testid="stHeader"] { visibility: visible !important; }
 footer {visibility: hidden;}
 [data-testid="stMainViewContainer"] { padding-top: 2rem; }
 
-/* Forces Header Text Wrapping and Column Expansion */
 div[data-testid="stDataFrame"] thead tr th {
     white-space: normal !important;
     word-wrap: break-word !important;
@@ -127,7 +126,6 @@ if st.sidebar.button("Generate Report"):
             df = pd.merge(df_raw, df_team_mapping, on='merge_key', how='left')
             df['call_owner'] = df['Caller Name'].fillna(df['call_owner'])
             
-            # Remove None/Blank callers
             df = df[df['call_owner'].notna() & (df['call_owner'] != '')]
             
             if selected_team:
@@ -191,9 +189,12 @@ if st.sidebar.button("Generate Report"):
                             day_break_sec = 0
                             day_group['actual_end'] = day_group['call_datetime'] + pd.to_timedelta(day_group['call_duration'], unit='s')
                             
+                            # BREAK THRESHOLD SET TO 15 MINUTES (900 SECONDS)
+                            BREAK_THRESHOLD = 900 
+
                             if first_call_start > start_office:
                                 g_start_sec = get_display_gap_seconds(start_office, first_call_start)
-                                if g_start_sec >= 1200:
+                                if g_start_sec >= BREAK_THRESHOLD:
                                     day_breaks.append({'s': start_office, 'e': first_call_start, 'dur': g_start_sec})
                                     day_break_sec += g_start_sec
                                     
@@ -205,13 +206,13 @@ if st.sidebar.button("Generate Report"):
                                     act_e = min(gap_e, end_office)
                                     if act_e > act_s:
                                         g_mid_sec = get_display_gap_seconds(act_s, act_e)
-                                        if g_mid_sec >= 1200:
+                                        if g_mid_sec >= BREAK_THRESHOLD:
                                             day_breaks.append({'s': act_s, 'e': act_e, 'dur': g_mid_sec})
                                             day_break_sec += g_mid_sec
                                             
                             if last_call_end_time < end_office:
                                 g_end_sec = get_display_gap_seconds(last_call_end_time, end_office)
-                                if g_end_sec >= 1200:
+                                if g_end_sec >= BREAK_THRESHOLD:
                                     day_breaks.append({'s': last_call_end_time, 'e': end_office, 'dur': g_end_sec})
                                     day_break_sec += g_end_sec
                                     
@@ -250,7 +251,7 @@ if st.sidebar.button("Generate Report"):
                             "20+ MIN CALLS": int(total_long_calls),
                             "CALL DURATION > 3 MINS": format_dur_hm(agent_valid_dur),
                             "PRODUCTIVE HOURS": format_dur_hm(prod_sec_total),
-                            "LONG BREAKS (>=20 MINS)": "\n---\n".join(daily_break_list) if daily_break_list else "0",
+                            "BREAKS (>=15 MINS)": "\n---\n".join(daily_break_list) if daily_break_list else "0",
                             "REMARKS": ", ".join(sorted(list(set(all_issues)))) if all_issues else "None",
                             "raw_prod": prod_sec_total
                         })
@@ -281,7 +282,7 @@ if st.sidebar.button("Generate Report"):
                         "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
                         "CALL DURATION > 3 MINS": format_dur_hm(total_duration_agg),
                         "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod"].sum()),
-                        "LONG BREAKS (>=20 MINS)": "-",
+                        "BREAKS (>=15 MINS)": "-",
                         "REMARKS": "-"
                     }])
                     final_df = pd.concat([report_df, total_row], ignore_index=True)
@@ -291,7 +292,7 @@ if st.sidebar.button("Generate Report"):
                             return ['font-weight: bold; background-color: #262730; color: white'] * len(row)
                         return [''] * len(row)
                         
-                    display_cols = ["IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "PRODUCTIVE HOURS", "LONG BREAKS (>=20 MINS)", "REMARKS"]
+                    display_cols = ["IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)", "REMARKS"]
                     
                     st.dataframe(
                         final_df.style.apply(style_total_row, axis=1).set_properties(**{'white-space': 'pre-wrap'}), 
@@ -301,17 +302,13 @@ if st.sidebar.button("Generate Report"):
                     )
                     st.divider()
                     
-                    # --- 7. Download Logic (Updated Columns) ---
                     cdr_csv = df_filtered.copy()
                     if not cdr_csv.empty:
-                        # Define exactly which columns the user wants
                         target_cols = [
                             "client_number", "call_datetime", "call_duration", "status", 
                             "direction", "service", "reason", "call_owner", 
                             "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst"
                         ]
-                        
-                        # Filter for existing columns only to prevent errors
                         existing_cols = [c for c in target_cols if c in cdr_csv.columns]
                         cdr_csv = cdr_csv[existing_cols]
                         
