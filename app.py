@@ -30,6 +30,18 @@ st.markdown("""
 header[data-testid="stHeader"] { visibility: visible !important; }
 footer {visibility: hidden;}
 [data-testid="stMainViewContainer"] { padding-top: 2rem; }
+
+/* Forces Header Text Wrapping and Column Expansion */
+div[data-testid="stDataFrame"] thead tr th {
+    white-space: normal !important;
+    word-wrap: break-word !important;
+    text-align: center !important;
+    vertical-align: middle !important;
+    min-width: 100px !important;
+    line-height: 1.2 !important;
+    height: auto !important;
+    padding: 10px !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -128,12 +140,8 @@ if st.sidebar.button("Generate Report"):
             if df.empty:
                 st.error("No results match filters.")
             else:
-                # --- SYNC LOGIC ---
-                # 1. Identify agents who have at least one answered call (duration > 0)
+                # Sync logic: Only include agents with at least one answered call
                 active_callers = df[df['call_duration'] > 0]['call_owner'].unique()
-                
-                # 2. Filter the main data to ONLY these agents
-                # This ensures top metrics and table sums match exactly
                 df_filtered = df[df['call_owner'].isin(active_callers)]
                 
                 if df_filtered.empty:
@@ -145,7 +153,7 @@ if st.sidebar.button("Generate Report"):
                     
                     for owner, agent_group in df_filtered.groupby('call_owner'):
                         total_ans, total_miss, total_calls = 0, 0, 0
-                        total_above_3min, total_long_calls, agent_valid_dur = 0, 0, 0
+                        total_above_3min, total_mid_calls, total_long_calls, agent_valid_dur = 0, 0, 0, 0
                         total_break_sec_all_days = 0
                         total_active_days = 0
                         daily_io_list, daily_break_list, all_issues = [], [], []
@@ -156,13 +164,17 @@ if st.sidebar.button("Generate Report"):
                             ans = len(day_group[day_group['status'].str.lower() == 'answered'])
                             miss = len(day_group[day_group['status'].str.lower() == 'missed'])
                             total_ans += ans; total_miss += miss; total_calls += len(day_group)
+                            
+                            # Counts
                             total_above_3min += len(day_group[day_group['call_duration'] >= 180])
+                            # Logic: >= 15m (900s) AND < 20m (1200s)
+                            total_mid_calls += len(day_group[(day_group['call_duration'] >= 900) & (day_group['call_duration'] < 1200)])
                             total_long_calls += len(day_group[day_group['call_duration'] >= 1200])
+                            
                             day_dur = day_group.loc[day_group['call_duration'] >= 180, 'call_duration'].sum()
                             agent_valid_dur += day_dur
                             
                             first_call_start = day_group['call_datetime'].min()
-                            # Calculate actual end of the last call of the day
                             last_call_end_time = (day_group['call_datetime'] + pd.to_timedelta(day_group['call_duration'], unit='s')).max()
                             
                             in_t_str = first_call_start.strftime('%I:%M %p')
@@ -237,6 +249,7 @@ if st.sidebar.button("Generate Report"):
                             "CALL STATUS": f"{total_ans} Ans / {total_miss} Unans",
                             "PICK UP RATIO %": f"{pickup_ratio}%",
                             "CALLS > 3 MINS": int(total_above_3min),
+                            "CALLS 15-20 MINS": int(total_mid_calls),
                             "20+ MIN CALLS": int(total_long_calls),
                             "CALL DURATION > 3 MINS": format_dur_hm(agent_valid_dur),
                             "PRODUCTIVE HOURS": format_dur_hm(prod_sec_total),
@@ -248,7 +261,6 @@ if st.sidebar.button("Generate Report"):
                     report_df = pd.DataFrame(agents_list)
                     m1, m2, m3, m4 = st.columns(4)
                     
-                    # Top Metrics now only count data from df_filtered
                     total_filtered_calls = df_filtered['call_id'].nunique()
                     m1.metric("Total Unique Calls", total_filtered_calls)
                     
@@ -268,6 +280,7 @@ if st.sidebar.button("Generate Report"):
                         "CALL STATUS": "-",
                         "PICK UP RATIO %": "-",
                         "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
+                        "CALLS 15-20 MINS": int(report_df["CALLS 15-20 MINS"].sum()),
                         "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
                         "CALL DURATION > 3 MINS": format_dur_hm(total_duration_agg),
                         "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod"].sum()),
@@ -281,9 +294,14 @@ if st.sidebar.button("Generate Report"):
                             return ['font-weight: bold; background-color: #262730; color: white'] * len(row)
                         return [''] * len(row)
                         
-                    display_cols = ["IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "PRODUCTIVE HOURS", "LONG BREAKS (>=20 MINS)", "REMARKS"]
+                    display_cols = ["IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "PRODUCTIVE HOURS", "LONG BREAKS (>=20 MINS)", "REMARKS"]
                     
-                    st.dataframe(final_df.style.apply(style_total_row, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=display_cols, use_container_width=True, hide_index=True)
+                    st.dataframe(
+                        final_df.style.apply(style_total_row, axis=1).set_properties(**{'white-space': 'pre-wrap'}), 
+                        column_order=display_cols, 
+                        use_container_width=True, 
+                        hide_index=True
+                    )
                     st.divider()
                     
                     cdr_csv = df_filtered.copy()
