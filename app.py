@@ -12,6 +12,7 @@ if "gcp_service_account" in st.secrets:
     credentials = service_account.Credentials.from_service_account_info(info)
     client = bigquery.Client(credentials=credentials, project=info["project_id"])
 else:
+    # Fallback for local testing
     SERVICE_ACCOUNT_FILE = "/content/drive/MyDrive/Lawsikho/credentials/bigquery_key.json"
     if os.path.exists(SERVICE_ACCOUNT_FILE):
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = SERVICE_ACCOUNT_FILE
@@ -91,7 +92,6 @@ def fetch_call_data(start_date, end_date):
     df_ozo = client.query(q_ozo).to_dataframe()
     
     if not df_ozo.empty:
-        # MAP ozonetel duration_sec -> dashboard call_duration
         df_ozo = df_ozo.rename(columns={
             'CallID': 'call_id',
             'AgentName': 'call_owner',
@@ -102,11 +102,13 @@ def fetch_call_data(start_date, end_date):
             'Status': 'status',
             'Type': 'direction',
             'Disposition': 'reason',
-            'Source': 'source'
+            'Source': 'source' # Use the source provided in BQ if exists
         })
-        # Standardize Status & Direction values
+        # Standardize Ozonetel Status & Direction
         df_ozo['status'] = df_ozo['status'].str.lower().replace({'unanswered': 'missed'})
         df_ozo['direction'] = df_ozo['direction'].str.lower().replace({'manual': 'outbound'})
+        if 'source' not in df_ozo.columns:
+            df_ozo['source'] = 'Ozonetel'
 
     # Merge
     df = pd.concat([df_ace, df_ozo], ignore_index=True)
@@ -169,7 +171,7 @@ if st.sidebar.button("Generate Report"):
             if df.empty:
                 st.error("No results match filters.")
             else:
-                # CHANGED: Allow agents even if talk time is 0 (for missed call tracking)
+                # RELAXED FILTER: Count anyone with a record (call_id) instead of just duration > 0
                 active_callers = df['call_owner'].unique()
                 df_filtered = df[df['call_owner'].isin(active_callers)]
                 
@@ -262,18 +264,25 @@ if st.sidebar.button("Generate Report"):
                         })
                         
                     report_df = pd.DataFrame(agents_list)
+                    
+                    # --- REFINED METRIC CARDS ---
                     m1, m2, m3, m4 = st.columns(4)
                     
-                    # CARD 1: Total Attempted
-                    m1.metric("Total Attempted Calls", df_filtered['call_id'].nunique())
+                    # Card 1: Total Attempted Calls
+                    total_calls_all = df_filtered['call_id'].nunique()
+                    m1.metric("Total Attempted Calls", total_calls_all)
                     
-                    # CARD 2: Breakdown by Source
-                    ace_count = len(df_filtered[df_filtered['source'].str.lower() == 'acefone'])
-                    ozo_count = len(df_filtered[df_filtered['source'].str.lower() == 'ozonetel'])
-                    m2.metric("Calls by Source", f"A: {ace_count} | O: {ozo_count}")
+                    # Card 2: Calls by Source
+                    ace_c = len(df_filtered[df_filtered['source'] == 'Acefone'])
+                    ozo_c = len(df_filtered[df_filtered['source'] == 'Ozonetel'])
+                    m2.metric("Calls by Source", f"A: {ace_c} | O: {ozo_c}")
                     
+                    # Card 3: Active Callers
                     m3.metric("Active Callers", len(report_df))
+                    
+                    # Card 4: Avg Productive Hrs
                     m4.metric("Avg Productive Hrs", format_dur_hm(report_df["raw_prod"].mean()))
+                    
                     st.divider()
                     
                     total_row = pd.DataFrame([{
