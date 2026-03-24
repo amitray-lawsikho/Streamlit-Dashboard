@@ -97,11 +97,12 @@ def fetch_call_data(start_date, end_date):
         df_ozo = df_ozo.rename(columns={
             'CallID': 'call_id', 'AgentName': 'call_owner', 'phone_number': 'client_number',
             'StartTime': 'call_datetime', 'CallDate': 'Call Date', 'duration_sec': 'call_duration',
-            'Status': 'status', 'Type': 'direction', 'Disposition': 'reason'
+            'Status': 'status', 'Type': 'direction', 'Disposition': 'reason', 'Source': 'source'
         })
         df_ozo['status'] = df_ozo['status'].str.lower().replace({'unanswered': 'missed'})
         df_ozo['direction'] = df_ozo['direction'].str.lower().replace({'manual': 'outbound'})
-        df_ozo['source'] = 'Ozonetel'
+        if 'source' not in df_ozo.columns:
+            df_ozo['source'] = 'Ozonetel'
 
     df = pd.concat([df_ace, df_ozo], ignore_index=True)
     if not df.empty:
@@ -275,7 +276,7 @@ if st.sidebar.button("Generate Report"):
                     
                     cdr_csv = df_filtered.copy()
                     if not cdr_csv.empty:
-                        target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst"]
+                        target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
                         existing_cols = [c for c in target_cols if c in cdr_csv.columns]
                         cdr_csv = cdr_csv[existing_cols]
                         if 'call_datetime' in cdr_csv.columns: cdr_csv['call_datetime'] = cdr_csv['call_datetime'].dt.strftime('%Y-%m-%d %H:%M:%S')
