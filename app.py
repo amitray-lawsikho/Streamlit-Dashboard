@@ -44,14 +44,15 @@ div[data-testid="stDataFrame"] thead tr th {
     padding: 10px !important;
 }
 
-.team-header {
-    background-color: #1E1E1E;
-    padding: 10px;
-    border-radius: 5px;
-    border-left: 5px solid #FF4B4B;
-    margin-top: 30px;
-    margin-bottom: 15px;
+/* Refined Static Heading: Smaller font, no background for theme compatibility */
+.static-team-header {
     text-align: center;
+    margin-top: 40px;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 2px solid #FF4B4B;
+    font-size: 1.2rem;
+    font-weight: 600;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -323,7 +324,8 @@ with tab2:
                     report_df, team_dur = process_metrics_logic(team_df)
                     
                     if team_dur > 0:
-                        st.markdown(f"<div class='team-header'><h3>DURATION REPORT - {team.upper()}</h3></div>", unsafe_allow_html=True)
+                        # CENTERED HEADING WITH DATE RANGE
+                        st.markdown(f"<div class='static-team-header'>DURATION REPORT - {team.upper()} ({display_start} To {display_end})</div>", unsafe_allow_html=True)
                         
                         total_row = pd.DataFrame([{
                             "IN/OUT TIME": "-", "CALLER": "TOTAL", "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
@@ -335,8 +337,6 @@ with tab2:
                         final_team_df = pd.concat([report_df, total_row], ignore_index=True)
                         display_cols = ["IN/OUT TIME", "CALLER", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)", "REMARKS"]
                         
-                        # --- UI FIX: Use st.dataframe with dynamic height calculation ---
-                        # Standard row height is approx 35px. We add padding for the header.
                         calc_height = (len(final_team_df) + 1) * 35 + 45
                         
                         st.dataframe(
@@ -344,7 +344,7 @@ with tab2:
                             column_order=display_cols,
                             use_container_width=True,
                             hide_index=True,
-                            height=calc_height  # This prevents the scrollbar
+                            height=calc_height
                         )
                         
                         target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
@@ -356,7 +356,7 @@ with tab2:
                 if not tl_ad_df.empty:
                     report_df_tl, tl_dur = process_metrics_logic(tl_ad_df)
                     if tl_dur > 0:
-                        st.markdown("<div class='team-header' style='border-left: 5px solid #00C781;'><h3>TL'S DURATION REPORT</h3></div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='static-team-header' style='border-bottom: 2px solid #00C781;'>TL'S DURATION REPORT ({display_start} To {display_end})</div>", unsafe_allow_html=True)
                         
                         total_row_tl = pd.DataFrame([{
                             "IN/OUT TIME": "-", "CALLER": "TOTAL", "TOTAL CALLS": int(report_df_tl["TOTAL CALLS"].sum()),
