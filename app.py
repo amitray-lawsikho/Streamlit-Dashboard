@@ -32,7 +32,10 @@ footer {visibility: hidden;}
 [data-testid="stMainViewContainer"] { padding-top: 2rem; }
 [data-testid="stStatusWidget"], .stStatusWidget { display: none !important; visibility: hidden !important; }
 
+/* Table Header Styling - Black Background, White Font */
 div[data-testid="stDataFrame"] thead tr th {
+    background-color: #000000 !important;
+    color: #ffffff !important;
     white-space: normal !important;
     word-wrap: break-word !important;
     text-align: center !important;
@@ -43,12 +46,12 @@ div[data-testid="stDataFrame"] thead tr th {
     padding: 10px !important;
 }
 
+/* Static Heading Refinement: Removed borders, kept centering and font size */
 .static-team-header {
     text-align: center;
     margin-top: 40px;
     margin-bottom: 10px;
     padding-bottom: 5px;
-    border-bottom: 2px solid #FF4B4B;
     font-size: 1.2rem;
     font-weight: 600;
 }
@@ -245,7 +248,7 @@ with col_sub_r:
 st.divider()
 
 # --- 6. TAB SELECTION ---
-tab1, tab2 = st.tabs(["Dynamic Dashboard", "Static Dashboard"])
+tab1, tab2 = st.tabs(["🚀 Dynamic Dashboard", "📅 Static Dashboard"])
 
 with tab1:
     if gen_dynamic:
@@ -285,8 +288,11 @@ with tab1:
                         "CALL DURATION > 3 MINS": format_dur_hm(total_duration_agg), "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod_sec"].sum()),
                         "BREAKS (>=15 MINS)": "-", "REMARKS": "-"
                     }])
-                    final_df = pd.concat([report_df, total_row], ignore_index=True)
+                    
                     display_cols = ["IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)","REMARKS"]
+                    
+                    # Ensure final display DF only contains requested columns
+                    final_df = pd.concat([report_df, total_row], ignore_index=True)
                     
                     st.dataframe(final_df.style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=display_cols, use_container_width=True, hide_index=True)
                     st.divider()
@@ -302,7 +308,6 @@ with tab2:
             if df_raw.empty:
                 st.warning("No data found.")
             else:
-                # 1. Prepare Master Merged Data for Static View
                 df_raw['merge_key'] = df_raw['call_owner'].str.strip().str.lower()
                 df_static_master = pd.merge(df_raw, df_team_mapping, on='merge_key', how='left')
                 df_static_master['call_owner'] = df_static_master['Caller Name'].fillna(df_static_master['call_owner'])
@@ -311,20 +316,16 @@ with tab2:
                     df_static_master = df_static_master[df_static_master['Vertical'].isin(selected_vertical)]
 
                 # --- 🔴 DYNAMIC TL DETECTION 🔴 ---
-                # Search across ALL columns in the Google Sheet for any cell containing exact TL/AD markers
                 tl_ad_mask = pd.Series(False, index=df_static_master.index)
                 meta_cols = df_team_mapping.columns.tolist()
                 for col in meta_cols:
                     if col in df_static_master.columns:
                         clean_col = df_static_master[col].fillna('').astype(str).str.strip().str.upper()
-                        # If any cell is exactly one of these, they are a TL
                         tl_ad_mask |= clean_col.isin(['TL', 'ATL', 'AD', 'TEAM LEAD', 'TEAM LEADER'])
 
-                # Define Display Columns for Static dashboard (Hiding requested fields)
                 static_display_cols = ["CALLER", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS"]
                 
-                # --- PART 1: NORMAL TEAMS (Excluding TL/AD) ---
-                # Filter out anyone flagged by the tl_ad_mask
+                # --- PART 1: NORMAL TEAMS ---
                 normal_team_data = df_static_master[~tl_ad_mask]
                 normal_teams = sorted(normal_team_data['Team Name'].dropna().unique())
                 
@@ -357,18 +358,16 @@ with tab2:
                         st.download_button(label=f"📥 Download CDR - {team}", data=team_df[existing_cols].to_csv(index=False).encode('utf-8'), file_name=f"CDR_{team}.csv", mime='text/csv', key=f"dl_team_{team}")
                         st.divider()
 
-                # --- PART 2: GUARANTEED TL/AD SECTION ---
+                # --- PART 2: TL/AD SECTION ---
                 tl_ad_pool = df_static_master[tl_ad_mask]
                 
                 if not tl_ad_pool.empty:
                     report_df_tl, _ = process_metrics_logic(tl_ad_pool)
-                    
-                    # --- NEW LOGIC: FILTER OUT TLs WITH <= 5 MINS (300 SECONDS) DURATION ---
-                    report_df_tl = report_df_tl[report_df_tl['raw_dur_sec'] > 60]
+                    report_df_tl = report_df_tl[report_df_tl['raw_dur_sec'] > 300]
                     tl_dur_agg_sec = report_df_tl['raw_dur_sec'].sum()
                     
                     if not report_df_tl.empty and tl_dur_agg_sec > 0:
-                        st.markdown(f"<div class='static-team-header' style='border-bottom: 2px solid #00C781;'>TL'S DURATION REPORT ({display_start} To {display_end})</div>", unsafe_allow_html=True)
+                        st.markdown(f"<div class='static-team-header'>TL'S DURATION REPORT ({display_start} To {display_end})</div>", unsafe_allow_html=True)
                         
                         total_row_tl = pd.DataFrame([{
                             "CALLER": "TOTAL", "TOTAL CALLS": int(report_df_tl["TOTAL CALLS"].sum()),
@@ -389,8 +388,6 @@ with tab2:
                         )
                         
                         target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
-                        
-                        # Filter the CDR download so it only downloads calls for the TLs remaining in the table
                         valid_tls = report_df_tl['CALLER'].unique()
                         final_tl_cdr = tl_ad_pool[tl_ad_pool['call_owner'].isin(valid_tls)]
                         existing_cols = [c for c in target_cols if c in final_tl_cdr.columns]
