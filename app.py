@@ -314,9 +314,11 @@ with tab2:
                 else:
                     df_all['role'] = ''
                 
-                normal_teams = sorted(df_all[~df_all['role'].isin(['TL', 'AD'])]['Team Name'].dropna().unique())
-                # STATIC HIDE FIELDS: ["IN/OUT TIME", "TEAM", "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)", "REMARKS"]
+                # STATIC HIDE FIELDS
                 static_display_cols = ["CALLER", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS"]
+                
+                # 1. NORMAL TEAMS REPORT
+                normal_teams = sorted(df_all[~df_all['role'].isin(['TL', 'AD'])][ 'Team Name'].dropna().unique())
                 
                 for team in normal_teams:
                     team_df = df_all[df_all['Team Name'] == team]
@@ -347,7 +349,7 @@ with tab2:
                         st.download_button(label=f"📥 Download CDR - {team}", data=team_df[existing_cols].to_csv(index=False).encode('utf-8'), file_name=f"CDR_{team}.csv", mime='text/csv', key=f"dl_{team}")
                         st.divider()
 
-                # TL/AD SECTION
+                # 2. TL/AD SECTION REPORT (Special Case: Any Team, but Role is TL or AD)
                 tl_ad_df = df_all[df_all['role'].isin(['TL', 'AD'])]
                 if not tl_ad_df.empty:
                     report_df_tl, tl_dur_agg_sec = process_metrics_logic(tl_ad_df)
