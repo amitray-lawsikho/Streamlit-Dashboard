@@ -22,7 +22,7 @@ else:
 CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRT73ztvPNZSvIu5WLxo-3WQ76JMAnt4P9dITd4EAbjSvuDytfgvdfri1WPXotCjm_Etnb80_Q7S-wf/pub?gid=0&single=true&output=csv"
 
 # --- 2. Page Configuration ---
-st.set_page_config(layout="wide", page_title="CALLERWISE DURATION METRICSS", initial_sidebar_state="expanded")
+st.set_page_config(layout="wide", page_title="CALLERWISE DURATION METRICS", initial_sidebar_state="expanded")
 
 # --- CLEAN UI CSS ---
 st.markdown("""
