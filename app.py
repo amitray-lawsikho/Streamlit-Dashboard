@@ -31,6 +31,9 @@ header[data-testid="stHeader"] { visibility: visible !important; }
 footer {visibility: hidden;}
 [data-testid="stMainViewContainer"] { padding-top: 2rem; }
 
+/* Hide the 'Running fetch_call_data(...)' status spinner/text */
+div[data-testid="stStatusWidget"] { display: none !important; }
+
 div[data-testid="stDataFrame"] thead tr th {
     white-space: normal !important;
     word-wrap: break-word !important;
@@ -276,6 +279,7 @@ if st.sidebar.button("Generate Report"):
                     
                     cdr_csv = df_filtered.copy()
                     if not cdr_csv.empty:
+                        # Ensured 'source' is in the columns
                         target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
                         existing_cols = [c for c in target_cols if c in cdr_csv.columns]
                         cdr_csv = cdr_csv[existing_cols]
