@@ -310,17 +310,22 @@ with tab2:
                 if selected_vertical:
                     df_static_master = df_static_master[df_static_master['Vertical'].isin(selected_vertical)]
 
-                # Clean Role data for specific TL/AD matching
-                if 'Academic_Counselor_TL_ATL' in df_static_master.columns:
-                    df_static_master['role'] = df_static_master['Academic_Counselor_TL_ATL'].fillna('').astype(str).str.strip().str.upper()
-                else:
-                    df_static_master['role'] = ''
+                # --- 🔴 CRITICAL FIX: DYNAMIC TL DETECTION 🔴 ---
+                # Search across ALL columns in the Google Sheet for any cell containing exact TL/AD markers
+                tl_ad_mask = pd.Series(False, index=df_static_master.index)
+                meta_cols = df_team_mapping.columns.tolist()
+                for col in meta_cols:
+                    if col in df_static_master.columns:
+                        clean_col = df_static_master[col].fillna('').astype(str).str.strip().str.upper()
+                        # If any cell is exactly one of these, they are a TL
+                        tl_ad_mask |= clean_col.isin(['TL', 'ATL', 'AD', 'TEAM LEAD', 'TEAM LEADER'])
 
                 # Define Display Columns for Static dashboard (Hiding requested fields)
                 static_display_cols = ["CALLER", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS"]
                 
                 # --- PART 1: NORMAL TEAMS (Excluding TL/AD) ---
-                normal_team_data = df_static_master[~df_static_master['role'].isin(['TL', 'AD'])]
+                # Filter out anyone flagged by the tl_ad_mask
+                normal_team_data = df_static_master[~tl_ad_mask]
                 normal_teams = sorted(normal_team_data['Team Name'].dropna().unique())
                 
                 for team in normal_teams:
@@ -353,8 +358,8 @@ with tab2:
                         st.divider()
 
                 # --- PART 2: GUARANTEED TL/AD SECTION ---
-                # Independent Scan of the full dataset for TL/AD roles
-                tl_ad_pool = df_static_master[df_static_master['role'].isin(['TL', 'AD'])]
+                # Use exactly the pool of callers flagged by the mask above
+                tl_ad_pool = df_static_master[tl_ad_mask]
                 
                 if not tl_ad_pool.empty:
                     report_df_tl, tl_dur_agg_sec = process_metrics_logic(tl_ad_pool)
