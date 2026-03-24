@@ -50,8 +50,8 @@ div[data-testid="stDataFrame"] thead tr th {
 </style>
 """, unsafe_allow_html=True)
 
-# --- 3. Data Fetching Functions ---
-@st.cache_data(ttl=3600, show_spinner=False) # Spinner set to False here as well
+# --- 3. Data Fetching Functions (2 min TTL) ---
+@st.cache_data(ttl=120, show_spinner=False)
 def get_metadata():
     df_meta = pd.read_csv(CSV_URL)
     df_meta.columns = df_meta.columns.str.strip()
@@ -60,22 +60,24 @@ def get_metadata():
     verticals = sorted(df_meta['Vertical'].dropna().unique())
     return teams, verticals, df_meta
 
-@st.cache_data(ttl=60, show_spinner=False)
+@st.cache_data(ttl=120, show_spinner=False)
 def get_global_last_update():
+    # Global logic: Unaffected by sidebar filters, finds absolute max timestamp
     query = """
-    SELECT MAX(upd) as last_update FROM (
-        SELECT MAX(updated_at_ampm) as upd FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`
+    WITH combined AS (
+        SELECT updated_at, updated_at_ampm FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`
         UNION ALL
-        SELECT MAX(updated_at_ampm) as upd FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls`
+        SELECT StartTime as updated_at, updated_at_ampm FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls`
     )
+    SELECT updated_at_ampm FROM combined WHERE updated_at IS NOT NULL ORDER BY updated_at DESC LIMIT 1
     """
     try:
         res = client.query(query).to_dataframe()
-        return str(res['last_update'].iloc[0]) if not res.empty else "N/A"
+        return str(res['updated_at_ampm'].iloc[0]) if not res.empty else "N/A"
     except:
         return "N/A"
 
-@st.cache_data(ttl=3600, show_spinner=False)
+@st.cache_data(ttl=120, show_spinner=False)
 def get_available_dates():
     query = """
     SELECT MIN(min_d) as min_date, MAX(max_d) as max_date FROM (
@@ -89,7 +91,7 @@ def get_available_dates():
         return df_dates['min_date'].iloc[0], df_dates['max_date'].iloc[0]
     return date.today(), date.today()
 
-@st.cache_data(ttl=600, show_spinner=False) # Spinner set to False
+@st.cache_data(ttl=120, show_spinner=False)
 def fetch_call_data(start_date, end_date):
     q_ace = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls` WHERE `Call Date` BETWEEN '{start_date}' AND '{end_date}'"
     df_ace = client.query(q_ace).to_dataframe()
@@ -140,13 +142,15 @@ selected_vertical = st.sidebar.multiselect("Filter by Vertical", options=vertica
 search_query = st.sidebar.text_input("🔍 Search Name")
 
 # --- 5. Header Section ---
+# Placed outside the button logic to ensure Last Updated is persistent and global
+last_update_str = get_global_last_update()
 st.markdown("<h1 style='text-align: center; margin-bottom: 5px;'>CALLERWISE DURATION METRICS</h1>", unsafe_allow_html=True)
 display_start, display_end = start_date.strftime('%d-%m-%Y'), end_date.strftime('%d-%m-%Y')
 col_sub_l, col_sub_r = st.columns([3, 1])
 with col_sub_l:
     st.markdown(f"<p style='color: #A0A0A0;'>Report Period: <b>{display_start}</b> to <b>{display_end}</b></p>", unsafe_allow_html=True)
 with col_sub_r:
-    st.markdown(f"<p style='color: #A0A0A0; text-align: right;'>Last Updated: <b>{get_global_last_update()}</b></p>", unsafe_allow_html=True)
+    st.markdown(f"<p style='color: #A0A0A0; text-align: right;'>Last Updated: <b>{last_update_str}</b></p>", unsafe_allow_html=True)
 st.divider()
 
 # --- 6. Main Logic ---
@@ -261,7 +265,6 @@ if st.sidebar.button("Generate Report"):
                     m2.metric("Acefone Calls", len(df_filtered[df_filtered['source'] == 'Acefone']))
                     m3.metric("Ozonetel Calls", len(df_filtered[df_filtered['source'] == 'Ozonetel']))
                     
-                    # Unique Leads Dialled placed after Ozonetel Calls
                     u_ace = df_filtered[df_filtered['source'] == 'Acefone']['unique_lead_id'].nunique()
                     u_ozo = df_filtered[df_filtered['source'] == 'Ozonetel']['unique_lead_id'].nunique()
                     m4.metric("Unique Leads Dialled", u_ace + u_ozo)
