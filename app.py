@@ -31,8 +31,11 @@ header[data-testid="stHeader"] { visibility: visible !important; }
 footer {visibility: hidden;}
 [data-testid="stMainViewContainer"] { padding-top: 2rem; }
 
-/* Hide the 'Running fetch_call_data(...)' status spinner/text */
-div[data-testid="stStatusWidget"] { display: none !important; }
+/* REFIX: Strictly hide the 'Running fetch_call_data' and spinner status */
+[data-testid="stStatusWidget"], .stStatusWidget {
+    display: none !important;
+    visibility: hidden !important;
+}
 
 div[data-testid="stDataFrame"] thead tr th {
     white-space: normal !important;
@@ -48,7 +51,7 @@ div[data-testid="stDataFrame"] thead tr th {
 """, unsafe_allow_html=True)
 
 # --- 3. Data Fetching Functions ---
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=3600, show_spinner=False) # Spinner set to False here as well
 def get_metadata():
     df_meta = pd.read_csv(CSV_URL)
     df_meta.columns = df_meta.columns.str.strip()
@@ -57,7 +60,7 @@ def get_metadata():
     verticals = sorted(df_meta['Vertical'].dropna().unique())
     return teams, verticals, df_meta
 
-@st.cache_data(ttl=60)
+@st.cache_data(ttl=60, show_spinner=False)
 def get_global_last_update():
     query = """
     SELECT MAX(upd) as last_update FROM (
@@ -72,7 +75,7 @@ def get_global_last_update():
     except:
         return "N/A"
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=3600, show_spinner=False)
 def get_available_dates():
     query = """
     SELECT MIN(min_d) as min_date, MAX(max_d) as max_date FROM (
@@ -86,16 +89,14 @@ def get_available_dates():
         return df_dates['min_date'].iloc[0], df_dates['max_date'].iloc[0]
     return date.today(), date.today()
 
-@st.cache_data(ttl=600)
+@st.cache_data(ttl=600, show_spinner=False) # Spinner set to False
 def fetch_call_data(start_date, end_date):
-    # Fetch Acefone
     q_ace = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls` WHERE `Call Date` BETWEEN '{start_date}' AND '{end_date}'"
     df_ace = client.query(q_ace).to_dataframe()
     if not df_ace.empty: 
         df_ace['source'] = 'Acefone'
         df_ace['unique_lead_id'] = df_ace['client_number']
 
-    # Fetch Ozonetel
     q_ozo = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls` WHERE CallDate BETWEEN '{start_date}' AND '{end_date}'"
     df_ozo = client.query(q_ozo).to_dataframe()
     if not df_ozo.empty:
@@ -254,19 +255,19 @@ if st.sidebar.button("Generate Report"):
                         
                     report_df = pd.DataFrame(agents_list)
                     
-                    # --- 7 METRIC CARDS (Ordered) ---
+                    # --- 7 METRIC CARDS ---
                     m1, m2, m3, m4, m5, m6, m7 = st.columns(7)
                     m1.metric("Total Calls", df_filtered['call_id'].nunique())
                     m2.metric("Acefone Calls", len(df_filtered[df_filtered['source'] == 'Acefone']))
                     m3.metric("Ozonetel Calls", len(df_filtered[df_filtered['source'] == 'Ozonetel']))
                     
-                    # Unique Leads Dialled inserted after Ozonetel Calls
-                    unique_ace = df_filtered[df_filtered['source'] == 'Acefone']['unique_lead_id'].nunique()
-                    unique_ozo = df_filtered[df_filtered['source'] == 'Ozonetel']['unique_lead_id'].nunique()
-                    m4.metric("Unique Leads", unique_ace + unique_ozo)
+                    # Unique Leads Dialled placed after Ozonetel Calls
+                    u_ace = df_filtered[df_filtered['source'] == 'Acefone']['unique_lead_id'].nunique()
+                    u_ozo = df_filtered[df_filtered['source'] == 'Ozonetel']['unique_lead_id'].nunique()
+                    m4.metric("Unique Leads Dialled", u_ace + u_ozo)
                     
-                    ans_total = len(df_filtered[df_filtered['status'].str.lower() == 'answered'])
-                    m5.metric("Pick Up Ratio %", f"{(ans_total/df_filtered['call_id'].nunique()*100):.1f}%")
+                    ans_t = len(df_filtered[df_filtered['status'].str.lower() == 'answered'])
+                    m5.metric("Pick Up Ratio %", f"{(ans_t/df_filtered['call_id'].nunique()*100):.1f}%")
                     m6.metric("Active Callers", len(report_df))
                     m7.metric("Avg Productive Hrs", format_dur_hm(report_df["raw_prod"].mean()))
                     st.divider()
