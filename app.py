@@ -12,7 +12,6 @@ if "gcp_service_account" in st.secrets:
     credentials = service_account.Credentials.from_service_account_info(info)
     client = bigquery.Client(credentials=credentials, project=info["project_id"])
 else:
-    # Fallback for local testing
     SERVICE_ACCOUNT_FILE = "/content/drive/MyDrive/Lawsikho/credentials/bigquery_key.json"
     if os.path.exists(SERVICE_ACCOUNT_FILE):
         os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = SERVICE_ACCOUNT_FILE
@@ -109,7 +108,7 @@ def fetch_call_data(start_date, end_date):
         df_ozo['direction'] = df_ozo['direction'].str.lower().replace({'manual': 'outbound'})
         df_ozo['source'] = 'Ozonetel'
 
-    # Combined DataFrame
+    # Combined DataFrame - Simple Concatenation as requested (No deduplication logic here)
     df = pd.concat([df_ace, df_ozo], ignore_index=True)
     
     if not df.empty:
@@ -158,11 +157,11 @@ if st.sidebar.button("Generate Report"):
         if df_raw.empty:
             st.warning("No data found for selection.")
         else:
-            # Case-Insensitive Merge Key
+            # Case-Insensitive Merge Key normalization
             df_raw['merge_key'] = df_raw['call_owner'].astype(str).str.strip().str.lower()
             df = pd.merge(df_raw, df_team_mapping, on='merge_key', how='left')
             
-            # Use original AgentName if Team Sheet mapping isn't found (avoids losing data)
+            # CRITICAL: Keep original Name if mapping fails, so Ozonetel users don't disappear
             df['call_owner'] = df['Caller Name'].fillna(df['call_owner'])
             df = df[df['call_owner'].notna() & (df['call_owner'] != '')]
             
@@ -174,11 +173,12 @@ if st.sidebar.button("Generate Report"):
             if df.empty:
                 st.error("No results match filters.")
             else:
+                # Group data to ensure metrics show even for missed calls
                 active_callers = df['call_owner'].unique()
                 df_filtered = df[df['call_owner'].isin(active_callers)]
                 
                 if df_filtered.empty:
-                    st.warning("No activity found for selected agents.")
+                    st.warning("No activity found.")
                 else:
                     agents_list = []
                     total_duration_agg = 0
@@ -266,21 +266,27 @@ if st.sidebar.button("Generate Report"):
                         })
                         
                     report_df = pd.DataFrame(agents_list)
+                    
+                    # --- METRIC CARDS ---
                     m1, m2, m3, m4 = st.columns(4)
                     
-                    # CARD 1: Total Attempted
+                    # Card 1: Total Attempted
                     m1.metric("Total Attempted Calls", df_filtered['call_id'].nunique())
                     
-                    # CARD 2: REFINED - Breakdown by Source
-                    ace_count = len(df_filtered[df_filtered['source'] == 'Acefone'])
-                    ozo_count = len(df_filtered[df_filtered['source'] == 'Ozonetel'])
-                    m2.metric("Calls by Source", f"A: {ace_count} | O: {ozo_count}")
+                    # Card 2: Calls by Source (Acefone vs Ozonetel)
+                    ace_c = len(df_filtered[df_filtered['source'] == 'Acefone'])
+                    ozo_c = len(df_filtered[df_filtered['source'] == 'Ozonetel'])
+                    m2.metric("Calls by Source", f"A: {ace_c} | O: {ozo_c}")
                     
+                    # Card 3: Active Callers
                     m3.metric("Active Callers", len(report_df))
+                    
+                    # Card 4: Productive Hours
                     m4.metric("Avg Productive Hrs", format_dur_hm(report_df["raw_prod"].mean()))
                     
                     st.divider()
                     
+                    # Final Table Rendering
                     total_row = pd.DataFrame([{
                         "IN/OUT TIME": "-", "CALLER": "TOTAL", "TEAM": "-", "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
                         "CALL STATUS": "-", "PICK UP RATIO %": "-", "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
@@ -297,7 +303,7 @@ if st.sidebar.button("Generate Report"):
                     st.dataframe(final_df.style.apply(style_total_row, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=display_cols, use_container_width=True, hide_index=True)
                     st.divider()
                     
-                    # CDR Download
+                    # Download CSV Section
                     cdr_csv = df_filtered.copy()
                     if not cdr_csv.empty:
                         target_cols = {
