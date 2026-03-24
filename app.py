@@ -129,7 +129,6 @@ def get_display_gap_seconds(start_time, end_time):
     return (e - s).total_seconds()
 
 def process_metrics_logic(df_filtered):
-    """Encapsulated core calculation logic to reuse in both tabs"""
     agents_list = []
     total_duration_agg = 0
     ist_tz = pytz.timezone("Asia/Kolkata")
@@ -211,7 +210,7 @@ def process_metrics_logic(df_filtered):
         })
     return pd.DataFrame(agents_list), total_duration_agg
 
-# --- 4. Sidebar Filters ---
+# --- 4. Sidebar Filters (Unified) ---
 st.sidebar.header("Report Filters")
 min_d, max_d = get_available_dates()
 selected_dates = st.sidebar.date_input("Select Date Range", value=(max_d, max_d), min_value=min_d, max_value=max_d, format="DD-MM-YYYY")
@@ -221,9 +220,12 @@ else:
     start_date = end_date = selected_dates if not isinstance(selected_dates, tuple) else selected_dates[0]
 
 teams, verticals, df_team_mapping = get_metadata()
-selected_team = st.sidebar.multiselect("Filter by Team", options=teams)
+selected_team = st.sidebar.multiselect("Filter by Team (Dynamic Only)", options=teams)
 selected_vertical = st.sidebar.multiselect("Filter by Vertical", options=verticals)
-search_query = st.sidebar.text_input("🔍 Search Name")
+search_query = st.sidebar.text_input("🔍 Search Name (Dynamic Only)")
+
+gen_dynamic = st.sidebar.button("Generate Dynamic Report")
+gen_static = st.sidebar.button("Generate Static Report")
 
 # --- 5. Header Section ---
 last_update_str = get_global_last_update()
@@ -240,7 +242,7 @@ st.divider()
 tab1, tab2 = st.tabs(["🚀 Dynamic Call Dashboard", "📅 Static Call Dashboard"])
 
 with tab1:
-    if st.sidebar.button("Generate Dynamic Report"):
+    if gen_dynamic:
         with st.spinner('Calculating metrics...'):
             df_raw = fetch_call_data(start_date, end_date)
             if df_raw.empty:
@@ -259,8 +261,6 @@ with tab1:
                     st.error("No results match filters.")
                 else:
                     report_df, total_duration_agg = process_metrics_logic(df)
-                    
-                    # Metrics Row
                     m1, m2, m3, m4, m5, m6, m7 = st.columns(7)
                     m1.metric("Total Calls", len(df))
                     m2.metric("Acefone Calls", len(df[df['source'] == 'Acefone']))
@@ -272,8 +272,6 @@ with tab1:
                     m7.metric("Avg Prod Hrs", format_dur_hm(report_df["raw_prod"].mean()))
                     
                     st.divider()
-                    
-                    # Table Display
                     total_row = pd.DataFrame([{
                         "IN/OUT TIME": "-", "CALLER": "TOTAL", "TEAM": "-", "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
                         "CALL STATUS": "-", "PICK UP RATIO %": "-", "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
@@ -288,7 +286,6 @@ with tab1:
                         return ['font-weight: bold; background-color: #262730; color: white'] * len(row) if row["CALLER"] == "TOTAL" else [''] * len(row)
                     
                     st.dataframe(final_df.style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=display_cols, use_container_width=True, hide_index=True)
-                    
                     st.divider()
                     cdr_csv = df.copy()
                     target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
@@ -296,47 +293,40 @@ with tab1:
                     st.download_button(label="📥 Download CDR", data=cdr_csv[existing_cols].to_csv(index=False).encode('utf-8'), file_name=f"CDR_DYNAMIC.csv", mime='text/csv')
 
 with tab2:
-    if st.sidebar.button("Generate Static Report"):
+    if gen_static:
         with st.spinner('Building static layouts...'):
             df_raw = fetch_call_data(start_date, end_date)
             if df_raw.empty:
                 st.warning("No data found.")
             else:
                 df_raw['merge_key'] = df_raw['call_owner'].str.strip().str.lower()
+                # FIX: Merge metadata immediately to ensure Academic_Counselor_TL_ATL is available
                 df_all = pd.merge(df_raw, df_team_mapping, on='merge_key', how='left')
                 df_all['call_owner'] = df_all['Caller Name'].fillna(df_all['call_owner'])
                 
-                # Apply Vertical filter if selected
                 if selected_vertical:
                     df_all = df_all[df_all['Vertical'].isin(selected_vertical)]
 
-                # Identify TL/ADs based on Academic_Counselor_TL_ATL column
-                # Standardize strings for filtering
+                # Standardize Role column after merge
                 df_all['role'] = df_all['Academic_Counselor_TL_ATL'].astype(str).str.strip().str.upper()
                 
-                # 1. NORMAL TEAMS (Exclude TL and AD)
+                # 1. NORMAL TEAMS
                 normal_teams = sorted(df_all[~df_all['role'].isin(['TL', 'AD'])]['Team Name'].dropna().unique())
                 
                 for team in normal_teams:
                     team_df = df_all[df_all['Team Name'] == team]
-                    if team_df.empty: continue
-                    
                     report_df, team_dur = process_metrics_logic(team_df)
                     
-                    # Only show teams where Duration > 0
                     if team_dur > 0:
                         st.markdown(f"<div class='team-header'><h3>DURATION METRIC - {team.upper()}</h3></div>", unsafe_allow_html=True)
-                        
-                        # Internal Logic Metrics Row
                         m1, m2, m3, m4 = st.columns(4)
                         m1.metric("Total Calls", len(team_df))
                         m2.metric("Duration > 3m", format_dur_hm(team_dur))
                         m3.metric("Active Callers", len(report_df))
                         m4.metric("Avg Prod Hrs", format_dur_hm(report_df["raw_prod"].mean()))
                         
-                        # Total Row for Team
                         total_row = pd.DataFrame([{
-                            "IN/OUT TIME": "-", "CALLER": "TOTAL", "TEAM": team, "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
+                            "IN/OUT TIME": "-", "CALLER": "TOTAL", "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
                             "CALL STATUS": "-", "PICK UP RATIO %": "-", "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
                             "CALLS 15-20 MINS": int(report_df["CALLS 15-20 MINS"].sum()), "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
                             "CALL DURATION > 3 MINS": format_dur_hm(team_dur), "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod"].sum()),
@@ -347,34 +337,30 @@ with tab2:
                         
                         st.dataframe(final_team_df.style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=display_cols, use_container_width=True, hide_index=True)
                         
-                        # Download per team
                         target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
                         existing_cols = [c for c in target_cols if c in team_df.columns]
                         st.download_button(label=f"📥 Download CDR - {team}", data=team_df[existing_cols].to_csv(index=False).encode('utf-8'), file_name=f"CDR_{team}.csv", mime='text/csv', key=f"dl_{team}")
                         st.divider()
 
-                # 2. TL/AD DURATION METRICS
+                # 2. TL/AD SECTION
                 tl_ad_df = df_all[df_all['role'].isin(['TL', 'AD'])]
                 if not tl_ad_df.empty:
                     report_df_tl, tl_dur = process_metrics_logic(tl_ad_df)
-                    
                     if tl_dur > 0:
                         st.markdown("<div class='team-header' style='border-left: 5px solid #00C781;'><h3>TL'S DURATION METRICS</h3></div>", unsafe_allow_html=True)
-                        
                         m1, m2, m3 = st.columns(3)
                         m1.metric("Total TL Calls", len(tl_ad_df))
                         m2.metric("TL Duration", format_dur_hm(tl_dur))
                         m3.metric("Avg TL Prod Hrs", format_dur_hm(report_df_tl["raw_prod"].mean()))
                         
                         total_row_tl = pd.DataFrame([{
-                            "IN/OUT TIME": "-", "CALLER": "TOTAL", "TEAM": "TL/AD", "TOTAL CALLS": int(report_df_tl["TOTAL CALLS"].sum()),
+                            "IN/OUT TIME": "-", "CALLER": "TOTAL", "TOTAL CALLS": int(report_df_tl["TOTAL CALLS"].sum()),
                             "CALL STATUS": "-", "PICK UP RATIO %": "-", "CALLS > 3 MINS": int(report_df_tl["CALLS > 3 MINS"].sum()),
                             "CALLS 15-20 MINS": int(report_df_tl["CALLS 15-20 MINS"].sum()), "20+ MIN CALLS": int(report_df_tl["20+ MIN CALLS"].sum()),
                             "CALL DURATION > 3 MINS": format_dur_hm(tl_dur), "PRODUCTIVE HOURS": format_dur_hm(report_df_tl["raw_prod"].sum()),
                             "BREAKS (>=15 MINS)": "-", "REMARKS": "-"
                         }])
-                        final_tl_df = pd.concat([report_df_tl, total_row_tl], ignore_index=True)
-                        st.dataframe(final_tl_df.style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=display_cols, use_container_width=True, hide_index=True)
+                        st.dataframe(pd.concat([report_df_tl, total_row_tl], ignore_index=True).style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=display_cols, use_container_width=True, hide_index=True)
                         
                         target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
                         existing_cols = [c for c in target_cols if c in tl_ad_df.columns]
