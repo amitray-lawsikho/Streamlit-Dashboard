@@ -45,7 +45,8 @@ div[data-testid="stDataFrame"] thead tr th {
 def get_metadata():
     df_meta = pd.read_csv(CSV_URL)
     df_meta.columns = df_meta.columns.str.strip()
-    df_meta['merge_key'] = df_meta['Caller Name'].str.strip().str.lower()
+    # Normalize mapping key
+    df_meta['merge_key'] = df_meta['Caller Name'].astype(str).str.strip().str.lower()
     teams = sorted(df_meta['Team Name'].dropna().unique())
     verticals = sorted(df_meta['Vertical'].dropna().unique())
     return teams, verticals, df_meta
@@ -101,16 +102,14 @@ def fetch_call_data(start_date, end_date):
             'duration_sec': 'call_duration',
             'Status': 'status',
             'Type': 'direction',
-            'Disposition': 'reason',
-            'Source': 'source' # Use the source provided in BQ if exists
+            'Disposition': 'reason'
         })
-        # Standardize Ozonetel Status & Direction
+        # Standardize Values
         df_ozo['status'] = df_ozo['status'].str.lower().replace({'unanswered': 'missed'})
         df_ozo['direction'] = df_ozo['direction'].str.lower().replace({'manual': 'outbound'})
-        if 'source' not in df_ozo.columns:
-            df_ozo['source'] = 'Ozonetel'
+        df_ozo['source'] = 'Ozonetel'
 
-    # Merge
+    # Combined DataFrame
     df = pd.concat([df_ace, df_ozo], ignore_index=True)
     
     if not df.empty:
@@ -159,11 +158,15 @@ if st.sidebar.button("Generate Report"):
         if df_raw.empty:
             st.warning("No data found for selection.")
         else:
-            df_raw['merge_key'] = df_raw['call_owner'].str.strip().str.lower()
+            # Case-Insensitive Merge Key
+            df_raw['merge_key'] = df_raw['call_owner'].astype(str).str.strip().str.lower()
             df = pd.merge(df_raw, df_team_mapping, on='merge_key', how='left')
+            
+            # Use original AgentName if Team Sheet mapping isn't found (avoids losing data)
             df['call_owner'] = df['Caller Name'].fillna(df['call_owner'])
             df = df[df['call_owner'].notna() & (df['call_owner'] != '')]
             
+            # Sidebar Filter Application
             if selected_team: df = df[df['Team Name'].isin(selected_team)]
             if selected_vertical: df = df[df['Vertical'].isin(selected_vertical)]
             if search_query: df = df[df['call_owner'].str.contains(search_query, case=False, na=False)]
@@ -171,12 +174,11 @@ if st.sidebar.button("Generate Report"):
             if df.empty:
                 st.error("No results match filters.")
             else:
-                # RELAXED FILTER: Count anyone with a record (call_id) instead of just duration > 0
                 active_callers = df['call_owner'].unique()
                 df_filtered = df[df['call_owner'].isin(active_callers)]
                 
                 if df_filtered.empty:
-                    st.warning("No active calls found for selected agents.")
+                    st.warning("No activity found for selected agents.")
                 else:
                     agents_list = []
                     total_duration_agg = 0
@@ -264,23 +266,17 @@ if st.sidebar.button("Generate Report"):
                         })
                         
                     report_df = pd.DataFrame(agents_list)
-                    
-                    # --- REFINED METRIC CARDS ---
                     m1, m2, m3, m4 = st.columns(4)
                     
-                    # Card 1: Total Attempted Calls
-                    total_calls_all = df_filtered['call_id'].nunique()
-                    m1.metric("Total Attempted Calls", total_calls_all)
+                    # CARD 1: Total Attempted
+                    m1.metric("Total Attempted Calls", df_filtered['call_id'].nunique())
                     
-                    # Card 2: Calls by Source
-                    ace_c = len(df_filtered[df_filtered['source'] == 'Acefone'])
-                    ozo_c = len(df_filtered[df_filtered['source'] == 'Ozonetel'])
-                    m2.metric("Calls by Source", f"A: {ace_c} | O: {ozo_c}")
+                    # CARD 2: REFINED - Breakdown by Source
+                    ace_count = len(df_filtered[df_filtered['source'] == 'Acefone'])
+                    ozo_count = len(df_filtered[df_filtered['source'] == 'Ozonetel'])
+                    m2.metric("Calls by Source", f"A: {ace_count} | O: {ozo_count}")
                     
-                    # Card 3: Active Callers
                     m3.metric("Active Callers", len(report_df))
-                    
-                    # Card 4: Avg Productive Hrs
                     m4.metric("Avg Productive Hrs", format_dur_hm(report_df["raw_prod"].mean()))
                     
                     st.divider()
@@ -301,6 +297,7 @@ if st.sidebar.button("Generate Report"):
                     st.dataframe(final_df.style.apply(style_total_row, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=display_cols, use_container_width=True, hide_index=True)
                     st.divider()
                     
+                    # CDR Download
                     cdr_csv = df_filtered.copy()
                     if not cdr_csv.empty:
                         target_cols = {
