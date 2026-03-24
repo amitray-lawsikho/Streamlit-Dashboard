@@ -91,21 +91,23 @@ def fetch_call_data(start_date, end_date):
     # Fetch Acefone
     q_ace = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls` WHERE `Call Date` BETWEEN '{start_date}' AND '{end_date}'"
     df_ace = client.query(q_ace).to_dataframe()
-    if not df_ace.empty: df_ace['source'] = 'Acefone'
+    if not df_ace.empty: 
+        df_ace['source'] = 'Acefone'
+        df_ace['unique_lead_id'] = df_ace['client_number']
 
     # Fetch Ozonetel
     q_ozo = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls` WHERE CallDate BETWEEN '{start_date}' AND '{end_date}'"
     df_ozo = client.query(q_ozo).to_dataframe()
     if not df_ozo.empty:
+        df_ozo['unique_lead_id'] = df_ozo['phone_number']
         df_ozo = df_ozo.rename(columns={
             'CallID': 'call_id', 'AgentName': 'call_owner', 'phone_number': 'client_number',
             'StartTime': 'call_datetime', 'CallDate': 'Call Date', 'duration_sec': 'call_duration',
-            'Status': 'status', 'Type': 'direction', 'Disposition': 'reason', 'Source': 'source'
+            'Status': 'status', 'Type': 'direction', 'Disposition': 'reason'
         })
         df_ozo['status'] = df_ozo['status'].str.lower().replace({'unanswered': 'missed'})
         df_ozo['direction'] = df_ozo['direction'].str.lower().replace({'manual': 'outbound'})
-        if 'source' not in df_ozo.columns:
-            df_ozo['source'] = 'Ozonetel'
+        df_ozo['source'] = 'Ozonetel'
 
     df = pd.concat([df_ace, df_ozo], ignore_index=True)
     if not df.empty:
@@ -252,15 +254,21 @@ if st.sidebar.button("Generate Report"):
                         
                     report_df = pd.DataFrame(agents_list)
                     
-                    # --- 6 METRIC CARDS ---
-                    m1, m2, m3, m4, m5, m6 = st.columns(6)
+                    # --- 7 METRIC CARDS (Ordered) ---
+                    m1, m2, m3, m4, m5, m6, m7 = st.columns(7)
                     m1.metric("Total Calls", df_filtered['call_id'].nunique())
                     m2.metric("Acefone Calls", len(df_filtered[df_filtered['source'] == 'Acefone']))
                     m3.metric("Ozonetel Calls", len(df_filtered[df_filtered['source'] == 'Ozonetel']))
+                    
+                    # Unique Leads Dialled inserted after Ozonetel Calls
+                    unique_ace = df_filtered[df_filtered['source'] == 'Acefone']['unique_lead_id'].nunique()
+                    unique_ozo = df_filtered[df_filtered['source'] == 'Ozonetel']['unique_lead_id'].nunique()
+                    m4.metric("Unique Leads Dialled", unique_ace + unique_ozo)
+                    
                     ans_total = len(df_filtered[df_filtered['status'].str.lower() == 'answered'])
-                    m4.metric("Pick Up Ratio %", f"{(ans_total/df_filtered['call_id'].nunique()*100):.1f}%")
-                    m5.metric("Active Callers", len(report_df))
-                    m6.metric("Avg Productive Hrs", format_dur_hm(report_df["raw_prod"].mean()))
+                    m5.metric("Pick Up Ratio %", f"{(ans_total/df_filtered['call_id'].nunique()*100):.1f}%")
+                    m6.metric("Active Callers", len(report_df))
+                    m7.metric("Avg Productive Hrs", format_dur_hm(report_df["raw_prod"].mean()))
                     st.divider()
                     
                     total_row = pd.DataFrame([{
@@ -279,7 +287,6 @@ if st.sidebar.button("Generate Report"):
                     
                     cdr_csv = df_filtered.copy()
                     if not cdr_csv.empty:
-                        # Ensured 'source' is in the columns
                         target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
                         existing_cols = [c for c in target_cols if c in cdr_csv.columns]
                         cdr_csv = cdr_csv[existing_cols]
