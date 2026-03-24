@@ -49,7 +49,7 @@ div[data-testid="stDataFrame"] thead tr th {
 def get_metadata():
     df_meta = pd.read_csv(CSV_URL)
     df_meta.columns = df_meta.columns.str.strip()
-    df_meta['merge_key'] = df_meta['Caller Name'].str.strip().str.lower()
+    df_meta['merge_key'] = df_meta['Caller Name'].astype(str).str.strip().str.lower()
     teams = sorted(df_meta['Team Name'].dropna().unique())
     verticals = sorted(df_meta['Vertical'].dropna().unique())
     return teams, verticals, df_meta
@@ -95,6 +95,7 @@ def fetch_call_data(start_date, end_date):
     q_ozo = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls` WHERE CallDate BETWEEN '{start_date}' AND '{end_date}'"
     df_ozo = client.query(q_ozo).to_dataframe()
     if not df_ozo.empty:
+        # Standardize Ozonetel to match Acefone logic
         df_ozo = df_ozo.rename(columns={
             'CallID': 'call_id',
             'AgentName': 'call_owner',
@@ -104,18 +105,21 @@ def fetch_call_data(start_date, end_date):
             'duration_sec': 'call_duration',
             'Status': 'status',
             'Type': 'direction',
-            'Disposition': 'reason'
+            'Disposition': 'reason',
+            'Source': 'source'
         })
+        # Standardize Status & Direction Values
         df_ozo['status'] = df_ozo['status'].str.lower().replace({'unanswered': 'missed'})
-        df_ozo['direction'] = df_ozo['direction'].str.lower().replace({'manual': 'outbound'})
-        df_ozo['source'] = 'Ozonetel'
+        df_ozo['direction'] = df_ozo['direction'].str.lower().replace({'manual': 'outbound', 'inbound': 'inbound'})
+        if 'source' not in df_ozo.columns:
+            df_ozo['source'] = 'Ozonetel'
 
     # 3. Combine both
     df = pd.concat([df_ace, df_ozo], ignore_index=True)
     
     if not df.empty:
         df['call_datetime'] = pd.to_datetime(df['call_datetime'], utc=True).dt.tz_convert('Asia/Kolkata')
-        # CRITICAL FIX: Ensure duration is numeric so your later `df['call_duration'] > 0` logic doesn't fail
+        # Ensure duration is numeric for calculations
         df['call_duration'] = pd.to_numeric(df['call_duration'], errors='coerce').fillna(0)
         df = df.sort_values(['call_owner', 'call_datetime'], ascending=[True, True])
     return df
@@ -164,10 +168,12 @@ if st.sidebar.button("Generate Report"):
         if df_raw.empty:
             st.warning("No data found for selection.")
         else:
-            df_raw['merge_key'] = df_raw['call_owner'].str.strip().str.lower()
+            # Case-insensitive mapping for call_owner
+            df_raw['merge_key'] = df_raw['call_owner'].astype(str).str.strip().str.lower()
             df = pd.merge(df_raw, df_team_mapping, on='merge_key', how='left')
-            df['call_owner'] = df['Caller Name'].fillna(df['call_owner'])
             
+            # Fill mapped name, fall back to original AgentName if missing from team list
+            df['call_owner'] = df['Caller Name'].fillna(df['call_owner'])
             df = df[df['call_owner'].notna() & (df['call_owner'] != '')]
             
             if selected_team:
@@ -208,4 +214,164 @@ if st.sidebar.button("Generate Report"):
                             total_mid_calls += len(day_group[(day_group['call_duration'] >= 900) & (day_group['call_duration'] < 1200)])
                             total_long_calls += len(day_group[day_group['call_duration'] >= 1200])
                             
-                            day_dur = day_group.loc[day_group['call_duration'] >= 1
+                            day_dur = day_group.loc[day_group['call_duration'] >= 180, 'call_duration'].sum()
+                            agent_valid_dur += day_dur
+                            
+                            first_call_start = day_group['call_datetime'].min()
+                            last_call_end_time = (day_group['call_datetime'] + pd.to_timedelta(day_group['call_duration'], unit='s')).max()
+                            
+                            in_t_str = first_call_start.strftime('%I:%M %p')
+                            out_t_str = last_call_end_time.strftime('%I:%M %p')
+                            daily_io_list.append(f"{c_date.strftime('%d/%m')}: In {in_t_str} · Out {out_t_str}")
+                            
+                            start_office = ist_tz.localize(datetime.combine(c_date, time(10, 0)))
+                            end_office = ist_tz.localize(datetime.combine(c_date, time(20, 0)))
+                            late_threshold = ist_tz.localize(datetime.combine(c_date, time(10, 15)))
+                            
+                            if first_call_start > late_threshold:
+                                all_issues.append("Late Check-In")
+                            if last_call_end_time < end_office:
+                                all_issues.append("Early Check-Out")
+
+                            day_breaks = []
+                            day_break_sec = 0
+                            day_group['actual_end'] = day_group['call_datetime'] + pd.to_timedelta(day_group['call_duration'], unit='s')
+                            
+                            BREAK_THRESHOLD = 900 
+
+                            if first_call_start > start_office:
+                                g_start_sec = get_display_gap_seconds(start_office, first_call_start)
+                                if g_start_sec >= BREAK_THRESHOLD:
+                                    day_breaks.append({'s': start_office, 'e': first_call_start, 'dur': g_start_sec})
+                                    day_break_sec += g_start_sec
+                                    
+                            if len(day_group) > 1:
+                                for i in range(len(day_group)-1):
+                                    gap_s = day_group['actual_end'].iloc[i]
+                                    gap_e = day_group['call_datetime'].iloc[i+1]
+                                    act_s = max(gap_s, start_office)
+                                    act_e = min(gap_e, end_office)
+                                    if act_e > act_s:
+                                        g_mid_sec = get_display_gap_seconds(act_s, act_e)
+                                        if g_mid_sec >= BREAK_THRESHOLD:
+                                            day_breaks.append({'s': act_s, 'e': act_e, 'dur': g_mid_sec})
+                                            day_break_sec += g_mid_sec
+                                            
+                            if last_call_end_time < end_office:
+                                g_end_sec = get_display_gap_seconds(last_call_end_time, end_office)
+                                if g_end_sec >= BREAK_THRESHOLD:
+                                    day_breaks.append({'s': last_call_end_time, 'e': end_office, 'dur': g_end_sec})
+                                    day_break_sec += g_end_sec
+                                    
+                            total_break_sec_all_days += day_break_sec
+                            
+                            if day_breaks:
+                                day_sum_formatted = format_dur_hm(day_break_sec)
+                                b_str = f"{c_date.strftime('%d/%m')}: {len(day_breaks)} breaks : {day_sum_formatted}"
+                                for b in day_breaks:
+                                    b_str += f"\n  {b['s'].strftime('%H:%M')}→{b['e'].strftime('%H:%M')} ({format_dur_hm(b['dur'])})"
+                                daily_break_list.append(b_str)
+                                
+                            day_prod_sec = 36000 - day_break_sec
+                            if len(day_group[day_group['call_duration'] >= 180]) < 40:
+                                all_issues.append("Low Calls")
+                            if day_dur < 11700:
+                                all_issues.append("Low Duration")
+                            if len(day_breaks) > 2:
+                                all_issues.append("Excessive Breaks")
+                            if day_prod_sec < 18000:
+                                all_issues.append("Less Productive")
+                                
+                        total_duration_agg += agent_valid_dur
+                        pickup_ratio = round((total_ans / total_calls * 100)) if total_calls > 0 else 0
+                        prod_sec_total = (36000 * total_active_days) - total_break_sec_all_days
+                        
+                        agents_list.append({
+                            "IN/OUT TIME": "\n".join(daily_io_list),
+                            "CALLER": owner,
+                            "TEAM": agent_group['Team Name'].iloc[0] if not pd.isna(agent_group['Team Name'].iloc[0]) else "Others",
+                            "TOTAL CALLS": int(total_calls),
+                            "CALL STATUS": f"{total_ans} Ans / {total_miss} Unans",
+                            "PICK UP RATIO %": f"{pickup_ratio}%",
+                            "CALLS > 3 MINS": int(total_above_3min),
+                            "CALLS 15-20 MINS": int(total_mid_calls),
+                            "20+ MIN CALLS": int(total_long_calls),
+                            "CALL DURATION > 3 MINS": format_dur_hm(agent_valid_dur),
+                            "PRODUCTIVE HOURS": format_dur_hm(prod_sec_total),
+                            "BREAKS (>=15 MINS)": "\n---\n".join(daily_break_list) if daily_break_list else "0",
+                            "REMARKS": ", ".join(sorted(list(set(all_issues)))) if all_issues else "None",
+                            "raw_prod": prod_sec_total
+                        })
+                        
+                    report_df = pd.DataFrame(agents_list)
+                    
+                    # --- 5 METRIC CARDS ---
+                    m1, m2, m3, m4, m5 = st.columns(5)
+                    
+                    total_filtered_calls = df_filtered['call_id'].nunique()
+                    m1.metric("Total Attempted Calls", total_filtered_calls)
+                    
+                    ace_count = len(df_filtered[df_filtered['source'] == 'Acefone'])
+                    ozo_count = len(df_filtered[df_filtered['source'] == 'Ozonetel'])
+                    m2.metric("Calls by Source", f"A: {ace_count} | O: {ozo_count}")
+                    
+                    ans_total = len(df_filtered[df_filtered['status'].str.lower() == 'answered'])
+                    ans_pct = (ans_total / total_filtered_calls * 100) if total_filtered_calls > 0 else 0
+                    m3.metric("Pick Up Ratio %", f"{ans_pct:.1f}%")
+                    
+                    m4.metric("Active Callers", len(report_df))
+                    m5.metric("Avg Productive Hrs", format_dur_hm(report_df["raw_prod"].mean()))
+                    
+                    st.divider()
+                    
+                    total_row = pd.DataFrame([{
+                        "IN/OUT TIME": "-",
+                        "CALLER": "TOTAL",
+                        "TEAM": "-",
+                        "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
+                        "CALL STATUS": "-",
+                        "PICK UP RATIO %": "-",
+                        "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
+                        "CALLS 15-20 MINS": int(report_df["CALLS 15-20 MINS"].sum()),
+                        "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
+                        "CALL DURATION > 3 MINS": format_dur_hm(total_duration_agg),
+                        "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod"].sum()),
+                        "BREAKS (>=15 MINS)": "-",
+                        "REMARKS": "-"
+                    }])
+                    final_df = pd.concat([report_df, total_row], ignore_index=True)
+                    
+                    def style_total_row(row):
+                        if row["CALLER"] == "TOTAL":
+                            return ['font-weight: bold; background-color: #262730; color: white'] * len(row)
+                        return [''] * len(row)
+                        
+                    display_cols = ["IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)", "REMARKS"]
+                    
+                    st.dataframe(
+                        final_df.style.apply(style_total_row, axis=1).set_properties(**{'white-space': 'pre-wrap'}), 
+                        column_order=display_cols, 
+                        use_container_width=True, 
+                        hide_index=True
+                    )
+                    st.divider()
+                    
+                    cdr_csv = df_filtered.copy()
+                    if not cdr_csv.empty:
+                        target_cols = [
+                            "client_number", "call_datetime", "call_duration", "status", 
+                            "direction", "reason", "call_owner", "Call Date", 
+                            "updated_at_ampm", "Team Name", "Vertical", "source"
+                        ]
+                        existing_cols = [c for c in target_cols if c in cdr_csv.columns]
+                        cdr_csv = cdr_csv[existing_cols]
+                        
+                        if 'call_datetime' in cdr_csv.columns:
+                            cdr_csv['call_datetime'] = cdr_csv['call_datetime'].dt.strftime('%Y-%m-%d %H:%M:%S')
+                        
+                        st.download_button(
+                            label="📥 Download CDR CSV", 
+                            data=cdr_csv.to_csv(index=False).encode('utf-8'), 
+                            file_name=f"CDR_{display_start}_to_{display_end}.csv", 
+                            mime='text/csv'
+                        )
