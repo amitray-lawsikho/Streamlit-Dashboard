@@ -263,7 +263,7 @@ if st.sidebar.button("Generate Report"):
                     # Unique Leads Dialled inserted after Ozonetel Calls
                     unique_ace = df_filtered[df_filtered['source'] == 'Acefone']['unique_lead_id'].nunique()
                     unique_ozo = df_filtered[df_filtered['source'] == 'Ozonetel']['unique_lead_id'].nunique()
-                    m4.metric("Unique Leads Dialled", unique_ace + unique_ozo)
+                    m4.metric("Unique Leads", unique_ace + unique_ozo)
                     
                     ans_total = len(df_filtered[df_filtered['status'].str.lower() == 'answered'])
                     m5.metric("Pick Up Ratio %", f"{(ans_total/df_filtered['call_id'].nunique()*100):.1f}%")
