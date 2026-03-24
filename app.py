@@ -300,15 +300,17 @@ with tab2:
                 st.warning("No data found.")
             else:
                 df_raw['merge_key'] = df_raw['call_owner'].str.strip().str.lower()
-                # FIX: Merge metadata immediately to ensure Academic_Counselor_TL_ATL is available
                 df_all = pd.merge(df_raw, df_team_mapping, on='merge_key', how='left')
                 df_all['call_owner'] = df_all['Caller Name'].fillna(df_all['call_owner'])
                 
                 if selected_vertical:
                     df_all = df_all[df_all['Vertical'].isin(selected_vertical)]
 
-                # Standardize Role column after merge
-                df_all['role'] = df_all['Academic_Counselor_TL_ATL'].astype(str).str.strip().str.upper()
+                # SAFE CHECK for Role column
+                if 'Academic_Counselor_TL_ATL' in df_all.columns:
+                    df_all['role'] = df_all['Academic_Counselor_TL_ATL'].fillna('').astype(str).str.strip().str.upper()
+                else:
+                    df_all['role'] = ''
                 
                 # 1. NORMAL TEAMS
                 normal_teams = sorted(df_all[~df_all['role'].isin(['TL', 'AD'])]['Team Name'].dropna().unique())
