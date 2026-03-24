@@ -32,7 +32,6 @@ footer {visibility: hidden;}
 [data-testid="stMainViewContainer"] { padding-top: 2rem; }
 [data-testid="stStatusWidget"], .stStatusWidget { display: none !important; visibility: hidden !important; }
 
-/* Table Header Styling */
 div[data-testid="stDataFrame"] thead tr th {
     white-space: normal !important;
     word-wrap: break-word !important;
@@ -44,7 +43,6 @@ div[data-testid="stDataFrame"] thead tr th {
     padding: 10px !important;
 }
 
-/* Refined Static Heading: Smaller font, no background for theme compatibility */
 .static-team-header {
     text-align: center;
     margin-top: 40px;
@@ -59,7 +57,6 @@ div[data-testid="stDataFrame"] thead tr th {
 
 # --- GLOBAL HELPER FUNCTIONS ---
 def style_total(row):
-    """Highlight the TOTAL row - used for both Dashboards"""
     return ['font-weight: bold; background-color: #262730; color: white'] * len(row) if row["CALLER"] == "TOTAL" else [''] * len(row)
 
 # --- 3. Data Fetching Functions ---
@@ -214,8 +211,8 @@ def process_metrics_logic(df_filtered):
             "CALLS > 3 MINS": int(total_above_3min), "CALLS 15-20 MINS": int(total_mid_calls),
             "20+ MIN CALLS": int(total_long_calls), "CALL DURATION > 3 MINS": format_dur_hm(agent_valid_dur),
             "PRODUCTIVE HOURS": format_dur_hm(prod_sec_total), "BREAKS (>=15 MINS)": "\n---\n".join(daily_break_list) if daily_break_list else "0",
-            "REMARKS": ", ".join(sorted(list(set(all_issues)))) if all_issues else "None", "raw_prod": prod_sec_total,
-            "raw_dur": agent_valid_dur
+            "REMARKS": ", ".join(sorted(list(set(all_issues)))) if all_issues else "None", "raw_prod_sec": prod_sec_total,
+            "raw_dur_sec": agent_valid_dur
         })
     return pd.DataFrame(agents_list), total_duration_agg
 
@@ -278,14 +275,14 @@ with tab1:
                     ans_t = len(df[df['status'].str.lower() == 'answered'])
                     m5.metric("Pick Up Ratio %", f"{(ans_t/len(df)*100):.1f}%")
                     m6.metric("Active Callers", len(report_df))
-                    m7.metric("Avg Prod Hrs", format_dur_hm(report_df["raw_prod"].mean()))
+                    m7.metric("Avg Prod Hrs", format_dur_hm(report_df["raw_prod_sec"].mean()))
                     
                     st.divider()
                     total_row = pd.DataFrame([{
                         "IN/OUT TIME": "-", "CALLER": "TOTAL", "TEAM": "-", "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
                         "CALL STATUS": "-", "PICK UP RATIO %": "-", "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
                         "CALLS 15-20 MINS": int(report_df["CALLS 15-20 MINS"].sum()), "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
-                        "CALL DURATION > 3 MINS": format_dur_hm(total_duration_agg), "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod"].sum()),
+                        "CALL DURATION > 3 MINS": format_dur_hm(total_duration_agg), "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod_sec"].sum()),
                         "BREAKS (>=15 MINS)": "-", "REMARKS": "-"
                     }])
                     final_df = pd.concat([report_df, total_row], ignore_index=True)
@@ -318,30 +315,28 @@ with tab2:
                     df_all['role'] = ''
                 
                 normal_teams = sorted(df_all[~df_all['role'].isin(['TL', 'AD'])]['Team Name'].dropna().unique())
+                # STATIC HIDE FIELDS: ["IN/OUT TIME", "TEAM", "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)", "REMARKS"]
+                static_display_cols = ["CALLER", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS"]
                 
                 for team in normal_teams:
                     team_df = df_all[df_all['Team Name'] == team]
-                    report_df, team_dur = process_metrics_logic(team_df)
+                    report_df, team_dur_agg_sec = process_metrics_logic(team_df)
                     
-                    if team_dur > 0:
-                        # CENTERED HEADING WITH DATE RANGE
+                    if team_dur_agg_sec > 0:
                         st.markdown(f"<div class='static-team-header'>DURATION REPORT - {team.upper()} ({display_start} To {display_end})</div>", unsafe_allow_html=True)
                         
                         total_row = pd.DataFrame([{
-                            "IN/OUT TIME": "-", "CALLER": "TOTAL", "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
+                            "CALLER": "TOTAL", "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
                             "CALL STATUS": "-", "PICK UP RATIO %": "-", "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
                             "CALLS 15-20 MINS": int(report_df["CALLS 15-20 MINS"].sum()), "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
-                            "CALL DURATION > 3 MINS": format_dur_hm(team_dur), "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod"].sum()),
-                            "BREAKS (>=15 MINS)": "-", "REMARKS": "-"
+                            "CALL DURATION > 3 MINS": format_dur_hm(team_dur_agg_sec)
                         }])
-                        final_team_df = pd.concat([report_df, total_row], ignore_index=True)
-                        display_cols = ["IN/OUT TIME", "CALLER", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)", "REMARKS"]
-                        
+                        final_team_df = pd.concat([report_df[static_display_cols], total_row], ignore_index=True)
                         calc_height = (len(final_team_df) + 1) * 35 + 45
                         
                         st.dataframe(
                             final_team_df.style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}),
-                            column_order=display_cols,
+                            column_order=static_display_cols,
                             use_container_width=True,
                             hide_index=True,
                             height=calc_height
@@ -352,26 +347,25 @@ with tab2:
                         st.download_button(label=f"📥 Download CDR - {team}", data=team_df[existing_cols].to_csv(index=False).encode('utf-8'), file_name=f"CDR_{team}.csv", mime='text/csv', key=f"dl_{team}")
                         st.divider()
 
+                # TL/AD SECTION
                 tl_ad_df = df_all[df_all['role'].isin(['TL', 'AD'])]
                 if not tl_ad_df.empty:
-                    report_df_tl, tl_dur = process_metrics_logic(tl_ad_df)
-                    if tl_dur > 0:
+                    report_df_tl, tl_dur_agg_sec = process_metrics_logic(tl_ad_df)
+                    if tl_dur_agg_sec > 0:
                         st.markdown(f"<div class='static-team-header' style='border-bottom: 2px solid #00C781;'>TL'S DURATION REPORT ({display_start} To {display_end})</div>", unsafe_allow_html=True)
                         
                         total_row_tl = pd.DataFrame([{
-                            "IN/OUT TIME": "-", "CALLER": "TOTAL", "TOTAL CALLS": int(report_df_tl["TOTAL CALLS"].sum()),
+                            "CALLER": "TOTAL", "TOTAL CALLS": int(report_df_tl["TOTAL CALLS"].sum()),
                             "CALL STATUS": "-", "PICK UP RATIO %": "-", "CALLS > 3 MINS": int(report_df_tl["CALLS > 3 MINS"].sum()),
                             "CALLS 15-20 MINS": int(report_df_tl["CALLS 15-20 MINS"].sum()), "20+ MIN CALLS": int(report_df_tl["20+ MIN CALLS"].sum()),
-                            "CALL DURATION > 3 MINS": format_dur_hm(tl_dur), "PRODUCTIVE HOURS": format_dur_hm(report_df_tl["raw_prod"].sum()),
-                            "BREAKS (>=15 MINS)": "-", "REMARKS": "-"
+                            "CALL DURATION > 3 MINS": format_dur_hm(tl_dur_agg_sec)
                         }])
-                        final_tl_df = pd.concat([report_df_tl, total_row_tl], ignore_index=True)
-                        
+                        final_tl_df = pd.concat([report_df_tl[static_display_cols], total_row_tl], ignore_index=True)
                         calc_height_tl = (len(final_tl_df) + 1) * 35 + 45
                         
                         st.dataframe(
                             final_tl_df.style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}),
-                            column_order=display_cols,
+                            column_order=static_display_cols,
                             use_container_width=True,
                             hide_index=True,
                             height=calc_height_tl
