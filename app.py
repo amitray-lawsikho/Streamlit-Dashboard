@@ -245,7 +245,7 @@ with col_sub_r:
 st.divider()
 
 # --- 6. TAB SELECTION ---
-tab1, tab2 = st.tabs(["🚀 Dynamic Call Dashboard", "📅 Static Call Dashboard"])
+tab1, tab2 = st.tabs(["Dynamic Dashboard", "Static Dashboard"])
 
 with tab1:
     if gen_dynamic:
@@ -310,7 +310,7 @@ with tab2:
                 if selected_vertical:
                     df_static_master = df_static_master[df_static_master['Vertical'].isin(selected_vertical)]
 
-                # --- 🔴 CRITICAL FIX: DYNAMIC TL DETECTION 🔴 ---
+                # --- 🔴 DYNAMIC TL DETECTION 🔴 ---
                 # Search across ALL columns in the Google Sheet for any cell containing exact TL/AD markers
                 tl_ad_mask = pd.Series(False, index=df_static_master.index)
                 meta_cols = df_team_mapping.columns.tolist()
@@ -358,13 +358,16 @@ with tab2:
                         st.divider()
 
                 # --- PART 2: GUARANTEED TL/AD SECTION ---
-                # Use exactly the pool of callers flagged by the mask above
                 tl_ad_pool = df_static_master[tl_ad_mask]
                 
                 if not tl_ad_pool.empty:
-                    report_df_tl, tl_dur_agg_sec = process_metrics_logic(tl_ad_pool)
+                    report_df_tl, _ = process_metrics_logic(tl_ad_pool)
                     
-                    if tl_dur_agg_sec > 0:
+                    # --- NEW LOGIC: FILTER OUT TLs WITH <= 5 MINS (300 SECONDS) DURATION ---
+                    report_df_tl = report_df_tl[report_df_tl['raw_dur_sec'] > 60]
+                    tl_dur_agg_sec = report_df_tl['raw_dur_sec'].sum()
+                    
+                    if not report_df_tl.empty and tl_dur_agg_sec > 0:
                         st.markdown(f"<div class='static-team-header' style='border-bottom: 2px solid #00C781;'>TL'S DURATION REPORT ({display_start} To {display_end})</div>", unsafe_allow_html=True)
                         
                         total_row_tl = pd.DataFrame([{
@@ -386,5 +389,10 @@ with tab2:
                         )
                         
                         target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
-                        existing_cols = [c for c in target_cols if c in tl_ad_pool.columns]
-                        st.download_button(label="📥 Download TL CDR", data=tl_ad_pool[existing_cols].to_csv(index=False).encode('utf-8'), file_name="CDR_TL_AD.csv", mime='text/csv', key="dl_tl_ad_final_last")
+                        
+                        # Filter the CDR download so it only downloads calls for the TLs remaining in the table
+                        valid_tls = report_df_tl['CALLER'].unique()
+                        final_tl_cdr = tl_ad_pool[tl_ad_pool['call_owner'].isin(valid_tls)]
+                        existing_cols = [c for c in target_cols if c in final_tl_cdr.columns]
+                        
+                        st.download_button(label="📥 Download TL CDR", data=final_tl_cdr[existing_cols].to_csv(index=False).encode('utf-8'), file_name="CDR_TL_AD.csv", mime='text/csv', key="dl_tl_ad_final_last")
