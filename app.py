@@ -51,7 +51,6 @@ def get_metadata():
 
 @st.cache_data(ttl=60)
 def get_global_last_update():
-    # Check both tables and take the most recent update timestamp
     query = """
     SELECT MAX(upd) as last_update FROM (
         SELECT MAX(updated_at_ampm) as upd FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`
@@ -67,7 +66,6 @@ def get_global_last_update():
 
 @st.cache_data(ttl=3600)
 def get_available_dates():
-    # Get range covering both sources
     query = """
     SELECT MIN(min_d) as min_date, MAX(max_d) as max_date FROM (
         SELECT MIN(`Call Date`) as min_d, MAX(`Call Date`) as max_d FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`
@@ -85,13 +83,15 @@ def fetch_call_data(start_date, end_date):
     # Fetch Acefone
     q_ace = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls` WHERE `Call Date` BETWEEN '{start_date}' AND '{end_date}'"
     df_ace = client.query(q_ace).to_dataframe()
-    
+    if not df_ace.empty:
+        df_ace['source'] = 'Acefone'
+
     # Fetch Ozonetel
     q_ozo = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls` WHERE CallDate BETWEEN '{start_date}' AND '{end_date}'"
     df_ozo = client.query(q_ozo).to_dataframe()
     
-    # Standardize Ozonetel to match Acefone Schema
     if not df_ozo.empty:
+        # MAP ozonetel duration_sec -> dashboard call_duration
         df_ozo = df_ozo.rename(columns={
             'CallID': 'call_id',
             'AgentName': 'call_owner',
@@ -104,10 +104,8 @@ def fetch_call_data(start_date, end_date):
             'Disposition': 'reason',
             'Source': 'source'
         })
-        # Standardize Ozonetel Values to match Dashboard filters
-        # Ozonetel Status: Answered -> answered, Unanswered -> missed
+        # Standardize Status & Direction values
         df_ozo['status'] = df_ozo['status'].str.lower().replace({'unanswered': 'missed'})
-        # Ozonetel Direction: Manual -> outbound, Inbound -> inbound
         df_ozo['direction'] = df_ozo['direction'].str.lower().replace({'manual': 'outbound'})
 
     # Merge
@@ -115,6 +113,7 @@ def fetch_call_data(start_date, end_date):
     
     if not df.empty:
         df['call_datetime'] = pd.to_datetime(df['call_datetime'], utc=True).dt.tz_convert('Asia/Kolkata')
+        df['call_duration'] = pd.to_numeric(df['call_duration'], errors='coerce').fillna(0)
         df = df.sort_values(['call_owner', 'call_datetime'])
     return df
 
@@ -170,11 +169,12 @@ if st.sidebar.button("Generate Report"):
             if df.empty:
                 st.error("No results match filters.")
             else:
-                active_callers = df[df['call_duration'] > 0]['call_owner'].unique()
+                # CHANGED: Allow agents even if talk time is 0 (for missed call tracking)
+                active_callers = df['call_owner'].unique()
                 df_filtered = df[df['call_owner'].isin(active_callers)]
                 
                 if df_filtered.empty:
-                    st.warning("No active talk-time found for selected agents.")
+                    st.warning("No active calls found for selected agents.")
                 else:
                     agents_list = []
                     total_duration_agg = 0
@@ -189,7 +189,6 @@ if st.sidebar.button("Generate Report"):
                         for c_date, day_group in agent_group.groupby('Call Date'):
                             day_group = day_group.sort_values('call_datetime')
                             total_active_days += 1
-                            # logic handles both acefone 'answered' and ozonetel 'answered' (mapped earlier)
                             ans = len(day_group[day_group['status'].str.lower() == 'answered'])
                             miss = len(day_group[day_group['status'].str.lower() == 'missed'])
                             total_ans += ans; total_miss += miss; total_calls += len(day_group)
@@ -264,9 +263,15 @@ if st.sidebar.button("Generate Report"):
                         
                     report_df = pd.DataFrame(agents_list)
                     m1, m2, m3, m4 = st.columns(4)
+                    
+                    # CARD 1: Total Attempted
                     m1.metric("Total Attempted Calls", df_filtered['call_id'].nunique())
-                    ans_pct = (len(df_filtered[df_filtered['status'].str.lower() == 'answered']) / df_filtered['call_id'].nunique() * 100) if not df_filtered.empty else 0
-                    m2.metric("Pick Up Ratio %", f"{ans_pct:.1f}%")
+                    
+                    # CARD 2: Breakdown by Source
+                    ace_count = len(df_filtered[df_filtered['source'].str.lower() == 'acefone'])
+                    ozo_count = len(df_filtered[df_filtered['source'].str.lower() == 'ozonetel'])
+                    m2.metric("Calls by Source", f"A: {ace_count} | O: {ozo_count}")
+                    
                     m3.metric("Active Callers", len(report_df))
                     m4.metric("Avg Productive Hrs", format_dur_hm(report_df["raw_prod"].mean()))
                     st.divider()
@@ -289,7 +294,6 @@ if st.sidebar.button("Generate Report"):
                     
                     cdr_csv = df_filtered.copy()
                     if not cdr_csv.empty:
-                        # Map internal names back to user-friendly column names for CSV
                         target_cols = {
                             "client_number": "Phone Number", "call_datetime": "Call DateTime", "call_duration": "Duration (Sec)", 
                             "status": "Status", "direction": "Direction", "reason": "Reason/Disposition", "call_owner": "Agent Name", 
