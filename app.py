@@ -302,26 +302,31 @@ with tab2:
             if df_raw.empty:
                 st.warning("No data found.")
             else:
+                # 1. Global Pre-Merge for all static logic
                 df_raw['merge_key'] = df_raw['call_owner'].str.strip().str.lower()
-                df_all = pd.merge(df_raw, df_team_mapping, on='merge_key', how='left')
-                df_all['call_owner'] = df_all['Caller Name'].fillna(df_all['call_owner'])
+                df_static_master = pd.merge(df_raw, df_team_mapping, on='merge_key', how='left')
+                df_static_master['call_owner'] = df_static_master['Caller Name'].fillna(df_static_master['call_owner'])
                 
+                # Apply Vertical filter if present
                 if selected_vertical:
-                    df_all = df_all[df_all['Vertical'].isin(selected_vertical)]
+                    df_static_master = df_static_master[df_static_master['Vertical'].isin(selected_vertical)]
 
-                if 'Academic_Counselor_TL_ATL' in df_all.columns:
-                    df_all['role'] = df_all['Academic_Counselor_TL_ATL'].fillna('').astype(str).str.strip().str.upper()
+                # Clean Role data
+                if 'Academic_Counselor_TL_ATL' in df_static_master.columns:
+                    df_static_master['role'] = df_static_master['Academic_Counselor_TL_ATL'].fillna('').astype(str).str.strip().str.upper()
                 else:
-                    df_all['role'] = ''
-                
-                # STATIC HIDE FIELDS
+                    df_static_master['role'] = ''
+
+                # HIDE FIELDS for static tables
                 static_display_cols = ["CALLER", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS"]
                 
-                # 1. NORMAL TEAMS REPORT
-                normal_teams = sorted(df_all[~df_all['role'].isin(['TL', 'AD'])][ 'Team Name'].dropna().unique())
+                # --- PART 1: NORMAL TEAMS REPORT ---
+                # Exclude any TLs or ADs from the normal team pool
+                normal_team_data = df_static_master[~df_static_master['role'].isin(['TL', 'AD'])]
+                normal_teams = sorted(normal_team_data['Team Name'].dropna().unique())
                 
                 for team in normal_teams:
-                    team_df = df_all[df_all['Team Name'] == team]
+                    team_df = normal_team_data[normal_team_data['Team Name'] == team]
                     report_df, team_dur_agg_sec = process_metrics_logic(team_df)
                     
                     if team_dur_agg_sec > 0:
@@ -346,13 +351,17 @@ with tab2:
                         
                         target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
                         existing_cols = [c for c in target_cols if c in team_df.columns]
-                        st.download_button(label=f"📥 Download CDR - {team}", data=team_df[existing_cols].to_csv(index=False).encode('utf-8'), file_name=f"CDR_{team}.csv", mime='text/csv', key=f"dl_{team}")
+                        st.download_button(label=f"📥 Download CDR - {team}", data=team_df[existing_cols].to_csv(index=False).encode('utf-8'), file_name=f"CDR_{team}.csv", mime='text/csv', key=f"dl_team_{team}")
                         st.divider()
 
-                # 2. TL/AD SECTION REPORT (Special Case: Any Team, but Role is TL or AD)
-                tl_ad_df = df_all[df_all['role'].isin(['TL', 'AD'])]
-                if not tl_ad_df.empty:
-                    report_df_tl, tl_dur_agg_sec = process_metrics_logic(tl_ad_df)
+                # --- PART 2: TL/AD INDEPENDENT SECTION ---
+                # This explicitly checks for TL/AD roles across the entire filtered master set
+                tl_ad_pool = df_static_master[df_static_master['role'].isin(['TL', 'AD'])]
+                
+                if not tl_ad_pool.empty:
+                    report_df_tl, tl_dur_agg_sec = process_metrics_logic(tl_ad_pool)
+                    
+                    # Double check they actually have activity > 0
                     if tl_dur_agg_sec > 0:
                         st.markdown(f"<div class='static-team-header' style='border-bottom: 2px solid #00C781;'>TL'S DURATION REPORT ({display_start} To {display_end})</div>", unsafe_allow_html=True)
                         
@@ -362,6 +371,7 @@ with tab2:
                             "CALLS 15-20 MINS": int(report_df_tl["CALLS 15-20 MINS"].sum()), "20+ MIN CALLS": int(report_df_tl["20+ MIN CALLS"].sum()),
                             "CALL DURATION > 3 MINS": format_dur_hm(tl_dur_agg_sec)
                         }])
+                        
                         final_tl_df = pd.concat([report_df_tl[static_display_cols], total_row_tl], ignore_index=True)
                         calc_height_tl = (len(final_tl_df) + 1) * 35 + 45
                         
@@ -374,5 +384,5 @@ with tab2:
                         )
                         
                         target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
-                        existing_cols = [c for c in target_cols if c in tl_ad_df.columns]
-                        st.download_button(label="📥 Download TL CDR", data=tl_ad_df[existing_cols].to_csv(index=False).encode('utf-8'), file_name="CDR_TL_AD.csv", mime='text/csv', key="dl_tl_ad")
+                        existing_cols = [c for c in target_cols if c in tl_ad_pool.columns]
+                        st.download_button(label="📥 Download TL CDR", data=tl_ad_pool[existing_cols].to_csv(index=False).encode('utf-8'), file_name="CDR_TL_AD.csv", mime='text/csv', key="dl_tl_ad_final")
