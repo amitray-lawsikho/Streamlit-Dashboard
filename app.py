@@ -32,16 +32,17 @@ footer {visibility: hidden;}
 [data-testid="stMainViewContainer"] { padding-top: 2rem; }
 [data-testid="stStatusWidget"], .stStatusWidget { display: none !important; visibility: hidden !important; }
 
-div[data-testid="stDataFrame"] thead tr th {
+/* Table Styling for Scannability */
+div[data-testid="stDataFrame"] thead tr th, .stTable thead tr th {
     white-space: normal !important;
     word-wrap: break-word !important;
     text-align: center !important;
     vertical-align: middle !important;
     min-width: 100px !important;
     line-height: 1.2 !important;
-    height: auto !important;
     padding: 10px !important;
 }
+
 .team-header {
     background-color: #1E1E1E;
     padding: 10px;
@@ -49,13 +50,14 @@ div[data-testid="stDataFrame"] thead tr th {
     border-left: 5px solid #FF4B4B;
     margin-top: 30px;
     margin-bottom: 15px;
+    text-align: center; /* Centered as requested */
 }
 </style>
 """, unsafe_allow_html=True)
 
 # --- GLOBAL HELPER FUNCTIONS ---
 def style_total(row):
-    """Available to all tabs to highlight the TOTAL row"""
+    """Highlight the TOTAL row - used for Dynamic Dashboard"""
     return ['font-weight: bold; background-color: #262730; color: white'] * len(row) if row["CALLER"] == "TOTAL" else [''] * len(row)
 
 # --- 3. Data Fetching Functions ---
@@ -322,7 +324,8 @@ with tab2:
                     report_df, team_dur = process_metrics_logic(team_df)
                     
                     if team_dur > 0:
-                        st.markdown(f"<div class='team-header'><h3>DURATION METRIC - {team.upper()}</h3></div>", unsafe_allow_html=True)
+                        # Centered Header with updated text "REPORT"
+                        st.markdown(f"<div class='team-header'><h3>DURATION REPORT - {team.upper()}</h3></div>", unsafe_allow_html=True)
                         
                         # Results Table
                         total_row = pd.DataFrame([{
@@ -335,7 +338,8 @@ with tab2:
                         final_team_df = pd.concat([report_df, total_row], ignore_index=True)
                         display_cols = ["IN/OUT TIME", "CALLER", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)", "REMARKS"]
                         
-                        st.dataframe(final_team_df.style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=display_cols, use_container_width=True, hide_index=True)
+                        # Use st.table to prevent scrolling and show all rows till TOTAL
+                        st.table(final_team_df[display_cols])
                         
                         target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
                         existing_cols = [c for c in target_cols if c in team_df.columns]
@@ -347,7 +351,7 @@ with tab2:
                 if not tl_ad_df.empty:
                     report_df_tl, tl_dur = process_metrics_logic(tl_ad_df)
                     if tl_dur > 0:
-                        st.markdown("<div class='team-header' style='border-left: 5px solid #00C781;'><h3>TL'S DURATION METRICS</h3></div>", unsafe_allow_html=True)
+                        st.markdown("<div class='team-header' style='border-left: 5px solid #00C781;'><h3>TL'S DURATION REPORT</h3></div>", unsafe_allow_html=True)
                         
                         total_row_tl = pd.DataFrame([{
                             "IN/OUT TIME": "-", "CALLER": "TOTAL", "TOTAL CALLS": int(report_df_tl["TOTAL CALLS"].sum()),
@@ -357,7 +361,8 @@ with tab2:
                             "BREAKS (>=15 MINS)": "-", "REMARKS": "-"
                         }])
                         final_tl_df = pd.concat([report_df_tl, total_row_tl], ignore_index=True)
-                        st.dataframe(final_tl_df.style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=display_cols, use_container_width=True, hide_index=True)
+                        # Use st.table to prevent scrolling
+                        st.table(final_tl_df[display_cols])
                         
                         target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
                         existing_cols = [c for c in target_cols if c in tl_ad_df.columns]
