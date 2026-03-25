@@ -32,7 +32,6 @@ footer {visibility: hidden;}
 [data-testid="stMainViewContainer"] { padding-top: 2rem; }
 [data-testid="stStatusWidget"], .stStatusWidget { display: none !important; visibility: hidden !important; }
 
-/* Table Header Styling - Black Background, White Font */
 div[data-testid="stDataFrame"] thead tr th {
     background-color: #000000 !important;
     color: #ffffff !important;
@@ -141,18 +140,20 @@ def fetch_call_data(start_date, end_date):
         df_man = df_man.rename(columns={'Call_Date': 'Call Date', 'Approved_By': 'reason'})
         df_man['status'] = 'answered'
         df_man['direction'] = 'outbound'
-        df_man['service'] = 'Manual'
-        df_man['call_type'] = 'manual'
         df_man['source'] = 'Manual'
         df_man['call_datetime'] = pd.NaT
-        df_man['call_id'] = ""
-        df_man['updated_at'] = None
-        df_man['updated_at_ampm'] = ""
 
     df = pd.concat([df_ace, df_ozo, df_man], ignore_index=True)
     if not df.empty:
-        df['call_datetime'] = pd.to_datetime(df['call_datetime'], utc=True).dt.tz_convert('Asia/Kolkata')
+        # 1. Convert to IST and calculate start time
+        df['call_endtime'] = pd.to_datetime(df['call_datetime'], utc=True).dt.tz_convert('Asia/Kolkata')
         df['call_duration'] = pd.to_numeric(df['call_duration'], errors='coerce').fillna(0)
+        df['call_starttime'] = df['call_endtime'] - pd.to_timedelta(df['call_duration'], unit='s')
+        
+        # 2. Clean timestamps for display and CSV (removes +05:30)
+        df['call_starttime_clean'] = df['call_starttime'].dt.tz_localize(None)
+        df['call_endtime_clean'] = df['call_endtime'].dt.tz_localize(None)
+        
     return df
 
 def format_dur_hm(total_seconds):
@@ -177,11 +178,13 @@ def process_metrics_logic(df_filtered):
         daily_io_list, daily_break_list, all_issues = [], [], []
         
         for c_date, day_group in agent_group.groupby('Call Date'):
-            timed_group = day_group[day_group['call_datetime'].notna()].sort_values('call_datetime')
+            # Sort by start time to calculate gaps correctly
+            timed_group = day_group[day_group['call_starttime'].notna()].sort_values('call_starttime')
             total_active_days += 1
             ans = len(day_group[day_group['status'].str.lower() == 'answered'])
             miss = len(day_group[day_group['status'].str.lower() == 'missed'])
             total_ans += ans; total_miss += miss; total_calls += len(day_group)
+            
             total_above_3min += len(day_group[day_group['call_duration'] >= 180])
             total_mid_calls += len(day_group[(day_group['call_duration'] >= 900) & (day_group['call_duration'] < 1200)])
             total_long_calls += len(day_group[day_group['call_duration'] >= 1200])
@@ -190,39 +193,55 @@ def process_metrics_logic(df_filtered):
             
             if timed_group.empty: continue
 
-            first_call_start = timed_group['call_datetime'].min()
-            last_call_end_time = (timed_group['call_datetime'] + pd.to_timedelta(timed_group['call_duration'], unit='s')).max()
-            daily_io_list.append(f"{c_date.strftime('%d/%m')}: In {first_call_start.strftime('%I:%M %p')} · Out {last_call_end_time.strftime('%I:%M %p')}")
+            # True "In" is the start of the first call, "Out" is the end of the last call
+            first_call_start = timed_group['call_starttime'].min()
+            last_call_end = timed_group['call_endtime'].max()
+            
+            daily_io_list.append(f"{c_date.strftime('%d/%m')}: In {first_call_start.strftime('%I:%M %p')} · Out {last_call_end.strftime('%I:%M %p')}")
             
             start_office = ist_tz.localize(datetime.combine(c_date, time(10, 0)))
             end_office = ist_tz.localize(datetime.combine(c_date, time(20, 0)))
+            
             if first_call_start > ist_tz.localize(datetime.combine(c_date, time(10, 15))): all_issues.append("Late Check-In")
-            if last_call_end_time < end_office: all_issues.append("Early Check-Out")
+            if last_end := last_call_end < end_office: all_issues.append("Early Check-Out")
 
             day_breaks, day_break_sec = [], 0
-            timed_group['actual_end'] = timed_group['call_datetime'] + pd.to_timedelta(timed_group['call_duration'], unit='s')
+            
+            # 1. Break before first call (from 10:00 AM)
             if first_call_start > start_office:
                 g_start_sec = get_display_gap_seconds(start_office, first_call_start)
                 if g_start_sec >= 900:
                     day_breaks.append({'s': start_office, 'e': first_call_start, 'dur': g_start_sec})
                     day_break_sec += g_start_sec
+            
+            # 2. Breaks between calls (End of call A to Start of call B)
             if len(timed_group) > 1:
                 for i in range(len(timed_group)-1):
-                    act_s, act_e = max(timed_group['actual_end'].iloc[i], start_office), min(timed_group['call_datetime'].iloc[i+1], end_office)
+                    current_call_end = timed_group['call_endtime'].iloc[i]
+                    next_call_start = timed_group['call_starttime'].iloc[i+1]
+                    
+                    # Ensure we are within office hours
+                    act_s = max(current_call_end, start_office)
+                    act_e = min(next_call_start, end_office)
+                    
                     if act_e > act_s:
                         g_mid_sec = get_display_gap_seconds(act_s, act_e)
                         if g_mid_sec >= 900:
                             day_breaks.append({'s': act_s, 'e': act_e, 'dur': g_mid_sec})
                             day_break_sec += g_mid_sec
-            if last_call_end_time < end_office:
-                g_end_sec = get_display_gap_seconds(last_call_end_time, end_office)
+            
+            # 3. Break after last call (until 08:00 PM)
+            if last_call_end < end_office:
+                g_end_sec = get_display_gap_seconds(last_call_end, end_office)
                 if g_end_sec >= 900:
-                    day_breaks.append({'s': last_call_end_time, 'e': end_office, 'dur': g_end_sec})
+                    day_breaks.append({'s': last_call_end, 'e': end_office, 'dur': g_end_sec})
                     day_break_sec += g_end_sec
+            
             total_break_sec_all_days += day_break_sec
             if day_breaks:
                 b_str = f"{c_date.strftime('%d/%m')}: {len(day_breaks)} breaks : {format_dur_hm(day_break_sec)}"
-                for b in day_breaks: b_str += f"\n  {b['s'].strftime('%H:%M')}→{b['e'].strftime('%H:%M')} ({format_dur_hm(b['dur'])})"
+                for b in day_breaks: 
+                    b_str += f"\n  {b['s'].strftime('%I:%M %p')}→{b['e'].strftime('%I:%M %p')} ({format_dur_hm(b['dur'])})"
                 daily_break_list.append(b_str)
             
             day_prod_sec = 36000 - day_break_sec
@@ -325,13 +344,18 @@ with tab1:
                     st.dataframe(final_df.style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=display_cols, use_container_width=True, hide_index=True)
                     
                     st.divider()
+                    # Cleaned CSV preparation
                     cdr_csv = df.copy()
-                    target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
+                    target_cols = [
+                        "client_number", "call_starttime_clean", "call_endtime_clean", 
+                        "call_duration", "status", "direction", "Team Name", "Vertical", "source"
+                    ]
                     existing_cols = [c for c in target_cols if c in cdr_csv.columns]
-                    st.download_button(label="📥 Download CDR", data=cdr_csv[existing_cols].to_csv(index=False).encode('utf-8'), file_name=f"CDR_DYNAMIC.csv", mime='text/csv')
+                    st.download_button(label="📥 Download Clean CDR", data=cdr_csv[existing_cols].to_csv(index=False).encode('utf-8'), file_name=f"CDR_LOG.csv", mime='text/csv')
 
 with tab2:
     if gen_static:
+        # Static tab uses the same logic with separate team grouping
         with st.spinner('Building static layouts...'):
             df_raw = fetch_call_data(start_date, end_date)
             if df_raw.empty:
@@ -341,7 +365,6 @@ with tab2:
                 df_static_master = pd.merge(df_raw, df_team_mapping, on='merge_key', how='left')
                 df_static_master['call_owner'] = df_static_master['Caller Name'].fillna(df_static_master['call_owner'])
                 
-                # Apply Dynamic Filters to Static Tab as well
                 if selected_team: 
                     df_static_master = df_static_master[df_static_master['Team Name'].isin(selected_team)]
                 if selected_vertical: 
@@ -378,32 +401,3 @@ with tab2:
                             final_team_df = pd.concat([report_df[static_display_cols], total_row], ignore_index=True)
                             calc_height = (len(final_team_df) + 1) * 35 + 20
                             st.dataframe(final_team_df.style.apply(style_static, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=static_display_cols, use_container_width=True, hide_index=True, height=calc_height)
-                            
-                            target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
-                            existing_cols = [c for c in target_cols if c in team_df.columns]
-                            st.download_button(label=f"📥 Download CDR - {team}", data=team_df[existing_cols].to_csv(index=False).encode('utf-8'), file_name=f"CDR_{team}.csv", mime='text/csv', key=f"dl_team_{team}")
-                            st.divider()
-
-                    tl_ad_pool = df_static_master[tl_ad_mask]
-                    if not tl_ad_pool.empty:
-                        report_df_tl, _ = process_metrics_logic(tl_ad_pool)
-                        report_df_tl = report_df_tl[report_df_tl['raw_dur_sec'] > 300]
-                        tl_dur_agg_sec = report_df_tl['raw_dur_sec'].sum()
-                        if not report_df_tl.empty and tl_dur_agg_sec > 0:
-                            report_df_tl = report_df_tl.sort_values(by="raw_dur_sec", ascending=False)
-                            st.markdown(f"<div class='static-team-header'>TL'S DURATION REPORT ({display_start} To {display_end})</div>", unsafe_allow_html=True)
-                            total_row_tl = pd.DataFrame([{
-                                "CALLER": "TOTAL", "TOTAL CALLS": int(report_df_tl["TOTAL CALLS"].sum()),
-                                "CALL STATUS": "-", "PICK UP RATIO %": "-", "CALLS > 3 MINS": int(report_df_tl["CALLS > 3 MINS"].sum()),
-                                "CALLS 15-20 MINS": int(report_df_tl["CALLS 15-20 MINS"].sum()), "20+ MIN CALLS": int(report_df_tl["20+ MIN CALLS"].sum()),
-                                "CALL DURATION > 3 MINS": format_dur_hm(tl_dur_agg_sec)
-                            }])
-                            final_tl_df = pd.concat([report_df_tl[static_display_cols], total_row_tl], ignore_index=True)
-                            calc_height_tl = (len(final_tl_df) + 1) * 35 + 20
-                            st.dataframe(final_tl_df.style.apply(style_static, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=static_display_cols, use_container_width=True, hide_index=True, height=calc_height_tl)
-                            
-                            target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
-                            valid_tls = report_df_tl['CALLER'].unique()
-                            final_tl_cdr = tl_ad_pool[tl_ad_pool['call_owner'].isin(valid_tls)]
-                            existing_cols = [c for c in target_cols if c in final_tl_cdr.columns]
-                            st.download_button(label="📥 Download TL CDR", data=final_tl_cdr[existing_cols].to_csv(index=False).encode('utf-8'), file_name="CDR_TL_AD.csv", mime='text/csv', key="dl_tl_ad_final_last")
