@@ -118,7 +118,6 @@ def fetch_call_data(start_date, end_date):
     df_ace = client.query(q_ace).to_dataframe()
     if not df_ace.empty: 
         df_ace['source'] = 'Acefone'
-        df_ace['service'] = df_ace.get('service', 'Acefone') # Ensure service exists
         df_ace['unique_lead_id'] = df_ace['client_number']
 
     q_ozo = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls` WHERE CallDate BETWEEN '{start_date}' AND '{end_date}'"
@@ -133,7 +132,6 @@ def fetch_call_data(start_date, end_date):
         df_ozo['status'] = df_ozo['status'].str.lower().replace({'unanswered': 'missed'})
         df_ozo['direction'] = df_ozo['direction'].str.lower().replace({'manual': 'outbound'})
         df_ozo['source'] = 'Ozonetel'
-        df_ozo['service'] = df_ozo.get('service', 'Ozonetel')
 
     q_man = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.manual_calls` WHERE Call_Date BETWEEN '{start_date}' AND '{end_date}'"
     df_man = client.query(q_man).to_dataframe()
@@ -143,22 +141,18 @@ def fetch_call_data(start_date, end_date):
         df_man['status'] = 'answered'
         df_man['direction'] = 'outbound'
         df_man['source'] = 'Manual'
-        df_man['service'] = 'Manual'
         df_man['call_datetime'] = pd.NaT
 
     df = pd.concat([df_ace, df_ozo, df_man], ignore_index=True)
     if not df.empty:
-        # Preserve original call_datetime for CSV but clean timezone
-        df['call_datetime_raw'] = pd.to_datetime(df['call_datetime'], utc=True).dt.tz_convert('Asia/Kolkata')
-        df['call_endtime'] = df['call_datetime_raw']
+        # 1. Convert to IST and calculate start time
+        df['call_endtime'] = pd.to_datetime(df['call_datetime'], utc=True).dt.tz_convert('Asia/Kolkata')
         df['call_duration'] = pd.to_numeric(df['call_duration'], errors='coerce').fillna(0)
         df['call_starttime'] = df['call_endtime'] - pd.to_timedelta(df['call_duration'], unit='s')
         
-        # Clean timestamps for display and CSV (removes +05:30)
+        # 2. Clean timestamps for display and CSV (removes +05:30)
         df['call_starttime_clean'] = df['call_starttime'].dt.tz_localize(None)
         df['call_endtime_clean'] = df['call_endtime'].dt.tz_localize(None)
-        # Standardize original column to cleaned format
-        df['call_datetime'] = df['call_endtime_clean']
         
     return df
 
@@ -184,6 +178,7 @@ def process_metrics_logic(df_filtered):
         daily_io_list, daily_break_list, all_issues = [], [], []
         
         for c_date, day_group in agent_group.groupby('Call Date'):
+            # Sort by start time to calculate gaps correctly
             timed_group = day_group[day_group['call_starttime'].notna()].sort_values('call_starttime')
             total_active_days += 1
             ans = len(day_group[day_group['status'].str.lower() == 'answered'])
@@ -198,6 +193,7 @@ def process_metrics_logic(df_filtered):
             
             if timed_group.empty: continue
 
+            # True "In" is the start of the first call, "Out" is the end of the last call
             first_call_start = timed_group['call_starttime'].min()
             last_call_end = timed_group['call_endtime'].max()
             
@@ -211,24 +207,30 @@ def process_metrics_logic(df_filtered):
 
             day_breaks, day_break_sec = [], 0
             
+            # 1. Break before first call (from 10:00 AM)
             if first_call_start > start_office:
                 g_start_sec = get_display_gap_seconds(start_office, first_call_start)
                 if g_start_sec >= 900:
                     day_breaks.append({'s': start_office, 'e': first_call_start, 'dur': g_start_sec})
                     day_break_sec += g_start_sec
             
+            # 2. Breaks between calls (End of call A to Start of call B)
             if len(timed_group) > 1:
                 for i in range(len(timed_group)-1):
                     current_call_end = timed_group['call_endtime'].iloc[i]
                     next_call_start = timed_group['call_starttime'].iloc[i+1]
+                    
+                    # Ensure we are within office hours
                     act_s = max(current_call_end, start_office)
                     act_e = min(next_call_start, end_office)
+                    
                     if act_e > act_s:
                         g_mid_sec = get_display_gap_seconds(act_s, act_e)
                         if g_mid_sec >= 900:
                             day_breaks.append({'s': act_s, 'e': act_e, 'dur': g_mid_sec})
                             day_break_sec += g_mid_sec
             
+            # 3. Break after last call (until 08:00 PM)
             if last_call_end < end_office:
                 g_end_sec = get_display_gap_seconds(last_call_end, end_office)
                 if g_end_sec >= 900:
@@ -401,7 +403,12 @@ with tab2:
                             calc_height = (len(final_team_df) + 1) * 35 + 20
                             st.dataframe(final_team_df.style.apply(style_static, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=static_display_cols, use_container_width=True, hide_index=True, height=calc_height)
                             
-                            target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
+                            # UPDATED COLUMN LIST FOR TEAM DOWNLOAD
+                            target_cols = [
+                                "client_number", "call_datetime", "call_starttime_clean", "call_endtime_clean", 
+                                "call_duration", "status", "direction", "service", "reason", 
+                                "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"
+                            ]
                             existing_cols = [c for c in target_cols if c in team_df.columns]
                             st.download_button(label=f"📥 Download CDR - {team}", data=team_df[existing_cols].to_csv(index=False).encode('utf-8'), file_name=f"CDR_{team}.csv", mime='text/csv', key=f"dl_team_{team}")
                             st.divider()
@@ -410,7 +417,6 @@ with tab2:
                     tl_ad_pool = df_static_master[tl_ad_mask]
                     if not tl_ad_pool.empty:
                         report_df_tl, tl_dur_agg_sec = process_metrics_logic(tl_ad_pool)
-                        # Filter to only show active TLs with meaningful activity
                         active_tl_report = report_df_tl[report_df_tl['raw_dur_sec'] > 300].sort_values(by="raw_dur_sec", ascending=False)
                         
                         if not active_tl_report.empty:
@@ -425,7 +431,12 @@ with tab2:
                             calc_height_tl = (len(final_tl_df) + 1) * 35 + 20
                             st.dataframe(final_tl_df.style.apply(style_static, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=static_display_cols, use_container_width=True, hide_index=True, height=calc_height_tl)
                             
-                            target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
+                            # UPDATED COLUMN LIST FOR TL DOWNLOAD
+                            target_cols = [
+                                "client_number", "call_datetime", "call_starttime_clean", "call_endtime_clean", 
+                                "call_duration", "status", "direction", "service", "reason", 
+                                "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"
+                            ]
                             valid_tls = active_tl_report['CALLER'].unique()
                             final_tl_cdr = tl_ad_pool[tl_ad_pool['call_owner'].isin(valid_tls)]
                             existing_cols = [c for c in target_cols if c in final_tl_cdr.columns]
