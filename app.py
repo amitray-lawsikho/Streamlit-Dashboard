@@ -59,7 +59,23 @@ div[data-testid="stDataFrame"] thead tr th {
 
 # --- GLOBAL HELPER FUNCTIONS ---
 def style_total(row):
-    # Updated to Light Grey with Black text for a cleaner look
+    # 1. Handle the TOTAL row
+    if row["CALLER"] == "TOTAL":
+        return ['font-weight: bold; background-color: #f0f2f6; color: #000000'] * len(row)
+    
+    # 2. Medals for Dynamic Dashboard (Top 3 by Duration)
+    # Since report_df is sorted desc, index 0=Gold, 1=Silver, 2=Bronze
+    if row.name == 0:
+        return ['background-color: #FFD700; color: black; font-weight: bold'] * len(row)
+    elif row.name == 1:
+        return ['background-color: #C0C0C0; color: black; font-weight: bold'] * len(row)
+    elif row.name == 2:
+        return ['background-color: #CD7F32; color: black; font-weight: bold'] * len(row)
+        
+    return [''] * len(row)
+
+def style_static(row):
+    # Separate styling for Static Dashboard (No Medals)
     if row["CALLER"] == "TOTAL":
         return ['font-weight: bold; background-color: #f0f2f6; color: #000000'] * len(row)
     return [''] * len(row)
@@ -298,7 +314,8 @@ with tab1:
                     m4.metric("Manual Calls", len(df[df['source'] == 'Manual']))
                     m5.metric("Unique Leads", df['unique_lead_id'].nunique())
                     ans_t = len(df[df['status'].str.lower() == 'answered'])
-                    m6.metric("Pick Up Ratio %", f"{(ans_t/len(df)*100):.1f}%" if len(df) > 0 else "0.0%")
+                    # ROUNDED Pick Up Ratio
+                    m6.metric("Pick Up Ratio %", f"{round(ans_t/len(df)*100)}%" if len(df) > 0 else "0%")
                     m7.metric("Active Callers", len(report_df))
                     m8.metric("Avg Prod Hrs", format_dur_hm(report_df["raw_prod_sec"].mean()))
                     
@@ -313,6 +330,7 @@ with tab1:
                     
                     display_cols = ["IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)","REMARKS"]
                     final_df = pd.concat([report_df, total_row], ignore_index=True)
+                    # Apply style_total with medals
                     st.dataframe(final_df.style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=display_cols, use_container_width=True, hide_index=True)
                     
                     st.divider()
@@ -350,9 +368,7 @@ with tab2:
                     team_df = normal_team_data[normal_team_data['Team Name'] == team]
                     report_df, team_dur_agg_sec = process_metrics_logic(team_df)
                     if team_dur_agg_sec > 0:
-                        # Sort Descending by raw duration
                         report_df = report_df.sort_values(by="raw_dur_sec", ascending=False)
-                        
                         st.markdown(f"<div class='static-team-header'>DURATION REPORT - {team.upper()} ({display_start} To {display_end})</div>", unsafe_allow_html=True)
                         total_row = pd.DataFrame([{
                             "CALLER": "TOTAL", "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
@@ -361,12 +377,11 @@ with tab2:
                             "CALL DURATION > 3 MINS": format_dur_hm(team_dur_agg_sec)
                         }])
                         final_team_df = pd.concat([report_df[static_display_cols], total_row], ignore_index=True)
-                        
-                        # Dynamic height calculation to remove extra bottom space
                         calc_height = (len(final_team_df) + 1) * 35 + 20
                         
+                        # Use style_static here to avoid medals on static tab
                         st.dataframe(
-                            final_team_df.style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}), 
+                            final_team_df.style.apply(style_static, axis=1).set_properties(**{'white-space': 'pre-wrap'}), 
                             column_order=static_display_cols, 
                             use_container_width=True, 
                             hide_index=True, 
@@ -384,9 +399,7 @@ with tab2:
                     report_df_tl = report_df_tl[report_df_tl['raw_dur_sec'] > 300]
                     tl_dur_agg_sec = report_df_tl['raw_dur_sec'].sum()
                     if not report_df_tl.empty and tl_dur_agg_sec > 0:
-                        # Sort Descending by raw duration
                         report_df_tl = report_df_tl.sort_values(by="raw_dur_sec", ascending=False)
-                        
                         st.markdown(f"<div class='static-team-header'>TL'S DURATION REPORT ({display_start} To {display_end})</div>", unsafe_allow_html=True)
                         total_row_tl = pd.DataFrame([{
                             "CALLER": "TOTAL", "TOTAL CALLS": int(report_df_tl["TOTAL CALLS"].sum()),
@@ -395,11 +408,11 @@ with tab2:
                             "CALL DURATION > 3 MINS": format_dur_hm(tl_dur_agg_sec)
                         }])
                         final_tl_df = pd.concat([report_df_tl[static_display_cols], total_row_tl], ignore_index=True)
-                        
                         calc_height_tl = (len(final_tl_df) + 1) * 35 + 20
                         
+                        # Use style_static here
                         st.dataframe(
-                            final_tl_df.style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}), 
+                            final_tl_df.style.apply(style_static, axis=1).set_properties(**{'white-space': 'pre-wrap'}), 
                             column_order=static_display_cols, 
                             use_container_width=True, 
                             hide_index=True, 
