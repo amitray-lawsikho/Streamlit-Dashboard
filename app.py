@@ -233,11 +233,12 @@ gen_static = st.sidebar.button("Generate Static Report")
 last_update_str = get_global_last_update()
 st.markdown("<h1 style='text-align: center; margin-bottom: 5px;'>DURATION METRICS - LAWSIKHO & SKILL ARBITRAGE</h1>", unsafe_allow_html=True)
 
-# Restoring the Report Period and Last Updated header cards
 if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
     d_start, d_end = selected_dates[0].strftime('%d-%m-%Y'), selected_dates[1].strftime('%d-%m-%Y')
+    ds_raw, de_raw = selected_dates[0].strftime('%Y/%m/%d'), selected_dates[1].strftime('%Y/%m/%d')
 else:
     d_start = d_end = selected_dates.strftime('%d-%m-%Y')
+    ds_raw = de_raw = selected_dates.strftime('%Y/%m/%d')
 
 h_col1, h_col2 = st.columns([3, 1])
 with h_col1:
@@ -262,7 +263,7 @@ with tab1:
 
             report_df, total_dur = process_metrics_logic(df)
             
-            # FULL Detailed Summary Metrics (Restored)
+            # Detailed Summary Metrics
             m_col1, m_col2, m_col3, m_col4 = st.columns(4)
             m_col1.metric("Total Calls", len(df))
             m_col2.metric("Acefone Calls", len(df[df['source'] == 'Acefone']))
@@ -273,26 +274,31 @@ with tab1:
             m_col5.metric("Unique Leads", df['unique_lead_id'].nunique())
             ans_count = len(df[df['status'] == 'answered'])
             m_col6.metric("Pick Up %", f"{round(ans_count/len(df)*100)}%" if len(df)>0 else "0%")
-            m_col7.metric("Avg Prod Hrs", format_dur_hm(report_df["raw_prod_sec"].mean()))
+            m_col7.metric("Avg Productive Hours", format_dur_hm(report_df["raw_prod_sec"].mean()))
             m_col8.metric("Total Duration", format_dur_hm(total_dur))
 
-            # Dynamic Table
+            # Dynamic Table - Removed raw columns
+            display_cols = ["IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", 
+                           "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", 
+                           "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)", "REMARKS"]
+            
             total_row = pd.DataFrame([{
                 "CALLER": "TOTAL", "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
-                "CALL STATUS": "-", "PICK UP RATIO %": "-", "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
+                "CALL STATUS": "", "PICK UP RATIO %": "", "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
                 "CALLS 15-20 MINS": int(report_df["CALLS 15-20 MINS"].sum()), "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
-                "CALL DURATION > 3 MINS": format_dur_hm(total_dur), "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod_sec"].sum())
+                "CALL DURATION > 3 MINS": format_dur_hm(total_dur), "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod_sec"].sum()),
+                "REMARKS": ""
             }])
-            st.dataframe(pd.concat([report_df, total_row], ignore_index=True).style.apply(style_total, axis=1), use_container_width=True, hide_index=True)
+            
+            st.dataframe(pd.concat([report_df[display_cols], total_row], ignore_index=True).style.apply(style_total, axis=1), 
+                         column_order=display_cols, use_container_width=True, hide_index=True)
             
             csv_data = df[["client_number", "call_starttime_clean", "call_endtime_clean", "call_duration", "status", "Team Name", "Vertical", "source"]].to_csv(index=False)
             st.download_button("📥 Download CDR", data=csv_data, file_name="CDR_LOG.csv")
 
-            # --- STACKED CHART: CALLS BY VERTICAL (X=Count, Y=Vertical) ---
+            # --- STACKED CHART ---
             st.divider()
             st.subheader("📊 Vertical Performance breakdown by Team")
-            
-            # Preparing chart data with Answered/Missed hover logic
             chart_df = df.groupby(['Vertical', 'Team Name']).agg(
                 Total_Calls=('status', 'count'),
                 Answered=('status', lambda x: (x.str.lower() == 'answered').sum()),
@@ -300,10 +306,9 @@ with tab1:
             ).reset_index()
 
             fig = px.bar(chart_df, x="Total_Calls", y="Vertical", color="Team Name",
-                         orientation='h',
+                         orientation='h', text="Total_Calls",
                          hover_data=["Answered", "Missed"],
-                         title="Call Volume: Verticals Stacked by Teams",
-                         color_discrete_sequence=px.colors.qualitative.Prism)
+                         title="Call Volume: Verticals Stacked by Teams")
             
             fig.update_layout(xaxis_title="Call Count", yaxis_title="Vertical Name", barmode='stack')
             st.plotly_chart(fig, use_container_width=True)
@@ -316,9 +321,30 @@ with tab2:
             df_s = pd.merge(df_raw, df_team_mapping, on='merge_key', how='left')
             df_s['call_owner'] = df_s['Caller Name'].fillna(df_s['call_owner'])
             
-            for team in sorted(df_s['Team Name'].dropna().unique()):
-                team_df = df_s[df_s['Team Name'] == team]
-                rep, dur = process_metrics_logic(team_df)
-                st.markdown(f"<div class='static-team-header'>DURATION REPORT - {team.upper()}</div>", unsafe_allow_html=True)
-                st.dataframe(rep[["CALLER", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "CALL DURATION > 3 MINS"]], use_container_width=True, hide_index=True)
-                st.divider()
+            # TL Detection Logic (Restored)
+            tl_ad_mask = pd.Series(False, index=df_s.index)
+            for col in df_team_mapping.columns:
+                if col in df_s.columns:
+                    tl_ad_mask |= df_s[col].fillna('').astype(str).str.strip().str.upper().isin(['TL', 'ATL', 'AD', 'TEAM LEAD', 'TEAM LEADER'])
+
+            static_display_cols = ["CALLER", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS"]
+            
+            # Normal Teams
+            normal_team_data = df_s[~tl_ad_mask]
+            for team in sorted(normal_team_data['Team Name'].dropna().unique()):
+                team_df = normal_team_data[normal_team_data['Team Name'] == team]
+                rep, team_dur = process_metrics_logic(team_df)
+                if team_dur > 0:
+                    st.markdown(f"<div class='static-team-header'>DURATION REPORT - {team.upper()} ({ds_raw} To {de_raw})</div>", unsafe_allow_html=True)
+                    t_total = pd.DataFrame([{"CALLER": "TOTAL", "TOTAL CALLS": int(rep["TOTAL CALLS"].sum()), "CALL STATUS": "", "PICK UP RATIO %": "", "CALLS > 3 MINS": int(rep["CALLS > 3 MINS"].sum()), "CALLS 15-20 MINS": int(rep["CALLS 15-20 MINS"].sum()), "20+ MIN CALLS": int(rep["20+ MIN CALLS"].sum()), "CALL DURATION > 3 MINS": format_dur_hm(team_dur)}])
+                    st.dataframe(pd.concat([rep[static_display_cols], t_total], ignore_index=True).style.apply(style_total, axis=1), use_container_width=True, hide_index=True)
+                    st.divider()
+
+            # TL Dashboard (Restored at the end)
+            tl_pool = df_s[tl_ad_mask]
+            if not tl_pool.empty:
+                rep_tl, tl_dur = process_metrics_logic(tl_pool)
+                if tl_dur > 0:
+                    st.markdown(f"<div class='static-team-header'>TL'S DURATION REPORT ({ds_raw} To {de_raw})</div>", unsafe_allow_html=True)
+                    tl_total = pd.DataFrame([{"CALLER": "TOTAL", "TOTAL CALLS": int(rep_tl["TOTAL CALLS"].sum()), "CALL STATUS": "", "PICK UP RATIO %": "", "CALLS > 3 MINS": int(rep_tl["CALLS > 3 MINS"].sum()), "CALLS 15-20 MINS": int(rep_tl["CALLS 15-20 MINS"].sum()), "20+ MIN CALLS": int(rep_tl["20+ MIN CALLS"].sum()), "CALL DURATION > 3 MINS": format_dur_hm(tl_dur)}])
+                    st.dataframe(pd.concat([rep_tl[static_display_cols], tl_total], ignore_index=True).style.apply(style_total, axis=1), use_container_width=True, hide_index=True)
