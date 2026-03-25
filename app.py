@@ -89,6 +89,7 @@ def get_global_last_update():
 
 @st.cache_data(ttl=120, show_spinner=False)
 def get_available_dates():
+    # Updated to include manual_calls so the sidebar calendar doesn't restrict valid dates
     query = """
     SELECT MIN(min_d) as min_date, MAX(max_d) as max_date FROM (
         SELECT MIN(`Call Date`) as min_d, MAX(`Call Date`) as max_d FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`
@@ -105,14 +106,14 @@ def get_available_dates():
 
 @st.cache_data(ttl=120, show_spinner=False)
 def fetch_call_data(start_date, end_date):
-    # --- Acefone Data ---
+    # --- Acefone ---
     q_ace = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls` WHERE `Call Date` BETWEEN '{start_date}' AND '{end_date}'"
     df_ace = client.query(q_ace).to_dataframe()
     if not df_ace.empty: 
         df_ace['source'] = 'Acefone'
         df_ace['unique_lead_id'] = df_ace['client_number']
 
-    # --- Ozonetel Data ---
+    # --- Ozonetel ---
     q_ozo = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls` WHERE CallDate BETWEEN '{start_date}' AND '{end_date}'"
     df_ozo = client.query(q_ozo).to_dataframe()
     if not df_ozo.empty:
@@ -126,7 +127,7 @@ def fetch_call_data(start_date, end_date):
         df_ozo['direction'] = df_ozo['direction'].str.lower().replace({'manual': 'outbound'})
         df_ozo['source'] = 'Ozonetel'
 
-    # --- Manual Calls Data ---
+    # --- Manual Calls (New Table) ---
     q_man = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.manual_calls` WHERE Call_Date BETWEEN '{start_date}' AND '{end_date}'"
     df_man = client.query(q_man).to_dataframe()
     if not df_man.empty:
@@ -135,22 +136,20 @@ def fetch_call_data(start_date, end_date):
             'Call_Date': 'Call Date',
             'Approved_By': 'reason'
         })
-        # Applying hardcoded business rules
+        # Hardcoding required fields
         df_man['status'] = 'answered'
         df_man['direction'] = 'outbound'
         df_man['service'] = 'Manual'
         df_man['call_type'] = 'manual'
         df_man['source'] = 'Manual'
-        # Assigning nulls for unavailable fields to maintain CDR structure
+        # Filling empty columns for CDR alignment
         df_man['call_datetime'] = pd.NaT
-        df_man['call_id'] = None
+        df_man['call_id'] = ""
         df_man['updated_at'] = None
-        df_man['updated_at_ampm'] = None
+        df_man['updated_at_ampm'] = ""
 
-    # --- Combine All Sources ---
     df = pd.concat([df_ace, df_ozo, df_man], ignore_index=True)
     if not df.empty:
-        # call_datetime will remain NaT for Manual calls, preserving logic for others
         df['call_datetime'] = pd.to_datetime(df['call_datetime'], utc=True).dt.tz_convert('Asia/Kolkata')
         df['call_duration'] = pd.to_numeric(df['call_duration'], errors='coerce').fillna(0)
     return df
@@ -161,7 +160,6 @@ def format_dur_hm(total_seconds):
     return f"{tm // 60}h {tm % 60}m"
 
 def get_display_gap_seconds(start_time, end_time):
-    # Safety check for Manual calls which have NaT
     if pd.isna(start_time) or pd.isna(end_time): return 0
     s, e = start_time.replace(second=0, microsecond=0), end_time.replace(second=0, microsecond=0)
     return (e - s).total_seconds()
@@ -178,7 +176,7 @@ def process_metrics_logic(df_filtered):
         daily_io_list, daily_break_list, all_issues = [], [], []
         
         for c_date, day_group in agent_group.groupby('Call Date'):
-            # Filter out records without timestamps for timeline-based logic (Manual calls)
+            # Filter timed group for check-in/out and breaks (Manual calls ignored here as they have no timestamps)
             timed_group = day_group[day_group['call_datetime'].notna()].sort_values('call_datetime')
             
             total_active_days += 1
@@ -193,7 +191,7 @@ def process_metrics_logic(df_filtered):
             day_dur = day_group.loc[day_group['call_duration'] >= 180, 'call_duration'].sum()
             agent_valid_dur += day_dur
             
-            # Skip timeline logic if no timed calls (Manual calls only)
+            # Skip timeline logic for days/calls without timestamps (Manual calls)
             if timed_group.empty:
                 continue
 
@@ -305,7 +303,7 @@ with tab1:
                     st.error("No results match filters.")
                 else:
                     report_df, total_duration_agg = process_metrics_logic(df)
-                    # UI: Updated with a specific column for Manual Calls
+                    # UI: 8 columns to accommodate the new Manual Calls card
                     m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
                     m1.metric("Total Calls", len(df))
                     m2.metric("Acefone Calls", len(df[df['source'] == 'Acefone']))
