@@ -94,6 +94,8 @@ def get_available_dates():
         SELECT MIN(`Call Date`) as min_d, MAX(`Call Date`) as max_d FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`
         UNION ALL
         SELECT MIN(CallDate) as min_d, MAX(CallDate) as max_d FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls`
+        UNION ALL
+        SELECT MIN(Call_Date) as min_d, MAX(Call_Date) as max_d FROM `studious-apex-488820-c3.crm_dashboard.manual_calls`
     )
     """
     df_dates = client.query(query).to_dataframe()
@@ -103,12 +105,14 @@ def get_available_dates():
 
 @st.cache_data(ttl=120, show_spinner=False)
 def fetch_call_data(start_date, end_date):
+    # --- Acefone Data ---
     q_ace = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls` WHERE `Call Date` BETWEEN '{start_date}' AND '{end_date}'"
     df_ace = client.query(q_ace).to_dataframe()
     if not df_ace.empty: 
         df_ace['source'] = 'Acefone'
         df_ace['unique_lead_id'] = df_ace['client_number']
 
+    # --- Ozonetel Data ---
     q_ozo = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls` WHERE CallDate BETWEEN '{start_date}' AND '{end_date}'"
     df_ozo = client.query(q_ozo).to_dataframe()
     if not df_ozo.empty:
@@ -122,8 +126,31 @@ def fetch_call_data(start_date, end_date):
         df_ozo['direction'] = df_ozo['direction'].str.lower().replace({'manual': 'outbound'})
         df_ozo['source'] = 'Ozonetel'
 
-    df = pd.concat([df_ace, df_ozo], ignore_index=True)
+    # --- Manual Calls Data ---
+    q_man = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.manual_calls` WHERE Call_Date BETWEEN '{start_date}' AND '{end_date}'"
+    df_man = client.query(q_man).to_dataframe()
+    if not df_man.empty:
+        df_man['unique_lead_id'] = df_man['client_number']
+        df_man = df_man.rename(columns={
+            'Call_Date': 'Call Date',
+            'Approved_By': 'reason'
+        })
+        # Applying hardcoded business rules
+        df_man['status'] = 'answered'
+        df_man['direction'] = 'outbound'
+        df_man['service'] = 'Manual'
+        df_man['call_type'] = 'manual'
+        df_man['source'] = 'Manual'
+        # Assigning nulls for unavailable fields to maintain CDR structure
+        df_man['call_datetime'] = pd.NaT
+        df_man['call_id'] = None
+        df_man['updated_at'] = None
+        df_man['updated_at_ampm'] = None
+
+    # --- Combine All Sources ---
+    df = pd.concat([df_ace, df_ozo, df_man], ignore_index=True)
     if not df.empty:
+        # call_datetime will remain NaT for Manual calls, preserving logic for others
         df['call_datetime'] = pd.to_datetime(df['call_datetime'], utc=True).dt.tz_convert('Asia/Kolkata')
         df['call_duration'] = pd.to_numeric(df['call_duration'], errors='coerce').fillna(0)
     return df
@@ -134,6 +161,8 @@ def format_dur_hm(total_seconds):
     return f"{tm // 60}h {tm % 60}m"
 
 def get_display_gap_seconds(start_time, end_time):
+    # Safety check for Manual calls which have NaT
+    if pd.isna(start_time) or pd.isna(end_time): return 0
     s, e = start_time.replace(second=0, microsecond=0), end_time.replace(second=0, microsecond=0)
     return (e - s).total_seconds()
 
@@ -149,7 +178,9 @@ def process_metrics_logic(df_filtered):
         daily_io_list, daily_break_list, all_issues = [], [], []
         
         for c_date, day_group in agent_group.groupby('Call Date'):
-            day_group = day_group.sort_values('call_datetime')
+            # Filter out records without timestamps for timeline-based logic (Manual calls)
+            timed_group = day_group[day_group['call_datetime'].notna()].sort_values('call_datetime')
+            
             total_active_days += 1
             ans = len(day_group[day_group['status'].str.lower() == 'answered'])
             miss = len(day_group[day_group['status'].str.lower() == 'missed'])
@@ -162,8 +193,12 @@ def process_metrics_logic(df_filtered):
             day_dur = day_group.loc[day_group['call_duration'] >= 180, 'call_duration'].sum()
             agent_valid_dur += day_dur
             
-            first_call_start = day_group['call_datetime'].min()
-            last_call_end_time = (day_group['call_datetime'] + pd.to_timedelta(day_group['call_duration'], unit='s')).max()
+            # Skip timeline logic if no timed calls (Manual calls only)
+            if timed_group.empty:
+                continue
+
+            first_call_start = timed_group['call_datetime'].min()
+            last_call_end_time = (timed_group['call_datetime'] + pd.to_timedelta(timed_group['call_duration'], unit='s')).max()
             daily_io_list.append(f"{c_date.strftime('%d/%m')}: In {first_call_start.strftime('%I:%M %p')} · Out {last_call_end_time.strftime('%I:%M %p')}")
             
             start_office = ist_tz.localize(datetime.combine(c_date, time(10, 0)))
@@ -172,15 +207,15 @@ def process_metrics_logic(df_filtered):
             if last_call_end_time < end_office: all_issues.append("Early Check-Out")
 
             day_breaks, day_break_sec = [], 0
-            day_group['actual_end'] = day_group['call_datetime'] + pd.to_timedelta(day_group['call_duration'], unit='s')
+            timed_group['actual_end'] = timed_group['call_datetime'] + pd.to_timedelta(timed_group['call_duration'], unit='s')
             if first_call_start > start_office:
                 g_start_sec = get_display_gap_seconds(start_office, first_call_start)
                 if g_start_sec >= 900:
                     day_breaks.append({'s': start_office, 'e': first_call_start, 'dur': g_start_sec})
                     day_break_sec += g_start_sec
-            if len(day_group) > 1:
-                for i in range(len(day_group)-1):
-                    act_s, act_e = max(day_group['actual_end'].iloc[i], start_office), min(day_group['call_datetime'].iloc[i+1], end_office)
+            if len(timed_group) > 1:
+                for i in range(len(timed_group)-1):
+                    act_s, act_e = max(timed_group['actual_end'].iloc[i], start_office), min(timed_group['call_datetime'].iloc[i+1], end_office)
                     if act_e > act_s:
                         g_mid_sec = get_display_gap_seconds(act_s, act_e)
                         if g_mid_sec >= 900:
@@ -270,15 +305,17 @@ with tab1:
                     st.error("No results match filters.")
                 else:
                     report_df, total_duration_agg = process_metrics_logic(df)
-                    m1, m2, m3, m4, m5, m6, m7 = st.columns(7)
+                    # UI: Updated with a specific column for Manual Calls
+                    m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
                     m1.metric("Total Calls", len(df))
                     m2.metric("Acefone Calls", len(df[df['source'] == 'Acefone']))
                     m3.metric("Ozonetel Calls", len(df[df['source'] == 'Ozonetel']))
-                    m4.metric("Unique Leads", df['unique_lead_id'].nunique())
+                    m4.metric("Manual Calls", len(df[df['source'] == 'Manual']))
+                    m5.metric("Unique Leads", df['unique_lead_id'].nunique())
                     ans_t = len(df[df['status'].str.lower() == 'answered'])
-                    m5.metric("Pick Up Ratio %", f"{(ans_t/len(df)*100):.1f}%")
-                    m6.metric("Active Callers", len(report_df))
-                    m7.metric("Avg Prod Hrs", format_dur_hm(report_df["raw_prod_sec"].mean()))
+                    m6.metric("Pick Up Ratio %", f"{(ans_t/len(df)*100):.1f}%" if len(df) > 0 else "0.0%")
+                    m7.metric("Active Callers", len(report_df))
+                    m8.metric("Avg Prod Hrs", format_dur_hm(report_df["raw_prod_sec"].mean()))
                     
                     st.divider()
                     total_row = pd.DataFrame([{
@@ -291,7 +328,6 @@ with tab1:
                     
                     display_cols = ["IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)","REMARKS"]
                     
-                    # Ensure final display DF only contains requested columns
                     final_df = pd.concat([report_df, total_row], ignore_index=True)
                     
                     st.dataframe(final_df.style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=display_cols, use_container_width=True, hide_index=True)
