@@ -266,7 +266,7 @@ gen_static = st.sidebar.button("Generate Static Report")
 
 # --- 5. Header Section ---
 last_update_str = get_global_last_update()
-st.markdown("<h1 style='text-align: center; margin-bottom: 5px;'>CALLERWISE DURATION METRICS</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; margin-bottom: 5px;'>DURATION METRICS - LAWSIKHO & SKILL ARBITRAGE</h1>", unsafe_allow_html=True)
 display_start, display_end = start_date.strftime('%d-%m-%Y'), end_date.strftime('%d-%m-%Y')
 col_sub_l, col_sub_r = st.columns([3, 1])
 with col_sub_l:
