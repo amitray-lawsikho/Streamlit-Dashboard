@@ -46,7 +46,6 @@ div[data-testid="stDataFrame"] thead tr th {
     padding: 10px !important;
 }
 
-/* Static Heading Refinement: Removed borders, kept centering and font size */
 .static-team-header {
     text-align: center;
     margin-top: 40px;
@@ -60,7 +59,10 @@ div[data-testid="stDataFrame"] thead tr th {
 
 # --- GLOBAL HELPER FUNCTIONS ---
 def style_total(row):
-    return ['font-weight: bold; background-color: #262730; color: white'] * len(row) if row["CALLER"] == "TOTAL" else [''] * len(row)
+    # Updated to Light Grey with Black text for a cleaner look
+    if row["CALLER"] == "TOTAL":
+        return ['font-weight: bold; background-color: #f0f2f6; color: #000000'] * len(row)
+    return [''] * len(row)
 
 # --- 3. Data Fetching Functions ---
 @st.cache_data(ttl=120, show_spinner=False)
@@ -89,7 +91,6 @@ def get_global_last_update():
 
 @st.cache_data(ttl=120, show_spinner=False)
 def get_available_dates():
-    # FIXED: Only check Acefone and Ozonetel to define the selectable range
     query = """
     SELECT MIN(min_d) as min_date, MAX(max_d) as max_date FROM (
         SELECT MIN(`Call Date`) as min_d, MAX(`Call Date`) as max_d FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`
@@ -104,14 +105,12 @@ def get_available_dates():
 
 @st.cache_data(ttl=120, show_spinner=False)
 def fetch_call_data(start_date, end_date):
-    # --- Acefone ---
     q_ace = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls` WHERE `Call Date` BETWEEN '{start_date}' AND '{end_date}'"
     df_ace = client.query(q_ace).to_dataframe()
     if not df_ace.empty: 
         df_ace['source'] = 'Acefone'
         df_ace['unique_lead_id'] = df_ace['client_number']
 
-    # --- Ozonetel ---
     q_ozo = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls` WHERE CallDate BETWEEN '{start_date}' AND '{end_date}'"
     df_ozo = client.query(q_ozo).to_dataframe()
     if not df_ozo.empty:
@@ -125,7 +124,6 @@ def fetch_call_data(start_date, end_date):
         df_ozo['direction'] = df_ozo['direction'].str.lower().replace({'manual': 'outbound'})
         df_ozo['source'] = 'Ozonetel'
 
-    # --- Manual Calls ---
     q_man = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.manual_calls` WHERE Call_Date BETWEEN '{start_date}' AND '{end_date}'"
     df_man = client.query(q_man).to_dataframe()
     if not df_man.empty:
@@ -290,6 +288,9 @@ with tab1:
                     st.error("No results match filters.")
                 else:
                     report_df, total_duration_agg = process_metrics_logic(df)
+                    # Sort Descending by raw duration
+                    report_df = report_df.sort_values(by="raw_dur_sec", ascending=False)
+                    
                     m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
                     m1.metric("Total Calls", len(df))
                     m2.metric("Acefone Calls", len(df[df['source'] == 'Acefone']))
@@ -349,6 +350,9 @@ with tab2:
                     team_df = normal_team_data[normal_team_data['Team Name'] == team]
                     report_df, team_dur_agg_sec = process_metrics_logic(team_df)
                     if team_dur_agg_sec > 0:
+                        # Sort Descending by raw duration
+                        report_df = report_df.sort_values(by="raw_dur_sec", ascending=False)
+                        
                         st.markdown(f"<div class='static-team-header'>DURATION REPORT - {team.upper()} ({display_start} To {display_end})</div>", unsafe_allow_html=True)
                         total_row = pd.DataFrame([{
                             "CALLER": "TOTAL", "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
@@ -357,8 +361,17 @@ with tab2:
                             "CALL DURATION > 3 MINS": format_dur_hm(team_dur_agg_sec)
                         }])
                         final_team_df = pd.concat([report_df[static_display_cols], total_row], ignore_index=True)
-                        calc_height = (len(final_team_df) + 1) * 35 + 45
-                        st.dataframe(final_team_df.style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=static_display_cols, use_container_width=True, hide_index=True, height=calc_height)
+                        
+                        # Dynamic height calculation to remove extra bottom space
+                        calc_height = (len(final_team_df) + 1) * 35 + 20
+                        
+                        st.dataframe(
+                            final_team_df.style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}), 
+                            column_order=static_display_cols, 
+                            use_container_width=True, 
+                            hide_index=True, 
+                            height=calc_height
+                        )
                         
                         target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
                         existing_cols = [c for c in target_cols if c in team_df.columns]
@@ -371,6 +384,9 @@ with tab2:
                     report_df_tl = report_df_tl[report_df_tl['raw_dur_sec'] > 300]
                     tl_dur_agg_sec = report_df_tl['raw_dur_sec'].sum()
                     if not report_df_tl.empty and tl_dur_agg_sec > 0:
+                        # Sort Descending by raw duration
+                        report_df_tl = report_df_tl.sort_values(by="raw_dur_sec", ascending=False)
+                        
                         st.markdown(f"<div class='static-team-header'>TL'S DURATION REPORT ({display_start} To {display_end})</div>", unsafe_allow_html=True)
                         total_row_tl = pd.DataFrame([{
                             "CALLER": "TOTAL", "TOTAL CALLS": int(report_df_tl["TOTAL CALLS"].sum()),
@@ -379,8 +395,16 @@ with tab2:
                             "CALL DURATION > 3 MINS": format_dur_hm(tl_dur_agg_sec)
                         }])
                         final_tl_df = pd.concat([report_df_tl[static_display_cols], total_row_tl], ignore_index=True)
-                        calc_height_tl = (len(final_tl_df) + 1) * 35 + 45
-                        st.dataframe(final_tl_df.style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=static_display_cols, use_container_width=True, hide_index=True, height=calc_height_tl)
+                        
+                        calc_height_tl = (len(final_tl_df) + 1) * 35 + 20
+                        
+                        st.dataframe(
+                            final_tl_df.style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}), 
+                            column_order=static_display_cols, 
+                            use_container_width=True, 
+                            hide_index=True, 
+                            height=calc_height_tl
+                        )
                         
                         target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
                         valid_tls = report_df_tl['CALLER'].unique()
