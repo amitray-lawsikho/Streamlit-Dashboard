@@ -276,7 +276,7 @@ with col_sub_r:
 st.divider()
 
 # --- 6. TAB SELECTION ---
-tab1, tab2 = st.tabs(["🚀 Dynamic Dashboard", "📅 Static Dashboard"])
+tab1, tab2 = st.tabs(["🚀 Dynamic Dashboard", "📅 Duration Report"])
 
 with tab1:
     if gen_dynamic:
