@@ -89,14 +89,12 @@ def get_global_last_update():
 
 @st.cache_data(ttl=120, show_spinner=False)
 def get_available_dates():
-    # Updated to include manual_calls so the sidebar calendar doesn't restrict valid dates
+    # FIXED: Only check Acefone and Ozonetel to define the selectable range
     query = """
     SELECT MIN(min_d) as min_date, MAX(max_d) as max_date FROM (
         SELECT MIN(`Call Date`) as min_d, MAX(`Call Date`) as max_d FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`
         UNION ALL
         SELECT MIN(CallDate) as min_d, MAX(CallDate) as max_d FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls`
-        UNION ALL
-        SELECT MIN(Call_Date) as min_d, MAX(Call_Date) as max_d FROM `studious-apex-488820-c3.crm_dashboard.manual_calls`
     )
     """
     df_dates = client.query(query).to_dataframe()
@@ -127,22 +125,17 @@ def fetch_call_data(start_date, end_date):
         df_ozo['direction'] = df_ozo['direction'].str.lower().replace({'manual': 'outbound'})
         df_ozo['source'] = 'Ozonetel'
 
-    # --- Manual Calls (New Table) ---
+    # --- Manual Calls ---
     q_man = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.manual_calls` WHERE Call_Date BETWEEN '{start_date}' AND '{end_date}'"
     df_man = client.query(q_man).to_dataframe()
     if not df_man.empty:
         df_man['unique_lead_id'] = df_man['client_number']
-        df_man = df_man.rename(columns={
-            'Call_Date': 'Call Date',
-            'Approved_By': 'reason'
-        })
-        # Hardcoding required fields
+        df_man = df_man.rename(columns={'Call_Date': 'Call Date', 'Approved_By': 'reason'})
         df_man['status'] = 'answered'
         df_man['direction'] = 'outbound'
         df_man['service'] = 'Manual'
         df_man['call_type'] = 'manual'
         df_man['source'] = 'Manual'
-        # Filling empty columns for CDR alignment
         df_man['call_datetime'] = pd.NaT
         df_man['call_id'] = ""
         df_man['updated_at'] = None
@@ -176,24 +169,18 @@ def process_metrics_logic(df_filtered):
         daily_io_list, daily_break_list, all_issues = [], [], []
         
         for c_date, day_group in agent_group.groupby('Call Date'):
-            # Filter timed group for check-in/out and breaks (Manual calls ignored here as they have no timestamps)
             timed_group = day_group[day_group['call_datetime'].notna()].sort_values('call_datetime')
-            
             total_active_days += 1
             ans = len(day_group[day_group['status'].str.lower() == 'answered'])
             miss = len(day_group[day_group['status'].str.lower() == 'missed'])
             total_ans += ans; total_miss += miss; total_calls += len(day_group)
-            
             total_above_3min += len(day_group[day_group['call_duration'] >= 180])
             total_mid_calls += len(day_group[(day_group['call_duration'] >= 900) & (day_group['call_duration'] < 1200)])
             total_long_calls += len(day_group[day_group['call_duration'] >= 1200])
-            
             day_dur = day_group.loc[day_group['call_duration'] >= 180, 'call_duration'].sum()
             agent_valid_dur += day_dur
             
-            # Skip timeline logic for days/calls without timestamps (Manual calls)
-            if timed_group.empty:
-                continue
+            if timed_group.empty: continue
 
             first_call_start = timed_group['call_datetime'].min()
             last_call_end_time = (timed_group['call_datetime'] + pd.to_timedelta(timed_group['call_duration'], unit='s')).max()
@@ -303,7 +290,6 @@ with tab1:
                     st.error("No results match filters.")
                 else:
                     report_df, total_duration_agg = process_metrics_logic(df)
-                    # UI: 8 columns to accommodate the new Manual Calls card
                     m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
                     m1.metric("Total Calls", len(df))
                     m2.metric("Acefone Calls", len(df[df['source'] == 'Acefone']))
@@ -325,10 +311,9 @@ with tab1:
                     }])
                     
                     display_cols = ["IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS", "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)","REMARKS"]
-                    
                     final_df = pd.concat([report_df, total_row], ignore_index=True)
-                    
                     st.dataframe(final_df.style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=display_cols, use_container_width=True, hide_index=True)
+                    
                     st.divider()
                     cdr_csv = df.copy()
                     target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
@@ -349,7 +334,6 @@ with tab2:
                 if selected_vertical:
                     df_static_master = df_static_master[df_static_master['Vertical'].isin(selected_vertical)]
 
-                # --- 🔴 DYNAMIC TL DETECTION 🔴 ---
                 tl_ad_mask = pd.Series(False, index=df_static_master.index)
                 meta_cols = df_team_mapping.columns.tolist()
                 for col in meta_cols:
@@ -358,18 +342,14 @@ with tab2:
                         tl_ad_mask |= clean_col.isin(['TL', 'ATL', 'AD', 'TEAM LEAD', 'TEAM LEADER'])
 
                 static_display_cols = ["CALLER", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS"]
-                
-                # --- PART 1: NORMAL TEAMS ---
                 normal_team_data = df_static_master[~tl_ad_mask]
                 normal_teams = sorted(normal_team_data['Team Name'].dropna().unique())
                 
                 for team in normal_teams:
                     team_df = normal_team_data[normal_team_data['Team Name'] == team]
                     report_df, team_dur_agg_sec = process_metrics_logic(team_df)
-                    
                     if team_dur_agg_sec > 0:
                         st.markdown(f"<div class='static-team-header'>DURATION REPORT - {team.upper()} ({display_start} To {display_end})</div>", unsafe_allow_html=True)
-                        
                         total_row = pd.DataFrame([{
                             "CALLER": "TOTAL", "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
                             "CALL STATUS": "-", "PICK UP RATIO %": "-", "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
@@ -378,52 +358,32 @@ with tab2:
                         }])
                         final_team_df = pd.concat([report_df[static_display_cols], total_row], ignore_index=True)
                         calc_height = (len(final_team_df) + 1) * 35 + 45
-                        
-                        st.dataframe(
-                            final_team_df.style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}),
-                            column_order=static_display_cols,
-                            use_container_width=True,
-                            hide_index=True,
-                            height=calc_height
-                        )
+                        st.dataframe(final_team_df.style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=static_display_cols, use_container_width=True, hide_index=True, height=calc_height)
                         
                         target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
                         existing_cols = [c for c in target_cols if c in team_df.columns]
                         st.download_button(label=f"📥 Download CDR - {team}", data=team_df[existing_cols].to_csv(index=False).encode('utf-8'), file_name=f"CDR_{team}.csv", mime='text/csv', key=f"dl_team_{team}")
                         st.divider()
 
-                # --- PART 2: TL/AD SECTION ---
                 tl_ad_pool = df_static_master[tl_ad_mask]
-                
                 if not tl_ad_pool.empty:
                     report_df_tl, _ = process_metrics_logic(tl_ad_pool)
                     report_df_tl = report_df_tl[report_df_tl['raw_dur_sec'] > 300]
                     tl_dur_agg_sec = report_df_tl['raw_dur_sec'].sum()
-                    
                     if not report_df_tl.empty and tl_dur_agg_sec > 0:
                         st.markdown(f"<div class='static-team-header'>TL'S DURATION REPORT ({display_start} To {display_end})</div>", unsafe_allow_html=True)
-                        
                         total_row_tl = pd.DataFrame([{
                             "CALLER": "TOTAL", "TOTAL CALLS": int(report_df_tl["TOTAL CALLS"].sum()),
                             "CALL STATUS": "-", "PICK UP RATIO %": "-", "CALLS > 3 MINS": int(report_df_tl["CALLS > 3 MINS"].sum()),
                             "CALLS 15-20 MINS": int(report_df_tl["CALLS 15-20 MINS"].sum()), "20+ MIN CALLS": int(report_df_tl["20+ MIN CALLS"].sum()),
                             "CALL DURATION > 3 MINS": format_dur_hm(tl_dur_agg_sec)
                         }])
-                        
                         final_tl_df = pd.concat([report_df_tl[static_display_cols], total_row_tl], ignore_index=True)
                         calc_height_tl = (len(final_tl_df) + 1) * 35 + 45
-                        
-                        st.dataframe(
-                            final_tl_df.style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}),
-                            column_order=static_display_cols,
-                            use_container_width=True,
-                            hide_index=True,
-                            height=calc_height_tl
-                        )
+                        st.dataframe(final_tl_df.style.apply(style_total, axis=1).set_properties(**{'white-space': 'pre-wrap'}), column_order=static_display_cols, use_container_width=True, hide_index=True, height=calc_height_tl)
                         
                         target_cols = ["client_number", "call_datetime", "call_duration", "status", "direction", "service", "reason", "call_owner", "Call Date", "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"]
                         valid_tls = report_df_tl['CALLER'].unique()
                         final_tl_cdr = tl_ad_pool[tl_ad_pool['call_owner'].isin(valid_tls)]
                         existing_cols = [c for c in target_cols if c in final_tl_cdr.columns]
-                        
                         st.download_button(label="📥 Download TL CDR", data=final_tl_cdr[existing_cols].to_csv(index=False).encode('utf-8'), file_name="CDR_TL_AD.csv", mime='text/csv', key="dl_tl_ad_final_last")
