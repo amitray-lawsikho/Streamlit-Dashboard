@@ -56,11 +56,6 @@ def style_total(row):
         return ['font-weight: bold; background-color: #f0f2f6; color: #000000'] * len(row)
     return [''] * len(row)
 
-def style_static(row):
-    if row["CALLER"] == "TOTAL":
-        return ['font-weight: bold; background-color: #f0f2f6; color: #000000'] * len(row)
-    return [''] * len(row)
-
 def format_dur_hm(total_seconds):
     if pd.isna(total_seconds) or total_seconds <= 0: return "0h 0m"
     tm = int(round(total_seconds / 60))
@@ -107,14 +102,12 @@ def get_available_dates():
 
 @st.cache_data(ttl=120, show_spinner=False)
 def fetch_call_data(start_date, end_date):
-    # Acefone
     q_ace = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls` WHERE `Call Date` BETWEEN '{start_date}' AND '{end_date}'"
     df_ace = client.query(q_ace).to_dataframe()
     if not df_ace.empty: 
         df_ace['source'] = 'Acefone'
         df_ace['unique_lead_id'] = df_ace['client_number']
 
-    # Ozonetel
     q_ozo = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls` WHERE CallDate BETWEEN '{start_date}' AND '{end_date}'"
     df_ozo = client.query(q_ozo).to_dataframe()
     if not df_ozo.empty:
@@ -128,7 +121,6 @@ def fetch_call_data(start_date, end_date):
         df_ozo['direction'] = df_ozo['direction'].str.lower().replace({'manual': 'outbound'})
         df_ozo['source'] = 'Ozonetel'
 
-    # Manual
     q_man = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.manual_calls` WHERE Call_Date BETWEEN '{start_date}' AND '{end_date}'"
     df_man = client.query(q_man).to_dataframe()
     if not df_man.empty:
@@ -144,8 +136,6 @@ def fetch_call_data(start_date, end_date):
         df['call_endtime'] = pd.to_datetime(df['call_datetime'], utc=True).dt.tz_convert('Asia/Kolkata')
         df['call_duration'] = pd.to_numeric(df['call_duration'], errors='coerce').fillna(0)
         df['call_starttime'] = df['call_endtime'] - pd.to_timedelta(df['call_duration'], unit='s')
-        
-        # Clean timestamps for CSV
         df['call_starttime_clean'] = df['call_starttime'].dt.tz_localize(None)
         df['call_endtime_clean'] = df['call_endtime'].dt.tz_localize(None)
     return df
@@ -184,7 +174,6 @@ def process_metrics_logic(df_filtered):
             
             day_breaks, day_break_sec = [], 0
 
-            # Break Calculation: GAP between call end and next call start
             if first_start > start_off:
                 gap = (first_start - start_off).total_seconds()
                 if gap >= 900:
@@ -225,7 +214,7 @@ def process_metrics_logic(df_filtered):
             "20+ MIN CALLS": int(total_long_calls), "CALL DURATION > 3 MINS": format_dur_hm(agent_valid_dur),
             "PRODUCTIVE HOURS": format_dur_hm(prod_sec_total), "BREAKS (>=15 MINS)": "\n---\n".join(daily_break_list) if daily_break_list else "0",
             "REMARKS": ", ".join(sorted(list(set(all_issues)))) if all_issues else "None", "raw_prod_sec": prod_sec_total,
-            "raw_dur_sec": agent_valid_dur, "ans_count": total_ans, "miss_count": total_miss
+            "raw_dur_sec": agent_valid_dur
         })
     return pd.DataFrame(agents_list), total_duration_agg
 
@@ -240,8 +229,23 @@ search_query = st.sidebar.text_input("🔍 Search Name")
 gen_dynamic = st.sidebar.button("Generate Dynamic Report")
 gen_static = st.sidebar.button("Generate Static Report")
 
-# --- 5. Main UI ---
-st.markdown("<h1 style='text-align: center;'>DURATION METRICS</h1>", unsafe_allow_html=True)
+# --- 5. Main UI Header ---
+last_update_str = get_global_last_update()
+st.markdown("<h1 style='text-align: center; margin-bottom: 5px;'>DURATION METRICS - LAWSIKHO & SKILL ARBITRAGE</h1>", unsafe_allow_html=True)
+
+# Restoring the Report Period and Last Updated header cards
+if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
+    d_start, d_end = selected_dates[0].strftime('%d-%m-%Y'), selected_dates[1].strftime('%d-%m-%Y')
+else:
+    d_start = d_end = selected_dates.strftime('%d-%m-%Y')
+
+h_col1, h_col2 = st.columns([3, 1])
+with h_col1:
+    st.markdown(f"<p style='color: #A0A0A0;'>Report Period: <b>{d_start}</b> to <b>{d_end}</b></p>", unsafe_allow_html=True)
+with h_col2:
+    st.markdown(f"<p style='color: #A0A0A0; text-align: right;'>Last Updated: <b>{last_update_str}</b></p>", unsafe_allow_html=True)
+st.divider()
+
 tab1, tab2 = st.tabs(["🚀 Dynamic Dashboard", "📅 Duration Report"])
 
 with tab1:
@@ -258,15 +262,19 @@ with tab1:
 
             report_df, total_dur = process_metrics_logic(df)
             
-            # Restored Summary Metrics
-            m1, m2, m3, m4, m5, m6 = st.columns(6)
-            m1.metric("Total Calls", len(df))
-            m2.metric("Unique Leads", df['unique_lead_id'].nunique())
-            ans_t = len(df[df['status'] == 'answered'])
-            m3.metric("Pick Up %", f"{round(ans_t/len(df)*100)}%" if len(df)>0 else "0%")
-            m4.metric("Active Callers", len(report_df))
-            m5.metric("Avg Prod Hrs", format_dur_hm(report_df["raw_prod_sec"].mean()))
-            m6.metric("Total Duration", format_dur_hm(total_dur))
+            # FULL Detailed Summary Metrics (Restored)
+            m_col1, m_col2, m_col3, m_col4 = st.columns(4)
+            m_col1.metric("Total Calls", len(df))
+            m_col2.metric("Acefone Calls", len(df[df['source'] == 'Acefone']))
+            m_col3.metric("Ozonetel Calls", len(df[df['source'] == 'Ozonetel']))
+            m_col4.metric("Manual Calls", len(df[df['source'] == 'Manual']))
+            
+            m_col5, m_col6, m_col7, m_col8 = st.columns(4)
+            m_col5.metric("Unique Leads", df['unique_lead_id'].nunique())
+            ans_count = len(df[df['status'] == 'answered'])
+            m_col6.metric("Pick Up %", f"{round(ans_count/len(df)*100)}%" if len(df)>0 else "0%")
+            m_col7.metric("Avg Prod Hrs", format_dur_hm(report_df["raw_prod_sec"].mean()))
+            m_col8.metric("Total Duration", format_dur_hm(total_dur))
 
             # Dynamic Table
             total_row = pd.DataFrame([{
@@ -277,20 +285,27 @@ with tab1:
             }])
             st.dataframe(pd.concat([report_df, total_row], ignore_index=True).style.apply(style_total, axis=1), use_container_width=True, hide_index=True)
             
-            # CLEAN Download
-            csv_data = df[["client_number", "call_starttime_clean", "call_endtime_clean", "call_duration", "status", "Team Name", "Vertical"]].to_csv(index=False)
+            csv_data = df[["client_number", "call_starttime_clean", "call_endtime_clean", "call_duration", "status", "Team Name", "Vertical", "source"]].to_csv(index=False)
             st.download_button("📥 Download CDR", data=csv_data, file_name="CDR_LOG.csv")
 
-            # --- STACKED TEAM CHART ---
+            # --- STACKED CHART: CALLS BY VERTICAL (X=Count, Y=Vertical) ---
             st.divider()
-            st.subheader("📊 Team Performance by Vertical")
-            # Preparing chart data
-            chart_df = df.groupby(['Team Name', 'Vertical', 'status']).size().reset_index(name='CallCount')
-            # Pivot to get Answered/Missed as separate data for hover
-            fig = px.bar(chart_df, x="Team Name", y="CallCount", color="Vertical", 
-                         title="Total Calls per Team (Stacked by Vertical)",
-                         hover_data={"status": True, "CallCount": True},
-                         barmode='stack')
+            st.subheader("📊 Vertical Performance breakdown by Team")
+            
+            # Preparing chart data with Answered/Missed hover logic
+            chart_df = df.groupby(['Vertical', 'Team Name']).agg(
+                Total_Calls=('status', 'count'),
+                Answered=('status', lambda x: (x.str.lower() == 'answered').sum()),
+                Missed=('status', lambda x: (x.str.lower() == 'missed').sum())
+            ).reset_index()
+
+            fig = px.bar(chart_df, x="Total_Calls", y="Vertical", color="Team Name",
+                         orientation='h',
+                         hover_data=["Answered", "Missed"],
+                         title="Call Volume: Verticals Stacked by Teams",
+                         color_discrete_sequence=px.colors.qualitative.Prism)
+            
+            fig.update_layout(xaxis_title="Call Count", yaxis_title="Vertical Name", barmode='stack')
             st.plotly_chart(fig, use_container_width=True)
 
 with tab2:
