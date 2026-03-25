@@ -281,7 +281,7 @@ selected_vertical = st.sidebar.multiselect("Filter by Vertical", options=vertica
 search_query = st.sidebar.text_input("🔍 Search Name")
 
 gen_dynamic = st.sidebar.button("Generate Dynamic Report")
-gen_static = st.sidebar.button("Generate Static Report")
+gen_static = st.sidebar.button("Generate Duration Report")
 
 # --- 5. Header Section ---
 last_update_str = get_global_last_update()
