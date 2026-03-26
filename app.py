@@ -1119,8 +1119,10 @@ with tab3:
 
                     st.divider()
 
-                    # ── 2. Team Leaderboard (Charts & Analytics Headers Removed) ──
+                   # ── 2. Team Leaderboard with TOTAL Row ──
                     section_header("🏅 TEAM LEADERBOARD")
+                    
+                    # Calculate the base leaderboard
                     lb = (
                         report_df_all.groupby("TEAM")
                         .agg(
@@ -1131,15 +1133,39 @@ with tab3:
                             avg_prod_h=("raw_prod_sec", lambda x: round(x.mean() / 3600, 1)),
                             long_calls=("20+ MIN CALLS", "sum"),
                         )
-                        .reset_index().sort_values("total_dur_h", ascending=False)
-                        .rename(columns={
-                            "TEAM": "Team", "agents": "Agents", "total_calls": "Total Calls",
-                            "total_dur_h": "Total Dur (h)", "avg_dur_h": "Avg Dur/Agent (h)",
-                            "avg_prod_h": "Avg Prod Hrs (h)", "long_calls": "20+ Min Calls"
-                        })
+                        .reset_index()
+                        .sort_values("total_dur_h", ascending=False)
                     )
-                    lb.index = ["🥇", "🥈", "🥉"] + [""] * max(0, len(lb) - 3)
-                    st.dataframe(lb, use_container_width=True)
+
+                    # Create the TOTAL row
+                    lb_total = pd.DataFrame([{
+                        "TEAM": "TOTAL",
+                        "agents": lb["agents"].sum(),
+                        "total_calls": lb["total_calls"].sum(),
+                        "total_dur_h": lb["total_dur_h"].sum(),
+                        "avg_dur_h": round(lb["avg_dur_h"].mean(), 1), # Average of averages
+                        "avg_prod_h": round(lb["avg_prod_h"].mean(), 1),
+                        "long_calls": lb["long_calls"].sum()
+                    }])
+
+                    # Combine and Rename
+                    final_lb = pd.concat([lb, lb_total], ignore_index=True)
+                    final_lb = final_lb.rename(columns={
+                        "TEAM": "Team", "agents": "Agents", "total_calls": "Total Calls",
+                        "total_dur_h": "Total Dur (h)", "avg_dur_h": "Avg Dur/Agent (h)",
+                        "avg_prod_h": "Avg Prod Hrs (h)", "long_calls": "20+ Min Calls"
+                    })
+
+                    # Assign Medal Index
+                    idx_labels = ["🥇", "🥈", "🥉"] + [""] * (len(lb) - 3) + ["∑"]
+                    final_lb.index = idx_labels
+
+                    # Apply the same "TOTAL" styling we used in Dynamic Dashboard
+                    st.dataframe(
+                        final_lb.style.apply(lambda x: ['font-weight: bold; background-color: #374151; color: #FFFFFF;' 
+                                                       if x.name == '∑' else '' for i in x], axis=1),
+                        use_container_width=True
+                    )
 
     else:
         # ── Clean Placeholder ──
