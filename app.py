@@ -5,6 +5,9 @@ import pandas as pd
 from datetime import datetime, date, time, timedelta
 import os
 import pytz
+import plotly.graph_objects as go
+import plotly.express as px
+from plotly.subplots import make_subplots
 import numpy as np
 
 # --- 1. Cloud Credentials Setup ---
@@ -268,44 +271,31 @@ footer { visibility: hidden; }
 }
 
 /* ── Insight cards ── */
-[data-testid="stVerticalBlock"] > div > div > [data-testid="stHorizontalBlock"] {
-    align-items: stretch !important;
-    gap: 1.5rem !important; /* Adds space between the left and right cards */
-}
-
 .insight-card {
     background: var(--metric-bg, #fff);
     border: 1px solid var(--border, rgba(0,0,0,.08));
     border-radius: var(--radius-md);
-    padding: 1.2rem 1.5rem; /* Increased padding for better breathing room */
-    height: 100%;
-    min-height: 160px; /* Ensures all containers are at least this tall */
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
+    padding: 1rem 1.1rem;
+    margin-bottom: .6rem;
     box-shadow: var(--shadow-sm);
     transition: var(--transition);
-    margin-bottom: 1rem;
 }
-
-.insight-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
-.insight-card.good  { border-left: 4px solid #34D399; }
-.insight-card.warn  { border-left: 4px solid #FBBF24; }
-.insight-card.bad   { border-left: 4px solid #F87171; }
-.insight-card.info  { border-left: 4px solid #4F8EF7; }
-
+.insight-card:hover { box-shadow: var(--shadow-md); }
+.insight-card.good  { border-left: 3px solid #34D399; }
+.insight-card.warn  { border-left: 3px solid #FBBF24; }
+.insight-card.bad   { border-left: 3px solid #F87171; }
+.insight-card.info  { border-left: 3px solid #4F8EF7; }
+.insight-icon { font-size: 1.1rem; }
 .insight-title {
-    font-size: 0.9rem;
+    font-size: .82rem;
     font-weight: 700;
     color: var(--text-primary, #111827);
-    margin-bottom: 0.5rem !important;
+    margin: .2rem 0;
 }
-
 .insight-body {
-    font-size: 0.8rem;
+    font-size: .76rem;
     color: var(--text-muted, #6B7280);
-    line-height: 1.6;
-    flex-grow: 1;
+    line-height: 1.5;
 }
 
 /* ── Tab styling ── */
@@ -435,6 +425,32 @@ def section_header(label):
         <div class="section-header-line" style="background:linear-gradient(90deg,transparent,var(--accent-primary))"></div>
     </div>""", unsafe_allow_html=True)
 
+
+# ─────────────────────────────────────────────
+# PLOTLY THEME HELPER
+# ─────────────────────────────────────────────
+
+PLOTLY_LAYOUT = dict(
+    paper_bgcolor="rgba(0,0,0,0)",
+    plot_bgcolor="rgba(0,0,0,0)",
+    font_family="DM Sans, sans-serif",
+    font_color="#94A3B8",
+    title_font_size=13,
+    title_font_color="#F1F5F9",
+    margin=dict(l=16, r=16, t=40, b=16),
+    legend=dict(
+        bgcolor="rgba(0,0,0,0)",
+        font_size=11,
+        orientation="h",
+        yanchor="bottom", y=1.01,
+        xanchor="right", x=1
+    ),
+    xaxis=dict(gridcolor="rgba(148,163,184,.1)", zerolinecolor="rgba(148,163,184,.15)"),
+    yaxis=dict(gridcolor="rgba(148,163,184,.1)", zerolinecolor="rgba(148,163,184,.15)"),
+)
+
+PALETTE = ["#4F8EF7", "#A78BFA", "#34D399", "#FBBF24", "#F87171",
+           "#38BDF8", "#FB923C", "#E879F9", "#4ADE80", "#F472B6"]
 
 
 # ─────────────────────────────────────────────
@@ -631,7 +647,7 @@ def process_metrics_logic(df_filtered):
 
 
 # ─────────────────────────────────────────────
-# INSIGHTS ENGINE 
+# AI INSIGHTS ENGINE  (100% free – pure maths)
 # ─────────────────────────────────────────────
 
 def compute_team_insights(df_merged, report_df):
@@ -722,6 +738,88 @@ def compute_team_insights(df_merged, report_df):
 
     return insights
 
+def build_team_charts(df_merged, report_df):
+    """Returns a list of (title, plotly_figure) tuples."""
+    charts = []
+    if df_merged.empty or report_df.empty:
+        return charts
+
+    color_map = {t: PALETTE[i % len(PALETTE)] for i, t in enumerate(report_df["TEAM"].unique())}
+
+    # ── Chart 1: Pick-Up Ratio per team ──
+    df_merged['_ans'] = df_merged['status'].str.lower() == 'answered'
+    pur = (
+        df_merged.groupby("Team Name")['_ans']
+        .agg(answered="sum", total="count")
+        .assign(pur=lambda x: (x["answered"] / x["total"] * 100).round(1))
+        .reset_index().sort_values("pur", ascending=True)
+    )
+    overall_pur = (df_merged['_ans'].sum() / len(df_merged) * 100).round(1)
+    bar_colors = [color_map.get(t, PALETTE[0]) for t in pur["Team Name"]]
+
+    fig1 = go.Figure(go.Bar(
+        y=pur["Team Name"], x=pur["pur"], orientation="h",
+        marker=dict(color=bar_colors),
+        text=[f"{v}%" for v in pur["pur"]], textposition="outside",
+        textfont=dict(size=11, color="#F1F5F9")
+    ))
+    fig1.add_vline(x=overall_pur, line_dash="dot", line_color="#FBBF24")
+    fig1.update_layout(**PLOTLY_LAYOUT)
+    fig1.update_layout(height=max(220, len(pur) * 44 + 60), showlegend=False, title=None)
+    charts.append(("📞 Pick-Up Ratio by Team", fig1))
+
+    # ── Chart 2: Call Volume Quality Bands ──
+    call_vol = (
+        report_df.groupby("TEAM")
+        .agg(total=("TOTAL CALLS", "sum"), above3=("CALLS > 3 MINS", "sum"),
+             mid=("CALLS 15-20 MINS", "sum"), long=("20+ MIN CALLS", "sum"))
+        .reset_index().sort_values("total", ascending=False)
+    )
+    fig2 = go.Figure()
+    for col, name, color in [("above3", ">3 Min", "#4F8EF7"), ("mid", "15-20 Min", "#A78BFA"), ("long", "20+ Min", "#34D399")]:
+        fig2.add_trace(go.Bar(name=name, x=call_vol["TEAM"], y=call_vol[col], marker_color=color))
+    fig2.update_layout(**PLOTLY_LAYOUT)
+    fig2.update_layout(barmode="group", height=320, title=None)
+    charts.append(("📈 Call Volume Quality Bands", fig2))
+
+    # ── Chart 3: Agent Efficiency Map ──
+    scatter_df = report_df[report_df["raw_dur_sec"] > 0].copy()
+    scatter_df["dur_h"], scatter_df["prod_h"] = scatter_df["raw_dur_sec"]/3600, scatter_df["raw_prod_sec"]/3600
+    fig3 = go.Figure()
+    for team in scatter_df["TEAM"].unique():
+        sub = scatter_df[scatter_df["TEAM"] == team]
+        fig3.add_trace(go.Scatter(x=sub["prod_h"], y=sub["dur_h"], mode="markers", name=team,
+                                 marker=dict(size=10, color=color_map.get(team, "#4F8EF7"), opacity=.82)))
+    fig3.update_layout(**PLOTLY_LAYOUT)
+    fig3.update_layout(height=380, xaxis_title="Productive Hours (h)", yaxis_title="Duration (h)", title=None)
+    charts.append(("🔵 Agent Efficiency Map", fig3))
+
+    # ── Chart 4: Issue Heatmap (FIXED CRASH HERE) ──
+    issue_tags = ["Late Check-In", "Early Check-Out", "Low Calls", "Low Duration", "Excessive Breaks", "Less Productive"]
+    heat_data = []
+    for team in report_df["TEAM"].unique():
+        row = {"Team": team}
+        team_remarks = report_df[report_df["TEAM"] == team]["REMARKS"].str.cat(sep=", ")
+        for tag in issue_tags: row[tag] = team_remarks.count(tag)
+        heat_data.append(row)
+    heat_df = pd.DataFrame(heat_data).set_index("Team")
+    
+    if not heat_df.empty:
+        fig4 = go.Figure(go.Heatmap(z=heat_df.values, x=heat_df.columns.tolist(), y=heat_df.index.tolist(),
+                                    colorscale=[[0, "rgba(79,142,247,.05)"], [1, "rgba(248,113,113,.85)"]],
+                                    text=heat_df.values, texttemplate="%{text}"))
+        # FIXED: We split the update_layout to avoid xaxis conflict
+        fig4.update_layout(**PLOTLY_LAYOUT)
+        fig4.update_layout(
+            height=max(260, len(heat_df) * 50 + 80),
+            xaxis=dict(side="top", tickfont=dict(size=10)),
+            title=None
+        )
+        charts.append(("🌡 Team Issue Frequency Heatmap", fig4))
+
+    return charts
+
+
 # ─────────────────────────────────────────────
 # SIDEBAR
 # ─────────────────────────────────────────────
@@ -793,7 +891,7 @@ st.markdown(f"""
 tab1, tab2, tab3 = st.tabs([
     "🚀 Dynamic Dashboard",
     "📅 Duration Report",
-    "🤖 Insights"
+    "🤖 AI Insights"
 ])
 
 
@@ -846,7 +944,7 @@ with tab1:
                     with top_cols[1]:
                         st.markdown(f"""
                         <div class="metric-card" style="border-top: 3px solid var(--silver);">
-                            <div class="metric-label">📞 HIGHEST CALL ATTEMPTS</div>
+                            <div class="metric-label">📞 HIGHEST CALLS</div>
                             <div class="metric-value" style="font-size:1.1rem;">{top_calls['CALLER']}</div>
                             <div class="metric-delta">{top_calls['TOTAL CALLS']} Total Calls</div>
                         </div>""", unsafe_allow_html=True)
@@ -1070,13 +1168,13 @@ with tab2:
 
 
 # ══════════════════════════════════════════════
-# TAB 3 — INSIGHTS
+# TAB 3 — AI INSIGHTS
 # ══════════════════════════════════════════════
 
 with tab3:
     # ── Removed the OpenAI Power Block ──
     # The header and primary button are now the main focus
-    insight_start = st.button("🔍 Run Insights on Current Data", type="primary")
+    insight_start = st.button("🔍 Run AI Insights on Current Data", type="primary")
 
     if insight_start:
         with st.spinner("Analysing patterns across all teams…"):
@@ -1105,11 +1203,12 @@ with tab3:
                         # This creates two equal columns for the 6 cards
                         cols_ins = st.columns(2)
                         for i, ins in enumerate(insights):
+                            # % 2 ensures they alternate between left and right columns
                             with cols_ins[i % 2]:
                                 st.markdown(f"""
                                 <div class="insight-card {ins['type']}">
-                                    <div style='display:flex;align-items:center;gap:0.6rem;'>
-                                        <span style='font-size:1.2rem;'>{ins['icon']}</span>
+                                    <div style='display:flex;align-items:center;gap:.4rem;'>
+                                        <span class="insight-icon">{ins['icon']}</span>
                                         <span class="insight-title">{ins['title']}</span>
                                     </div>
                                     <div class="insight-body">{ins['body']}</div>
@@ -1119,9 +1218,8 @@ with tab3:
 
                     st.divider()
 
-                   # ── 2. Team Leaderboard with TOTAL Row ──
+                    # ── 2. Team Leaderboard (Charts & Analytics Headers Removed) ──
                     section_header("🏅 TEAM LEADERBOARD")
-                    
                     lb = (
                         report_df_all.groupby("TEAM")
                         .agg(
@@ -1132,42 +1230,15 @@ with tab3:
                             avg_prod_h=("raw_prod_sec", lambda x: round(x.mean() / 3600, 1)),
                             long_calls=("20+ MIN CALLS", "sum"),
                         )
-                        .reset_index()
-                        .sort_values("total_dur_h", ascending=False)
+                        .reset_index().sort_values("total_dur_h", ascending=False)
+                        .rename(columns={
+                            "TEAM": "Team", "agents": "Agents", "total_calls": "Total Calls",
+                            "total_dur_h": "Total Dur (h)", "avg_dur_h": "Avg Dur/Agent (h)",
+                            "avg_prod_h": "Avg Prod Hrs (h)", "long_calls": "20+ Min Calls"
+                        })
                     )
-
-                    # Create the TOTAL row
-                    lb_total = pd.DataFrame([{
-                        "TEAM": "TOTAL",
-                        "agents": lb["agents"].sum(),
-                        "total_calls": lb["total_calls"].sum(),
-                        "total_dur_h": lb["total_dur_h"].sum(),
-                        "avg_dur_h": round(lb["avg_dur_h"].mean(), 1),
-                        "avg_prod_h": round(lb["avg_prod_h"].mean(), 1),
-                        "long_calls": lb["long_calls"].sum()
-                    }])
-
-                    final_lb = pd.concat([lb, lb_total], ignore_index=True)
-                    final_lb = final_lb.rename(columns={
-                        "TEAM": "Team", "agents": "Agents", "total_calls": "Total Calls",
-                        "total_dur_h": "Total Dur (h)", "avg_dur_h": "Avg Dur/Agent (h)",
-                        "avg_prod_h": "Avg Prod Hrs (h)", "long_calls": "20+ Min Calls"
-                    })
-
-                    # Setup labels for the index
-                    idx_labels = ["🥇", "🥈", "🥉"] + [""] * (len(lb) - 3) + ["∑"]
-                    final_lb.index = idx_labels
-
-                    # HIGHLIGHT LOGIC: Use a separate function for stability
-                    def highlight_lb_total(s):
-                        # If the index of this row is '∑', color it dark gray
-                        is_total = s.name == "∑"
-                        return ['background-color: #374151; color: #FFFFFF; font-weight: bold' if is_total else '' for _ in s]
-
-                    st.dataframe(
-                        final_lb.style.apply(highlight_lb_total, axis=1),
-                        use_container_width=True
-                    )
+                    lb.index = ["🥇", "🥈", "🥉"] + [""] * max(0, len(lb) - 3)
+                    st.dataframe(lb, use_container_width=True)
 
     else:
         # ── Clean Placeholder ──
