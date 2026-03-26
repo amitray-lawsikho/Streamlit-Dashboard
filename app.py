@@ -641,11 +641,10 @@ def compute_team_insights(df_merged, report_df):
             "body": f"Averaging {top_val} of qualifying call duration per agent — highest across all teams."
         })
 
-    # ── 2. Highest Manual Calls Team (Replaces Low Duration) ──
-    # Filter for Manual source calls only
-    manual_df = df_merged[df_merged['source'] == 'Manual']
+    exclude_teams = ['Others', 'CD - Community Manager']
+    # ── 2. Highest Manual Calls Team ──
+    manual_df = df_merged[(df_merged['source'] == 'Manual') & (~df_merged['Team Name'].isin(exclude_teams))]
     if not manual_df.empty:
-        # Get team with most manual calls
         man_counts = manual_df.groupby('Team Name').agg(
             total_manual=('source', 'count'),
             unique_agents=('call_owner', 'nunique')
@@ -653,14 +652,10 @@ def compute_team_insights(df_merged, report_df):
         
         if not man_counts.empty:
             top_man_team = man_counts.index[0]
-            total_m = man_counts.iloc[0]['total_manual']
-            agents_m = man_counts.iloc[0]['unique_agents']
-            
             insights.append({
-                "type": "bad", 
-                "icon": "⚠️", 
-                "title": f"Focus Required: {top_man_team} (Highest manual calls)", 
-                "body": f"Total {total_m} Manual Calls are getting dialled by {agents_m} agents."
+                "type": "bad", "icon": "⚠️",
+                "title": f"Focus Required: {top_man_team} (Highest manual calls)",
+                "body": f"Total {int(man_counts.iloc[0]['total_manual'])} Manual Calls are getting dialled by {int(man_counts.iloc[0]['unique_agents'])} agents."
             })
 
     # ── 3. Pick-up ratio analysis per team ──
@@ -692,36 +687,27 @@ def compute_team_insights(df_merged, report_df):
         })
 
     # ── 5. Break Discipline (Excluding "Others") ──
-    # Filter report_df to exclude "Others" before checking breaks
-    break_df = report_df[report_df["TEAM"] != "Others"]
+    break_df = report_df[~report_df["TEAM"].isin(exclude_teams)]
     remarks_series = break_df["REMARKS"].str.contains("Excessive Breaks", na=False)
-    
     if remarks_series.sum() > 0:
-        b_agents = break_df.loc[remarks_series, "CALLER"].tolist()
-        b_teams  = break_df.loc[remarks_series, "TEAM"].value_counts().idxmax()
+        b_teams = break_df.loc[remarks_series, "TEAM"].value_counts().idxmax()
+        b_count = remarks_series.sum()
         insights.append({
             "type": "warn", "icon": "⏸️",
             "title": f"Break Discipline Alert — {b_teams}",
-            "body": f"{len(b_agents)} agent(s) flagged for excessive breaks (>2 breaks ≥15 min/day). Heaviest cluster in {b_teams}. Consider shift-staggering or check-in protocols."
+            "body": f"{b_count} agent(s) flagged for excessive breaks (>2 breaks ≥15 min/day). Heaviest cluster in {b_teams}."
         })
 
     # ── 6. Lowest Productive Hours Team (Excluding "Others") ──
-    # Filter the report to exclude "Others"
-    prod_df = report_df[report_df["TEAM"] != "Others"]
-    
+    prod_df = report_df[~report_df["TEAM"].isin(exclude_teams)]
     if not prod_df.empty:
-        # Calculate average productive hours per team
         team_avg_prod = prod_df.groupby("TEAM")["raw_prod_sec"].mean().sort_values()
-        
         if not team_avg_prod.empty:
             worst_prod_team = team_avg_prod.index[0]
-            # Count agents in that specific team
             agent_count = len(prod_df[prod_df["TEAM"] == worst_prod_team])
-            
             insights.append({
-                "type": "bad", 
-                "icon": "⏱️", 
-                "title": f"Focus Required: Lowest Productive Hours: {worst_prod_team}", 
+                "type": "bad", "icon": "⏱️",
+                "title": f"Focus Required: Lowest Productive Hours: {worst_prod_team}",
                 "body": f"{agent_count} agents on {worst_prod_team} team have the least average productive hours as compared to other teams."
             })
 
