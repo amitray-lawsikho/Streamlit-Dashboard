@@ -1229,7 +1229,7 @@ with tab2:
                     active_tl_report = report_df_tl[report_df_tl['raw_dur_sec'] > 300].sort_values(by="raw_dur_sec", ascending=False)
 
                     if not active_tl_report.empty:
-                        st.markdown(f'<div class="cw-team-badge" style="border-color: var(--accent-amber); color: var(--accent-amber);">▸ Team Leads / ATL — {display_start} to {display_end}</div>', unsafe_allow_html=True)
+                        st.markdown(f'<div class="cw-team-badge" style="border-color: var(--accent-amber); color: var(--accent-amber);">▸ Team Leads Duration — {display_start} to {display_end}</div>', unsafe_allow_html=True)
                         total_row_tl = pd.DataFrame([{
                             "CALLER": "TOTAL",
                             "TOTAL CALLS": int(active_tl_report["TOTAL CALLS"].sum()),
