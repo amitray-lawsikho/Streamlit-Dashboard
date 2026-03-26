@@ -1345,7 +1345,7 @@ with tab3:
                 clean_insights_text = ""
                 for ins in key_insights:
                     text = ins.get('text','')
-                    # Secondary safety check to strip "WoW"
+                    # Safety check to strip "WoW"
                     clean_text = text.replace("WoW", "").replace("wow", "").strip()
                     
                     t = ins.get("type", "info")
@@ -1353,7 +1353,7 @@ with tab3:
                     clean_insights_text += f"{icon} {clean_text}\n\n"
 
                 # 3. Display the Insights 
-                # Note: No extra </div> tags at the bottom here
+                # Note: This is a single block. Ensure NO </div> is outside this string.
                 st.markdown(f"""
                 <div class="ai-card">
                     <h4 style="color: var(--accent-amber); margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 5px;">
