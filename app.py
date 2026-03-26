@@ -617,7 +617,7 @@ def process_metrics_logic(df_filtered):
 
 
 # ─────────────────────────────────────────────
-# AI INSIGHTS ENGINE  (100% free – pure maths)
+# INSIGHTS 
 # ─────────────────────────────────────────────
 
 def compute_team_insights(df_merged, report_df):
@@ -780,7 +780,7 @@ st.markdown(f"""
 tab1, tab2, tab3 = st.tabs([
     "🚀 Dynamic Dashboard",
     "📅 Duration Report",
-    "🤖 AI Insights"
+    "🤖 Insights"
 ])
 
 
@@ -1057,13 +1057,13 @@ with tab2:
 
 
 # ══════════════════════════════════════════════
-# TAB 3 — AI INSIGHTS
+# TAB 3 — INSIGHTS
 # ══════════════════════════════════════════════
 
 with tab3:
     # ── Removed the OpenAI Power Block ──
     # The header and primary button are now the main focus
-    insight_start = st.button("🔍 Run AI Insights on Current Data", type="primary")
+    insight_start = st.button("🔍 Run Insights on Current Data", type="primary")
 
     if insight_start:
         with st.spinner("Analysing patterns across all teams…"):
@@ -1084,8 +1084,8 @@ with tab3:
                 if report_df_all.empty:
                     st.error("Not enough data for analysis.")
                 else:
-                    # ── 1. AI Insights Narrative ──
-                    section_header("🧠 AUTO-GENERATED TEAM INSIGHTS")
+                    # ── 1. Insights Narrative ──
+                    section_header("🧠 GENERATED TEAM INSIGHTS")
                     insights = compute_team_insights(df_ins, report_df_all)
 
                     if insights:
@@ -1134,5 +1134,5 @@ with tab3:
         st.markdown("""
         <div style='text-align:center;padding:3.5rem 1rem;opacity:.5;'>
             <div style='font-size:3rem;margin-bottom:.6rem;'>🤖</div>
-            <div style='font-size:.95rem;font-weight:600;'>Click <b>Run AI Insights</b> to analyse your data</div>
+            <div style='font-size:.95rem;font-weight:600;'>Click <b>Run Insights</b> to analyse your data</div>
         </div>""", unsafe_allow_html=True)
