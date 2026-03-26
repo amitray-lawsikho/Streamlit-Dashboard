@@ -1083,18 +1083,22 @@ with tab1:
                 report_df, total_duration_agg = process_metrics_logic(df)
                 report_df = report_df.sort_values(by="raw_dur_sec", ascending=False)
 
-                # ── KPI STRIP ──
+                # ── KPI STRIP (Reorganized for better visibility) ──
                 st.markdown('<div class="cw-section-title">Key Performance Indicators</div>', unsafe_allow_html=True)
-                m1, m2, m3, m4, m5, m6, m7, m8 = st.columns(8)
-                ans_t = len(df[df['status'].str.lower() == 'answered'])
-                m1.metric("Total Calls", f"{len(df):,}")
-                m2.metric("Acefone", f"{len(df[df['source'] == 'Acefone']):,}")
-                m3.metric("Ozonetel", f"{len(df[df['source'] == 'Ozonetel']):,}")
-                m4.metric("Manual", f"{len(df[df['source'] == 'Manual']):,}")
-                m5.metric("Unique Leads", f"{df['unique_lead_id'].nunique():,}")
-                m6.metric("Pick Up %", f"{round(ans_t / len(df) * 100) if len(df) > 0 else 0}%")
-                m7.metric("Active Callers", len(report_df))
-                m8.metric("Avg Prod Hrs", format_dur_hm(report_df["raw_prod_sec"].mean()))
+                
+                # Row 1: Volume Metrics
+                row1_1, row1_2, row1_3, row1_4 = st.columns(4)
+                row1_1.metric("Total Calls", f"{len(df):,}")
+                row1_2.metric("Acefone", f"{len(df[df['source'] == 'Acefone']):,}")
+                row1_3.metric("Ozonetel", f"{len(df[df['source'] == 'Ozonetel']):,}")
+                row1_4.metric("Manual", f"{len(df[df['source'] == 'Manual']):,}")
+                
+                # Row 2: Efficiency & Intelligence Metrics
+                row2_1, row2_2, row2_3, row2_4 = st.columns(4)
+                row2_1.metric("Unique Leads", f"{df['unique_lead_id'].nunique():,}")
+                row2_2.metric("Pick Up %", f"{round(ans_t / len(df) * 100) if len(df) > 0 else 0}%")
+                row2_3.metric("Active Callers", len(report_df))
+                row2_4.metric("Avg Prod Hours", format_dur_hm(report_df["raw_prod_sec"].mean()))
 
                 st.divider()
 
@@ -1330,41 +1334,7 @@ with tab3:
                 </div>
                 """, unsafe_allow_html=True)
 
-            with col_main:
-                # Correctly indented block
-                key_insights = insights.get("key_insights", [])
-                tag_map = {"good": "tag-good", "warn": "tag-warn", "risk": "tag-risk", "info": "tag-info"}
-                emoji_map = {"good": "✓", "warn": "!", "risk": "✕", "info": "i"}
-                
-                bullets_html = ""
-                for ins in key_insights:
-                    t = ins.get("type", "info")
-                    tc = tag_map.get(t, "tag-info")
-                    em = emoji_map.get(t, "i")
-                    # Added var(--text-primary) so text turns black in Light Mode
-                    bullets_html += f"""
-                    <div class="insight-bullet">
-                        <span class="tag {tc}">{em}</span>
-                        <span style="color: var(--text-primary);">{ins.get('text','')}</span>
-                    </div>"""
-
-                # Render Key Insights Card
-                st.markdown(f"""
-                <div class="ai-card">
-                    <h4 style="color: var(--accent-amber);">Key Insights</h4>
-                    {bullets_html}
-                </div>
-                """, unsafe_allow_html=True)
-
-                # Render Recommendation Card
-                top_action = insights.get("top_action", "")
-                st.markdown(f"""
-                <div class="ai-card" style="border-left: 4px solid var(--accent-amber);">
-                    <h4 style="color: var(--accent-amber);">🎯 Recommended Action</h4>
-                    <p style="color: var(--text-primary);">{top_action}</p>
-                </div>
-                """, unsafe_allow_html=True)
-
+            v
             st.divider()
 
             # ── CHARTS ROW 1 ──
