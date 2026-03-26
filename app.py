@@ -749,45 +749,14 @@ def compute_team_insights(df_merged, report_df):
 
     return insights
 
-
 def build_team_charts(df_merged, report_df):
-    """Returns a list of (title, plotly_figure) tuples."""
     charts = []
     if df_merged.empty or report_df.empty:
         return charts
 
     color_map = {t: PALETTE[i % len(PALETTE)] for i, t in enumerate(report_df["TEAM"].unique())}
 
-    # ── Chart 1: Team Call Duration Comparison (bar) ──
-    team_dur = (
-        report_df.groupby("TEAM")
-        .agg(avg_dur=("raw_dur_sec", "mean"), total_dur=("raw_dur_sec", "sum"), agents=("CALLER", "count"))
-        .reset_index()
-        .sort_values("avg_dur", ascending=True)
-    )
-    team_dur["avg_dur_h"] = (team_dur["avg_dur"] / 3600).round(2)
-    team_dur["total_dur_h"] = (team_dur["total_dur"] / 3600).round(1)
-    colors = [color_map.get(t, PALETTE[0]) for t in team_dur["TEAM"]]
-
-    fig1 = go.Figure()
-    fig1.add_trace(go.Bar(
-        y=team_dur["TEAM"], x=team_dur["avg_dur_h"],
-        orientation="h",
-        marker=dict(color=colors, line=dict(width=0)),
-        text=[f"{v:.1f}h" for v in team_dur["avg_dur_h"]],
-        textposition="outside",
-        textfont=dict(size=11, color="#F1F5F9"),
-        name="Avg Duration/Agent",
-        hovertemplate="%{y}: %{x:.2f}h avg<extra></extra>"
-    ))
-    fig1.update_layout(
-        **PLOTLY_LAYOUT, title="⏱ Avg Qualifying Call Duration per Agent (h)",
-        height=max(220, len(team_dur) * 44 + 60),
-        showlegend=False, xaxis_title="Hours"
-    )
-    charts.append(("Team Duration Benchmark", fig1))
-
-    # ── Chart 2: Pick-Up Ratio per team (horizontal bar with benchmark line) ──
+    # ── Chart 1: Pick-Up Ratio per team ──
     df_merged['_ans'] = df_merged['status'].str.lower() == 'answered'
     pur = (
         df_merged.groupby("Team Name")['_ans']
@@ -799,137 +768,59 @@ def build_team_charts(df_merged, report_df):
     overall_pur = (df_merged['_ans'].sum() / len(df_merged) * 100).round(1)
     bar_colors = [color_map.get(t, PALETTE[0]) for t in pur["Team Name"]]
 
-    fig2 = go.Figure()
-    fig2.add_trace(go.Bar(
+    fig1 = go.Figure()
+    fig1.add_trace(go.Bar(
         y=pur["Team Name"], x=pur["pur"],
         orientation="h",
         marker=dict(color=bar_colors),
         text=[f"{v}%" for v in pur["pur"]],
         textposition="outside",
         textfont=dict(size=11, color="#F1F5F9"),
-        hovertemplate="%{y}: %{x}% answered<extra></extra>"
     ))
-    fig2.add_vline(x=overall_pur, line_dash="dot", line_color="#FBBF24",
-                   annotation_text=f"Avg {overall_pur}%", annotation_font_color="#FBBF24",
-                   annotation_position="top right")
-    fig2.update_layout(
-        **PLOTLY_LAYOUT, title="📞 Pick-Up Ratio % by Team (vs Overall Average)",
-        height=max(220, len(pur) * 44 + 60),
-        showlegend=False, xaxis_title="Answer Rate %"
-    )
-    charts.append(("Pick-Up Ratio by Team", fig2))
+    fig1.add_vline(x=overall_pur, line_dash="dot", line_color="#FBBF24")
+    fig1.update_layout(**PLOTLY_LAYOUT, height=max(220, len(pur) * 44 + 60), showlegend=False, title=None)
+    charts.append(("📞 Pick-Up Ratio by Team", fig1))
 
-    # ── Chart 3: Call Volume Breakdown by Team (stacked bar) ──
+    # ── Chart 2: Call Volume Breakdown ──
     call_vol = (
         report_df.groupby("TEAM")
-        .agg(
-            total=("TOTAL CALLS", "sum"),
-            above3=("CALLS > 3 MINS", "sum"),
-            mid=("CALLS 15-20 MINS", "sum"),
-            long=("20+ MIN CALLS", "sum")
-        )
-        .reset_index()
-        .sort_values("total", ascending=False)
+        .agg(total=("TOTAL CALLS", "sum"), above3=("CALLS > 3 MINS", "sum"),
+             mid=("CALLS 15-20 MINS", "sum"), long=("20+ MIN CALLS", "sum"))
+        .reset_index().sort_values("total", ascending=False)
     )
-    fig3 = go.Figure()
-    for col, name, color in [
-        ("above3", ">3 Min", "#4F8EF7"),
-        ("mid", "15-20 Min", "#A78BFA"),
-        ("long", "20+ Min", "#34D399"),
-    ]:
-        fig3.add_trace(go.Bar(
-            name=name, x=call_vol["TEAM"], y=call_vol[col],
-            marker_color=color,
-            hovertemplate=f"{name}: %{{y}}<extra></extra>"
-        ))
-    fig3.update_layout(
-        **PLOTLY_LAYOUT, title="📈 Call Volume Quality Bands by Team",
-        barmode="group", height=320, xaxis_title="Team", yaxis_title="Call Count"
-    )
-    charts.append(("Call Quality Distribution", fig3))
+    fig2 = go.Figure()
+    for col, name, color in [("above3", ">3 Min", "#4F8EF7"), ("mid", "15-20 Min", "#A78BFA"), ("long", "20+ Min", "#34D399")]:
+        fig2.add_trace(go.Bar(name=name, x=call_vol["TEAM"], y=call_vol[col], marker_color=color))
+    fig2.update_layout(**PLOTLY_LAYOUT, barmode="group", height=320, title=None)
+    charts.append(("📈 Call Quality Distribution", fig2))
 
-    # ── Chart 4: Agent-level scatter — Duration vs Productive Hours ──
+    # ── Chart 3: Agent Efficiency Map ──
     scatter_df = report_df[report_df["raw_dur_sec"] > 0].copy()
-    scatter_df["dur_h"]  = scatter_df["raw_dur_sec"]  / 3600
-    scatter_df["prod_h"] = scatter_df["raw_prod_sec"] / 3600
-    scatter_colors = [color_map.get(t, "#4F8EF7") for t in scatter_df["TEAM"]]
-
-    fig4 = go.Figure()
+    scatter_df["dur_h"], scatter_df["prod_h"] = scatter_df["raw_dur_sec"]/3600, scatter_df["raw_prod_sec"]/3600
+    fig3 = go.Figure()
     for team in scatter_df["TEAM"].unique():
         sub = scatter_df[scatter_df["TEAM"] == team]
-        fig4.add_trace(go.Scatter(
-            x=sub["prod_h"], y=sub["dur_h"],
-            mode="markers",
-            name=team,
-            marker=dict(size=10, color=color_map.get(team, "#4F8EF7"), opacity=.82,
-                        line=dict(width=1, color="rgba(255,255,255,.25)")),
-            text=sub["CALLER"],
-            hovertemplate="<b>%{text}</b><br>Prod Hrs: %{x:.1f}h<br>Duration: %{y:.1f}h<extra></extra>"
-        ))
-    fig4.update_layout(
-        **PLOTLY_LAYOUT, title="🔵 Agent Efficiency Map — Productive Hrs vs Qualifying Duration",
-        height=360, xaxis_title="Productive Hours (h)", yaxis_title="Qualifying Duration (h)"
-    )
-    charts.append(("Agent Efficiency Scatter", fig4))
+        fig3.add_trace(go.Scatter(x=sub["prod_h"], y=sub["dur_h"], mode="markers", name=team,
+                                 marker=dict(size=10, color=color_map.get(team, "#4F8EF7"), opacity=.82)))
+    fig3.update_layout(**PLOTLY_LAYOUT, height=380, xaxis_title="Productive Hours (h)", yaxis_title="Duration (h)", title=None)
+    charts.append(("🔵 Agent Efficiency Map", fig3))
 
-    # ── Chart 5: Team-level issues heatmap ──
+    # ── Chart 4: Team-level issues heatmap ──
     issue_tags = ["Late Check-In", "Early Check-Out", "Low Calls", "Low Duration", "Excessive Breaks", "Less Productive"]
     heat_data = []
     for team in report_df["TEAM"].unique():
         row = {"Team": team}
         team_remarks = report_df[report_df["TEAM"] == team]["REMARKS"].str.cat(sep=", ")
-        for tag in issue_tags:
-            row[tag] = team_remarks.count(tag)
+        for tag in issue_tags: row[tag] = team_remarks.count(tag)
         heat_data.append(row)
-
     heat_df = pd.DataFrame(heat_data).set_index("Team")
-    if heat_df.empty or heat_df.isna().all().all():
-        st.info("No issues recorded to display the Heatmap.")
-    else:
-        z_vals = heat_df.values
-        fig5 = go.Figure(go.Heatmap(
-            z=z_vals,
-            x=heat_df.columns.tolist(),
-            y=heat_df.index.tolist(),
-            colorscale=[[0, "rgba(79,142,247,.05)"], [0.4, "rgba(251,191,36,.5)"], [1, "rgba(248,113,113,.85)"]],
-            showscale=True,
-            text=z_vals,
-            texttemplate="%{text}",
-            textfont=dict(size=12, color="#F1F5F9"),
-            hoverongaps=False,
-            hovertemplate="<b>%{y}</b> — %{x}: %{z} agents<extra></extra>"
-        ))
-        fig5.update_layout(**PLOTLY_LAYOUT)
-        
-        # Apply heatmap-specific overrides second
-        fig5.update_layout(
-            title="🌡 Team Issue Frequency Heatmap",
-            height=max(260, len(heat_df) * 50 + 80),
-            xaxis=dict(side="top", tickfont=dict(size=10))
-        )
-        charts.append(("Issue Heatmap", fig5))
-
-    # ── Chart 6: Source contribution donut ──
-    src_counts = df_merged["source"].value_counts()
-    fig6 = go.Figure(go.Pie(
-        labels=src_counts.index.tolist(),
-        values=src_counts.values.tolist(),
-        hole=.55,
-        marker=dict(colors=PALETTE[:len(src_counts)],
-                    line=dict(color="rgba(0,0,0,.15)", width=2)),
-        textinfo="label+percent",
-        textfont=dict(size=11),
-        hovertemplate="%{label}: %{value:,} calls (%{percent})<extra></extra>"
-    ))
-    fig6.add_annotation(
-        text=f"<b>{len(df_merged):,}</b><br><span style='font-size:9px'>Total Calls</span>",
-        x=0.5, y=0.5, showarrow=False, font=dict(size=14, color="#F1F5F9"), align="center"
-    )
-    fig6.update_layout(
-        **PLOTLY_LAYOUT, title="📡 Call Source Distribution",
-        height=300, showlegend=True
-    )
-    charts.append(("Source Mix", fig6))
+    
+    if not heat_df.empty and not heat_df.isna().all().all():
+        fig4 = go.Figure(go.Heatmap(z=heat_df.values, x=heat_df.columns.tolist(), y=heat_df.index.tolist(),
+                                    colorscale=[[0, "rgba(79,142,247,.05)"], [1, "rgba(248,113,113,.85)"]],
+                                    text=heat_df.values, texttemplate="%{text}"))
+        fig4.update_layout(**PLOTLY_LAYOUT, height=max(260, len(heat_df) * 50 + 80), xaxis=dict(side="top"), title=None)
+        charts.append(("🌡 Team Issue Frequency Heatmap", fig4))
 
     return charts
 
@@ -1335,36 +1226,32 @@ with tab3:
 
                     # ── Charts ──
                     section_header("📊 INTERACTIVE TEAM ANALYTICS")
+                    # ── Charts ──
                     charts = build_team_charts(df_ins, report_df_all)
 
                     if charts:
-                        # Row 1: two full-width charts side by side
-                        if len(charts) >= 2:
-                            c1, c2 = st.columns(2)
-                            with c1:
-                                st.plotly_chart(charts[0][1], use_container_width=True, config={"displayModeBar": False})
-                            with c2:
-                                st.plotly_chart(charts[1][1], use_container_width=True, config={"displayModeBar": False})
+                        # Row 1: Pick-up and Volume
+                        c1, c2 = st.columns(2)
+                        with c1:
+                            section_header(charts[0][0])
+                            st.plotly_chart(charts[0][1], use_container_width=True, config={"displayModeBar": False})
+                        with c2:
+                            section_header(charts[1][0])
+                            st.plotly_chart(charts[1][1], use_container_width=True, config={"displayModeBar": False})
 
-                        # Row 2: full-width call quality bars
+                        # Row 2: Efficiency Map
                         if len(charts) >= 3:
+                            section_header(charts[2][0])
                             st.plotly_chart(charts[2][1], use_container_width=True, config={"displayModeBar": False})
 
-                        # Row 3: scatter + donut
-                        if len(charts) >= 5:
-                            c3, c4 = st.columns([3, 2])
-                            with c3:
-                                st.plotly_chart(charts[3][1], use_container_width=True, config={"displayModeBar": False})
-                            with c4:
-                                st.plotly_chart(charts[5][1], use_container_width=True, config={"displayModeBar": False})
-
-                        # Row 4: issue heatmap
-                        if len(charts) >= 5:
-                            st.plotly_chart(charts[4][1], use_container_width=True, config={"displayModeBar": False})
+                        # Row 3: Issue Heatmap
+                        if len(charts) >= 4:
+                            section_header(charts[3][0])
+                            st.plotly_chart(charts[3][1], use_container_width=True, config={"displayModeBar": False})
 
                     st.divider()
 
-                    # ── Leaderboard ──
+                    # ── Leaderboard (Stays at the very bottom) ──
                     section_header("🏅 TEAM LEADERBOARD")
                     lb = (
                         report_df_all.groupby("TEAM")
