@@ -6,3 +6,4 @@ google-auth
 plotly
 pytz
 db-dtypes
+numpy
