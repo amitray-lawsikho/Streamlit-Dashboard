@@ -398,13 +398,11 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
 
 def style_total(row):
     if row["CALLER"] == "TOTAL":
-        # Clean dark background with white bold text for the TOTAL row
         return ['font-weight: bold; background-color: #374151; color: #FFFFFF;'] * len(row)
     return [''] * len(row)
 
 def style_static(row):
     if row["CALLER"] == "TOTAL":
-        # Matching the styling for the Duration Report Tab
         return ['font-weight: bold; background-color: #374151; color: #FFFFFF;'] * len(row)
     return [''] * len(row)
 
@@ -1047,94 +1045,92 @@ with tab1:
                             <div class="metric-delta">{top_dur['CALL DURATION > 3 MINS']} Duration</div>
                         </div>""", unsafe_allow_html=True)
                     
-                    # 2. HIGHEST CALLS ATTEMPTED (Pick-up Ratio)
-                    top_pur = report_df.sort_values('pur_val', ascending=False).iloc[0]
+                    # 2. Highest Calls (Replaces Connectivity King)
                     top_calls = report_df.sort_values('TOTAL CALLS', ascending=False).iloc[0]
                     with top_cols[1]:
                         st.markdown(f"""
                         <div class="metric-card" style="border-top: 3px solid var(--silver);">
-                            <div class="metric-label">📞 HIGHEST CALLS ATTEMPTED</div>
+                            <div class="metric-label">📞 HIGHEST CALLS</div>
                             <div class="metric-value" style="font-size:1.1rem;">{top_calls['CALLER']}</div>
                             <div class="metric-delta">{top_calls['TOTAL CALLS']} Total Calls</div>
                         </div>""", unsafe_allow_html=True)
                     
-                   # 3. High Engagement (20+ Min Calls)
+                    # 3. Deep Engagement (20+ Min Calls)
                     top_long = report_df.sort_values('20+ MIN CALLS', ascending=False).iloc[0]
                     with top_cols[2]:
                         st.markdown(f"""
-                            <div class="metric-card" style="border-top: 3px solid var(--bronze);">
-                                <div class="metric-label">🗣️ DEEP ENGAGEMENT</div>
-                                <div class="metric-value" style="font-size:1.1rem;">{top_long['CALLER']}</div>
-                                <div class="metric-delta">{top_long['20+ MIN CALLS']} Long Calls</div>
+                        <div class="metric-card" style="border-top: 3px solid var(--bronze);">
+                            <div class="metric-label">🗣️ DEEP ENGAGEMENT</div>
+                            <div class="metric-value" style="font-size:1.1rem;">{top_long['CALLER']}</div>
+                            <div class="metric-delta">{top_long['20+ MIN CALLS']} Long Calls</div>
+                        </div>""", unsafe_allow_html=True)
+
+                    # ── SUMMARY METRICS (Aligning indentation to fix visibility) ──
+                    section_header("SUMMARY METRICS")
+                    ans_t = len(df[df['status'].str.lower() == 'answered'])
+                    pur_val = f"{round(ans_t / len(df) * 100)}%" if len(df) > 0 else "0%"
+                    kpis  = [
+                        ("Total Calls",     len(df),                            "📲"),
+                        ("Acefone Calls",   len(df[df['source']=='Acefone']),   "🔵"),
+                        ("Ozonetel Calls",  len(df[df['source']=='Ozonetel']),  "🟣"),
+                        ("Manual Calls",    len(df[df['source']=='Manual']),    "✏️"),
+                        ("Unique Leads",    df['unique_lead_id'].nunique(),      "👤"),
+                        ("Pick-Up Ratio",   pur_val,                            "✅"),
+                        ("Active Callers",  len(report_df),                     "🎙️"),
+                        ("Avg Prod Hrs",    format_dur_hm(report_df["raw_prod_sec"].mean()), "⏱"),
+                    ]
+                    
+                    cols = st.columns(len(kpis))
+                    for col, (label, val, icon) in zip(cols, kpis):
+                        with col:
+                            st.markdown(f"""
+                            <div class="metric-card">
+                                <div class="metric-label">{icon} {label}</div>
+                                <div class="metric-value">{val}</div>
                             </div>""", unsafe_allow_html=True)
 
-                # ── KPI Cards (This line should align with 'with top_cols[2]') ──
-                section_header("SUMMARY METRICS")
-                ans_t = len(df[df['status'].str.lower() == 'answered'])
-                pur_val = f"{round(ans_t / len(df) * 100)}%" if len(df) > 0 else "0%"
-                kpis  = [
-                    ("Total Calls",     len(df),                            "📲"),
-                    ("Acefone Calls",   len(df[df['source']=='Acefone']),   "🔵"),
-                    ("Ozonetel Calls",  len(df[df['source']=='Ozonetel']),  "🟣"),
-                    ("Manual Calls",    len(df[df['source']=='Manual']),    "✏️"),
-                    ("Unique Leads",    df['unique_lead_id'].nunique(),      "👤"),
-                    ("Pick-Up Ratio",   pur_val,                            "✅"),
-                    ("Active Callers",  len(report_df),                     "🎙️"),
-                    ("Avg Prod Hrs",    format_dur_hm(report_df["raw_prod_sec"].mean()), "⏱"),
-                ]
-                
-                cols = st.columns(len(kpis))
-                for col, (label, val, icon) in zip(cols, kpis):
-                    with col:
-                        st.markdown(f"""
-                        <div class="metric-card">
-                            <div class="metric-label">{icon} {label}</div>
-                            <div class="metric-value">{val}</div>
-                        </div>""", unsafe_allow_html=True)
-    
-                st.divider()
-                section_header("AGENT PERFORMANCE TABLE")
-                # ... (rest of your table and download button code here)
+                    st.divider()
+                    section_header("AGENT PERFORMANCE TABLE")
 
-                total_row = pd.DataFrame([{
-                    "IN/OUT TIME": "-", "CALLER": "TOTAL", "TEAM": "-",
-                    "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
-                    "CALL STATUS": "-", "PICK UP RATIO %": "-",
-                    "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
-                    "CALLS 15-20 MINS": int(report_df["CALLS 15-20 MINS"].sum()),
-                    "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
-                    "CALL DURATION > 3 MINS": format_dur_hm(total_duration_agg),
-                    "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod_sec"].sum()),
-                    "BREAKS (>=15 MINS)": "-", "REMARKS": "-"
-                }])
+                    total_row = pd.DataFrame([{
+                        "IN/OUT TIME": "-", "CALLER": "TOTAL", "TEAM": "-",
+                        "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
+                        "CALL STATUS": "-", "PICK UP RATIO %": "-",
+                        "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
+                        "CALLS 15-20 MINS": int(report_df["CALLS 15-20 MINS"].sum()),
+                        "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
+                        "CALL DURATION > 3 MINS": format_dur_hm(total_duration_agg),
+                        "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod_sec"].sum()),
+                        "BREAKS (>=15 MINS)": "-", "REMARKS": "-"
+                    }])
 
-                display_cols = [
-                    "IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS",
-                    "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS",
-                    "20+ MIN CALLS", "CALL DURATION > 3 MINS",
-                    "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)", "REMARKS"
-                ]
-                final_df = pd.concat([report_df, total_row], ignore_index=True)
-                st.dataframe(
-                    final_df.style.apply(style_total, axis=1)
-                                  .set_properties(**{'white-space': 'pre-wrap'}),
-                    column_order=display_cols,
-                    use_container_width=True, hide_index=True
-                )
+                    display_cols = [
+                        "IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS",
+                        "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS",
+                        "20+ MIN CALLS", "CALL DURATION > 3 MINS",
+                        "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)", "REMARKS"
+                    ]
+                    final_df = pd.concat([report_df, total_row], ignore_index=True)
+                    st.dataframe(
+                        final_df.style.apply(style_total, axis=1)
+                                      .set_properties(**{'white-space': 'pre-wrap'}),
+                        column_order=display_cols,
+                        use_container_width=True, hide_index=True
+                    )
 
-                st.divider()
-                target_cols = [
-                    "client_number", "call_datetime", "call_starttime_clean",
-                    "call_endtime_clean", "call_duration", "status", "direction",
-                    "service", "reason", "call_owner", "Call Date",
-                    "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"
-                ]
-                existing_cols = [c for c in target_cols if c in df.columns]
-                st.download_button(
-                    label="📥 Download CDR",
-                    data=df[existing_cols].to_csv(index=False).encode('utf-8'),
-                    file_name="CDR_LOG.csv", mime='text/csv'
-                )
+                    st.divider()
+                    target_cols = [
+                        "client_number", "call_datetime", "call_starttime_clean",
+                        "call_endtime_clean", "call_duration", "status", "direction",
+                        "service", "reason", "call_owner", "Call Date",
+                        "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"
+                    ]
+                    existing_cols = [c for c in target_cols if c in df.columns]
+                    st.download_button(
+                        label="📥 Download CDR",
+                        data=df[existing_cols].to_csv(index=False).encode('utf-8'),
+                        file_name="CDR_LOG.csv", mime='text/csv'
+                    )
     else:
         st.markdown("""
         <div style='text-align:center;padding:3rem 1rem;opacity:.5;'>
