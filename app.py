@@ -298,11 +298,14 @@ hr {
 }
 .cw-page-header .logo-block { display: flex; align-items: center; gap: 1rem; }
 .cw-page-header .logo-icon {
-    width: 44px; height: 44px;
-    background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
-    border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1.3rem;
+    width: auto;
+    height: auto;
+    background: none;
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.6rem;
 }
 .cw-page-header h1 {
     font-family: var(--font-display) !important;
@@ -473,11 +476,14 @@ hr {
     margin-bottom: 1.25rem;
 }
 .sb-logo .icon {
-    width: 36px; height: 36px;
-    background: linear-gradient(135deg, var(--accent-blue), var(--accent-cyan));
-    border-radius: 8px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 1rem;
+    width: auto;
+    height: auto;
+    background: none;
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
 }
 .sb-logo .name {
     font-family: var(--font-display);
@@ -1033,7 +1039,7 @@ st.markdown(f"""
         <div class="logo-icon">📡</div>
         <div>
             <h1>Duration Metrics</h1>
-            <div class="subtitle">Lawsikho &amp; Skill Arbitrage · Call Intelligence</div>
+            <div class="subtitle">Lawsikho &amp; Skill Arbitrage · Calling Metrics</div>
         </div>
     </div>
     <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
