@@ -398,18 +398,14 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
 
 def style_total(row):
     if row["CALLER"] == "TOTAL":
-        return ['font-weight: bold; background-color: rgba(79,142,247,.15); color: #4F8EF7'] * len(row)
-    if row.name == 0:
-        return ['background-color: rgba(245,158,11,.18); color: inherit; font-weight: bold'] * len(row)
-    elif row.name == 1:
-        return ['background-color: rgba(156,163,175,.18); color: inherit; font-weight: bold'] * len(row)
-    elif row.name == 2:
-        return ['background-color: rgba(205,127,50,.18); color: inherit; font-weight: bold'] * len(row)
+        # Clean dark background with white bold text for the TOTAL row
+        return ['font-weight: bold; background-color: #374151; color: #FFFFFF;'] * len(row)
     return [''] * len(row)
 
 def style_static(row):
     if row["CALLER"] == "TOTAL":
-        return ['font-weight: bold; background-color: rgba(79,142,247,.08); color: inherit'] * len(row)
+        # Matching the styling for the Duration Report Tab
+        return ['font-weight: bold; background-color: #374151; color: #FFFFFF;'] * len(row)
     return [''] * len(row)
 
 def format_dur_hm(total_seconds):
@@ -1051,15 +1047,15 @@ with tab1:
                             <div class="metric-delta">{top_dur['CALL DURATION > 3 MINS']} Duration</div>
                         </div>""", unsafe_allow_html=True)
                     
-                    # 2. Connectivity King (Pick-up Ratio)
-                    report_df['pur_val'] = report_df['PICK UP RATIO %'].str.replace('%','').astype(int)
+                    # 2. HIGHEST CALLS ATTEMPTED (Pick-up Ratio)
                     top_pur = report_df.sort_values('pur_val', ascending=False).iloc[0]
+                    top_calls = report_df.sort_values('TOTAL CALLS', ascending=False).iloc[0]
                     with top_cols[1]:
                         st.markdown(f"""
                         <div class="metric-card" style="border-top: 3px solid var(--silver);">
-                            <div class="metric-label">📡 CONNECTIVITY KING</div>
-                            <div class="metric-value" style="font-size:1.1rem;">{top_pur['CALLER']}</div>
-                            <div class="metric-delta">{top_pur['PICK UP RATIO %']} Pick-up Rate</div>
+                            <div class="metric-label">📞 HIGHEST CALLS ATTEMPTED</div>
+                            <div class="metric-value" style="font-size:1.1rem;">{top_calls['CALLER']}</div>
+                            <div class="metric-delta">{top_calls['TOTAL CALLS']} Total Calls</div>
                         </div>""", unsafe_allow_html=True)
                     
                    # 3. High Engagement (20+ Min Calls)
