@@ -1291,7 +1291,7 @@ with tab3:
     </div>
     """, unsafe_allow_html=True)
 
-    insight_start = st.button("🔍 Run AI Insights on Current Data", type="primary")
+    insight_start = st.button("🔍 Generate AI Insights", type="primary")
 
     if insight_start:
         with st.spinner("Analysing patterns across all teams…"):
@@ -1391,8 +1391,8 @@ with tab3:
         st.markdown("""
         <div style='text-align:center;padding:3.5rem 1rem;opacity:.5;'>
             <div style='font-size:3rem;margin-bottom:.6rem;'>🤖</div>
-            <div style='font-size:.95rem;font-weight:600;'>Click <b>Run AI Insights</b> to analyse your data</div>
+            <div style='font-size:.95rem;font-weight:600;'>Click <b>Generate AI Insights</b> to analyse your generated data</div>
             <div style='font-size:.75rem;margin-top:.4rem;'>
-                Generates 6+ insight cards + 6 interactive charts + team leaderboard — free, instant.
+                Generates insight cards + interactive charts + team leaderboard — instantly.
             </div>
         </div>""", unsafe_allow_html=True)
