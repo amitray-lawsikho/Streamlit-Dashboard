@@ -1284,10 +1284,10 @@ with tab3:
         <div>
             <div style='font-weight:700;font-size:1rem;'>AI Insights Engine</div>
             <div style='font-size:.73rem;color:var(--text-muted,#6B7280);'>
-                Fully automated · 100% free · Powered by your own data
+                Fully automated · Connected to Dynamic and Static Reports Generated
             </div>
         </div>
-        <span class="cw-badge" style='margin-left:auto;'>⚡ No API Cost</span>
+        <span class="cw-badge" style='margin-left:auto;'>⚡POWERED BY : OPENAI</span>
     </div>
     """, unsafe_allow_html=True)
 
