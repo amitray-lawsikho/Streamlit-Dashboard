@@ -888,29 +888,29 @@ def build_team_charts(df_merged, report_df):
             row[tag] = team_remarks.count(tag)
         heat_data.append(row)
 
-   heat_df = pd.DataFrame(heat_data).set_index("Team")
-    if heat_df.empty or heat_df.isna().all().all():
-        st.info("No issues recorded to display the Heatmap.")
-    else:
-        z_vals = heat_df.values
-        fig5 = go.Figure(go.Heatmap(
-            z=z_vals,
-            x=heat_df.columns.tolist(),
-            y=heat_df.index.tolist(),
-            colorscale=[[0, "rgba(79,142,247,.05)"], [0.4, "rgba(251,191,36,.5)"], [1, "rgba(248,113,113,.85)"]],
-            showscale=True,
-            text=z_vals,
-            texttemplate="%{text}",
-            textfont=dict(size=12, color="#F1F5F9"),
-            hoverongaps=False,
-            hovertemplate="<b>%{y}</b> — %{x}: %{z} agents<extra></extra>"
-        ))
-        fig5.update_layout(
-            **PLOTLY_LAYOUT, title="🌡 Team Issue Frequency Heatmap",
-            height=max(260, len(heat_df) * 50 + 80),
-            xaxis=dict(side="top", tickfont=dict(size=10))
-        )
-        charts.append(("Issue Heatmap", fig5))
+        heat_df = pd.DataFrame(heat_data).set_index("Team")
+        if heat_df.empty or heat_df.isna().all().all():
+            st.info("No issues recorded to display the Heatmap.")
+        else:
+            z_vals = heat_df.values
+            fig5 = go.Figure(go.Heatmap(
+                z=z_vals,
+                x=heat_df.columns.tolist(),
+                y=heat_df.index.tolist(),
+                colorscale=[[0, "rgba(79,142,247,.05)"], [0.4, "rgba(251,191,36,.5)"], [1, "rgba(248,113,113,.85)"]],
+                showscale=True,
+                text=z_vals,
+                texttemplate="%{text}",
+                textfont=dict(size=12, color="#F1F5F9"),
+                hoverongaps=False,
+                hovertemplate="<b>%{y}</b> — %{x}: %{z} agents<extra></extra>"
+            ))
+            fig5.update_layout(
+                **PLOTLY_LAYOUT, title="🌡 Team Issue Frequency Heatmap",
+                height=max(260, len(heat_df) * 50 + 80),
+                xaxis=dict(side="top", tickfont=dict(size=10))
+            )
+            charts.append(("Issue Heatmap", fig5))
 
     # ── Chart 6: Source contribution donut ──
     src_counts = df_merged["source"].value_counts()
