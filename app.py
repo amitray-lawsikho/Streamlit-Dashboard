@@ -1341,18 +1341,19 @@ with tab3:
                 # 1. Get insights data
                 key_insights = insights.get("key_insights", [])
                 
-                # 2. Build clean text (Force removal of "WoW" and HTML tags)
+                # 2. Build clean text (Removing "WoW" and HTML tags)
                 clean_insights_text = ""
                 for ins in key_insights:
                     text = ins.get('text','')
-                    # This removes "WoW" even if the AI generates it
+                    # Secondary safety check to strip "WoW"
                     clean_text = text.replace("WoW", "").replace("wow", "").strip()
                     
                     t = ins.get("type", "info")
                     icon = "📈" if t == "good" else "⚠️" if t == "warn" else "🚨" if t == "risk" else "ℹ️"
                     clean_insights_text += f"{icon} {clean_text}\n\n"
 
-                # 3. Display the Insights (Structure fixed to stop stray tags)
+                # 3. Display the Insights 
+                # Note: No extra </div> tags at the bottom here
                 st.markdown(f"""
                 <div class="ai-card">
                     <h4 style="color: var(--accent-amber); margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 5px;">
@@ -1370,7 +1371,7 @@ with tab3:
 
             # --- END OF TAB 3 CONTENT ---
             st.divider()
-
+            
             # ── CHARTS ROW 1 ──
             st.markdown('<div class="cw-section-title">Call Volume & Source Distribution</div>', unsafe_allow_html=True)
             c1, c2, c3 = st.columns(3)
