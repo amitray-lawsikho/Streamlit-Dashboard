@@ -1122,7 +1122,7 @@ with tab3:
                    # ── 2. Team Leaderboard with TOTAL Row ──
                     section_header("🏅 TEAM LEADERBOARD")
                     
-                    lb = (
+                    lb_base = (
                         report_df_all.groupby("TEAM")
                         .agg(
                             agents=("CALLER", "count"),
@@ -1136,36 +1136,39 @@ with tab3:
                         .sort_values("total_dur_h", ascending=False)
                     )
 
-                    # Create the TOTAL row
+                    # Create TOTAL row
                     lb_total = pd.DataFrame([{
                         "TEAM": "TOTAL",
-                        "agents": lb["agents"].sum(),
-                        "total_calls": lb["total_calls"].sum(),
-                        "total_dur_h": lb["total_dur_h"].sum(),
-                        "avg_dur_h": round(lb["avg_dur_h"].mean(), 1),
-                        "avg_prod_h": round(lb["avg_prod_h"].mean(), 1),
-                        "long_calls": lb["long_calls"].sum()
+                        "agents": lb_base["agents"].sum(),
+                        "total_calls": lb_base["total_calls"].sum(),
+                        "total_dur_h": lb_base["total_dur_h"].sum(),
+                        "avg_dur_h": round(lb_base["avg_dur_h"].mean(), 1),
+                        "avg_prod_h": round(lb_base["avg_prod_h"].mean(), 1),
+                        "long_calls": lb_base["long_calls"].sum()
                     }])
 
-                    final_lb = pd.concat([lb, lb_total], ignore_index=True)
+                    final_lb = pd.concat([lb_base, lb_total], ignore_index=True)
+                    
+                    # Rename for display
                     final_lb = final_lb.rename(columns={
                         "TEAM": "Team", "agents": "Agents", "total_calls": "Total Calls",
                         "total_dur_h": "Total Dur (h)", "avg_dur_h": "Avg Dur/Agent (h)",
                         "avg_prod_h": "Avg Prod Hrs (h)", "long_calls": "20+ Min Calls"
                     })
 
-                    # Setup labels for the index
-                    idx_labels = ["🥇", "🥈", "🥉"] + [""] * (len(lb) - 3) + ["∑"]
-                    final_lb.index = idx_labels
+                    # Setup Medal/Sum Index
+                    final_lb.index = ["🥇", "🥈", "🥉"] + [""] * (len(lb_base) - 3) + ["∑"]
 
-                    # HIGHLIGHT LOGIC: Use a separate function for stability
-                    def highlight_lb_total(s):
-                        # If the index of this row is '∑', color it dark gray
-                        is_total = s.name == "∑"
-                        return ['background-color: #374151; color: #FFFFFF; font-weight: bold' if is_total else '' for _ in s]
+                    # STYLING FIX: Use integer location to highlight the last row (TOTAL)
+                    def style_lb_rows(df):
+                        # Create a DataFrame of empty strings same shape as final_lb
+                        styles = pd.DataFrame('', index=df.index, columns=df.columns)
+                        # Apply styles to the last row (TOTAL) only
+                        styles.iloc[-1, :] = 'background-color: #374151; color: #FFFFFF; font-weight: bold;'
+                        return styles
 
                     st.dataframe(
-                        final_lb.style.apply(highlight_lb_total, axis=1),
+                        final_lb.style.apply(style_lb_rows, axis=None),
                         use_container_width=True
                     )
 
