@@ -1323,7 +1323,6 @@ with tab3:
             health_color = {"Healthy": "#10b981", "Moderate": "#f59e0b", "Critical": "#ef4444"}.get(health, "#64748b")
 
             col_score, col_main = st.columns([1, 3])
-            col_score, col_main = st.columns([1, 3])
             with col_score:
                 st.markdown(f"""
                 <div class="ai-card" style="text-align:center; height: 100%;">
@@ -1339,18 +1338,18 @@ with tab3:
                 """, unsafe_allow_html=True)
 
             with col_main:
-                # 1. Get insights data
+                # 2. Get insights data
                 key_insights = insights.get("key_insights", [])
                 
-                # 2. Build clean Markdown bullets (No complex HTML inside)
+                # 3. FIX: Build clean text (removes the "raw" look of WoW)
                 markdown_text = ""
                 for ins in key_insights:
                     t = ins.get("type", "info")
-                    # Assign a clear emoji for the insight type
                     icon = "📈" if t == "good" else "⚠️" if t == "warn" else "🚨" if t == "risk" else "ℹ️"
+                    # We use simple text here to ensure it inherits the dashboard theme perfectly
                     markdown_text += f"{icon} {ins.get('text','')}\n\n"
 
-                # 3. Display the Insights Card (Fixed structure)
+                # 4. FIX: Structure the Card without extra </div> tags
                 st.markdown(f"""
                 <div class="ai-card">
                     <h4 style="color: var(--accent-amber); margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 5px;">
@@ -1362,11 +1361,11 @@ with tab3:
                 </div>
                 """, unsafe_allow_html=True)
 
-                # 4. Recommendation Card
+                # 5. Recommendation Card
                 top_action = insights.get("top_action", "")
                 st.info(f"**🎯 Recommended Action:** {top_action}")
 
-            # --- STRAY 'v' REMOVED FROM HERE ---
+            # --- ALL STRAY TAGS ARE NOW REMOVED ---
             st.divider()
 
             # ── CHARTS ROW 1 ──
