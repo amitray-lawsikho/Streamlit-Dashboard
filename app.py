@@ -1061,15 +1061,12 @@ with tab2:
 
 
 # ══════════════════════════════════════════════
-# TAB 3 — INSIGHTS
+# TAB 3 — INSIGHTS (Fixed Variable Scope)
 # ══════════════════════════════════════════════
-
         with tab3:
-            # Check session_state instead of locals()
             if 'filtered_df' not in st.session_state or st.session_state.filtered_df.empty:
                 st.info("⚠️ No Static/Dynamic Report Generated. Please go to 'Dynamic Dashboard', select your Vertical/Date, and click 'Generate Dynamic Report' first.")
             else:
-                # Get the data from session state
                 df_for_insights = st.session_state.filtered_df
                 
                 if st.button("🔍 Run Insights on Current Data"):
@@ -1079,13 +1076,12 @@ with tab2:
                         st.warning("⚠️ Insights are disabled during individual name searches.")
                     else:
                         with st.spinner("Analyzing team performance..."):
-                            # Process the data specifically for insights
-                            report_df_all, _ = process_metrics_logic(df_for_insights)
-                            insights_results = compute_team_insights(df_for_insights, report_df_all)
+                            # Logic to process and store insights
+                            report_df_all_ins, _ = process_metrics_logic(df_for_insights)
+                            insights_results = compute_team_insights(df_for_insights, report_df_all_ins)
                             st.session_state.team_insights = insights_results
                             st.rerun()
 
-                # ── Display Insights ──
                 if 'team_insights' in st.session_state and st.session_state.team_insights:
                     section_header("🧠 GENERATED TEAM INSIGHTS")
                     
@@ -1105,8 +1101,9 @@ with tab2:
                     
                     # ── Team Leaderboard ──
                     section_header("🏅 TEAM LEADERBOARD")
-                    report_df_all, _ = process_metrics_logic(df)
-                    lb_base = (report_df_all.groupby("TEAM").agg(
+                    # FIX: Use df_for_insights here instead of df
+                    report_df_all_lb, _ = process_metrics_logic(df_for_insights)
+                    lb_base = (report_df_all_lb.groupby("TEAM").agg(
                         agents=("CALLER", "count"),
                         total_calls=("TOTAL CALLS", "sum"),
                         total_dur_h=("raw_dur_sec", lambda x: round(x.sum() / 3600, 1)),
