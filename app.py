@@ -1341,21 +1341,18 @@ with tab3:
                 # 1. Get insights data
                 key_insights = insights.get("key_insights", [])
                 
-                # 2. Build clean text (Removing "WoW" and HTML tags)
-                # We simply use standard bullet points for maximum compatibility
+                # 2. Build clean text (Force removal of "WoW" and HTML tags)
                 clean_insights_text = ""
                 for ins in key_insights:
                     text = ins.get('text','')
-                    # Remove any "WoW" mention from the text string
+                    # This removes "WoW" even if the AI generates it
                     clean_text = text.replace("WoW", "").replace("wow", "").strip()
                     
                     t = ins.get("type", "info")
                     icon = "📈" if t == "good" else "⚠️" if t == "warn" else "🚨" if t == "risk" else "ℹ️"
-                    
                     clean_insights_text += f"{icon} {clean_text}\n\n"
 
-                # 3. Display the Insights in a clean CSS Card
-                # NO STRAY </div> TAGS AT THE BOTTOM
+                # 3. Display the Insights (Structure fixed to stop stray tags)
                 st.markdown(f"""
                 <div class="ai-card">
                     <h4 style="color: var(--accent-amber); margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 5px;">
@@ -1368,7 +1365,7 @@ with tab3:
                 """, unsafe_allow_html=True)
 
                 # 4. Recommendation Card
-                top_action = insights.get("top_action", "")
+                top_action = insights.get("top_action", "").replace("WoW", "")
                 st.info(f"**🎯 Recommended Action:** {top_action}")
 
             # --- END OF TAB 3 CONTENT ---
