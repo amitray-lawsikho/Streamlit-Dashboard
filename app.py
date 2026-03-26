@@ -5,9 +5,6 @@ import pandas as pd
 from datetime import datetime, date, time, timedelta
 import os
 import pytz
-import plotly.graph_objects as go
-import plotly.express as px
-from plotly.subplots import make_subplots
 import numpy as np
 
 # --- 1. Cloud Credentials Setup ---
@@ -439,32 +436,6 @@ def section_header(label):
     </div>""", unsafe_allow_html=True)
 
 
-# ─────────────────────────────────────────────
-# PLOTLY THEME HELPER
-# ─────────────────────────────────────────────
-
-PLOTLY_LAYOUT = dict(
-    paper_bgcolor="rgba(0,0,0,0)",
-    plot_bgcolor="rgba(0,0,0,0)",
-    font_family="DM Sans, sans-serif",
-    font_color="#94A3B8",
-    title_font_size=13,
-    title_font_color="#F1F5F9",
-    margin=dict(l=16, r=16, t=40, b=16),
-    legend=dict(
-        bgcolor="rgba(0,0,0,0)",
-        font_size=11,
-        orientation="h",
-        yanchor="bottom", y=1.01,
-        xanchor="right", x=1
-    ),
-    xaxis=dict(gridcolor="rgba(148,163,184,.1)", zerolinecolor="rgba(148,163,184,.15)"),
-    yaxis=dict(gridcolor="rgba(148,163,184,.1)", zerolinecolor="rgba(148,163,184,.15)"),
-)
-
-PALETTE = ["#4F8EF7", "#A78BFA", "#34D399", "#FBBF24", "#F87171",
-           "#38BDF8", "#FB923C", "#E879F9", "#4ADE80", "#F472B6"]
-
 
 # ─────────────────────────────────────────────
 # DATA FETCHING
@@ -750,88 +721,6 @@ def compute_team_insights(df_merged, report_df):
         })
 
     return insights
-
-def build_team_charts(df_merged, report_df):
-    """Returns a list of (title, plotly_figure) tuples."""
-    charts = []
-    if df_merged.empty or report_df.empty:
-        return charts
-
-    color_map = {t: PALETTE[i % len(PALETTE)] for i, t in enumerate(report_df["TEAM"].unique())}
-
-    # ── Chart 1: Pick-Up Ratio per team ──
-    df_merged['_ans'] = df_merged['status'].str.lower() == 'answered'
-    pur = (
-        df_merged.groupby("Team Name")['_ans']
-        .agg(answered="sum", total="count")
-        .assign(pur=lambda x: (x["answered"] / x["total"] * 100).round(1))
-        .reset_index().sort_values("pur", ascending=True)
-    )
-    overall_pur = (df_merged['_ans'].sum() / len(df_merged) * 100).round(1)
-    bar_colors = [color_map.get(t, PALETTE[0]) for t in pur["Team Name"]]
-
-    fig1 = go.Figure(go.Bar(
-        y=pur["Team Name"], x=pur["pur"], orientation="h",
-        marker=dict(color=bar_colors),
-        text=[f"{v}%" for v in pur["pur"]], textposition="outside",
-        textfont=dict(size=11, color="#F1F5F9")
-    ))
-    fig1.add_vline(x=overall_pur, line_dash="dot", line_color="#FBBF24")
-    fig1.update_layout(**PLOTLY_LAYOUT)
-    fig1.update_layout(height=max(220, len(pur) * 44 + 60), showlegend=False, title=None)
-    charts.append(("📞 Pick-Up Ratio by Team", fig1))
-
-    # ── Chart 2: Call Volume Quality Bands ──
-    call_vol = (
-        report_df.groupby("TEAM")
-        .agg(total=("TOTAL CALLS", "sum"), above3=("CALLS > 3 MINS", "sum"),
-             mid=("CALLS 15-20 MINS", "sum"), long=("20+ MIN CALLS", "sum"))
-        .reset_index().sort_values("total", ascending=False)
-    )
-    fig2 = go.Figure()
-    for col, name, color in [("above3", ">3 Min", "#4F8EF7"), ("mid", "15-20 Min", "#A78BFA"), ("long", "20+ Min", "#34D399")]:
-        fig2.add_trace(go.Bar(name=name, x=call_vol["TEAM"], y=call_vol[col], marker_color=color))
-    fig2.update_layout(**PLOTLY_LAYOUT)
-    fig2.update_layout(barmode="group", height=320, title=None)
-    charts.append(("📈 Call Volume Quality Bands", fig2))
-
-    # ── Chart 3: Agent Efficiency Map ──
-    scatter_df = report_df[report_df["raw_dur_sec"] > 0].copy()
-    scatter_df["dur_h"], scatter_df["prod_h"] = scatter_df["raw_dur_sec"]/3600, scatter_df["raw_prod_sec"]/3600
-    fig3 = go.Figure()
-    for team in scatter_df["TEAM"].unique():
-        sub = scatter_df[scatter_df["TEAM"] == team]
-        fig3.add_trace(go.Scatter(x=sub["prod_h"], y=sub["dur_h"], mode="markers", name=team,
-                                 marker=dict(size=10, color=color_map.get(team, "#4F8EF7"), opacity=.82)))
-    fig3.update_layout(**PLOTLY_LAYOUT)
-    fig3.update_layout(height=380, xaxis_title="Productive Hours (h)", yaxis_title="Duration (h)", title=None)
-    charts.append(("🔵 Agent Efficiency Map", fig3))
-
-    # ── Chart 4: Issue Heatmap (FIXED CRASH HERE) ──
-    issue_tags = ["Late Check-In", "Early Check-Out", "Low Calls", "Low Duration", "Excessive Breaks", "Less Productive"]
-    heat_data = []
-    for team in report_df["TEAM"].unique():
-        row = {"Team": team}
-        team_remarks = report_df[report_df["TEAM"] == team]["REMARKS"].str.cat(sep=", ")
-        for tag in issue_tags: row[tag] = team_remarks.count(tag)
-        heat_data.append(row)
-    heat_df = pd.DataFrame(heat_data).set_index("Team")
-    
-    if not heat_df.empty:
-        fig4 = go.Figure(go.Heatmap(z=heat_df.values, x=heat_df.columns.tolist(), y=heat_df.index.tolist(),
-                                    colorscale=[[0, "rgba(79,142,247,.05)"], [1, "rgba(248,113,113,.85)"]],
-                                    text=heat_df.values, texttemplate="%{text}"))
-        # FIXED: We split the update_layout to avoid xaxis conflict
-        fig4.update_layout(**PLOTLY_LAYOUT)
-        fig4.update_layout(
-            height=max(260, len(heat_df) * 50 + 80),
-            xaxis=dict(side="top", tickfont=dict(size=10)),
-            title=None
-        )
-        charts.append(("🌡 Team Issue Frequency Heatmap", fig4))
-
-    return charts
-
 
 # ─────────────────────────────────────────────
 # SIDEBAR
