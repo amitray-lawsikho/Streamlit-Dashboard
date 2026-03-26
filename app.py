@@ -276,16 +276,13 @@ footer { visibility: hidden; }
 .insight-card {
     background: var(--metric-bg, #fff);
     border: 1px solid var(--border, rgba(0,0,0,.08));
-    border-radius: var(--radius-md);
-    padding: 1.2rem 1.5rem; /* Increased padding for better breathing room */
+    border-radius: 8px;
+    padding: 1.2rem 1.5rem;
     height: 100%;
-    min-height: 160px; /* Ensures all containers are at least this tall */
+    min-height: 180px; /* Adjust this value if cards still look too short */
     display: flex;
     flex-direction: column;
-    justify-content: flex-start;
-    box-shadow: var(--shadow-sm);
-    transition: var(--transition);
-    margin-bottom: 1rem;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
 }
 
 .insight-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
@@ -302,10 +299,10 @@ footer { visibility: hidden; }
 }
 
 .insight-body {
-    font-size: 0.8rem;
-    color: var(--text-muted, #6B7280);
-    line-height: 1.6;
     flex-grow: 1;
+    font-size: 0.8rem;
+    line-height: 1.6;
+    margin-top: 10px;
 }
 
 /* ── Tab styling ── */
