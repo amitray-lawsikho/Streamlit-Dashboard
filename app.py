@@ -968,7 +968,7 @@ gen_static  = st.sidebar.button("📅 Generate Duration Report")
 st.sidebar.divider()
 st.sidebar.markdown("""
 <div style='font-size:.72rem; color:var(--text-muted,#6B7280); font-weight:500; letter-spacing:0.3px;'>
-    Designed By: <b>Amit Ray</b><br>
+    DESIGNED BY: <b>AMIT RAY</b><br>
     <a href="mailto:amitray@lawsikho.com" style="color:var(--accent-primary); text-decoration:none;">amitray@lawsikho.com</a>
 </div>
 """, unsafe_allow_html=True)
