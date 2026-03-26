@@ -1122,7 +1122,6 @@ with tab3:
                    # ── 2. Team Leaderboard with TOTAL Row ──
                     section_header("🏅 TEAM LEADERBOARD")
                     
-                    # Calculate the base leaderboard
                     lb = (
                         report_df_all.groupby("TEAM")
                         .agg(
@@ -1143,12 +1142,11 @@ with tab3:
                         "agents": lb["agents"].sum(),
                         "total_calls": lb["total_calls"].sum(),
                         "total_dur_h": lb["total_dur_h"].sum(),
-                        "avg_dur_h": round(lb["avg_dur_h"].mean(), 1), # Average of averages
+                        "avg_dur_h": round(lb["avg_dur_h"].mean(), 1),
                         "avg_prod_h": round(lb["avg_prod_h"].mean(), 1),
                         "long_calls": lb["long_calls"].sum()
                     }])
 
-                    # Combine and Rename
                     final_lb = pd.concat([lb, lb_total], ignore_index=True)
                     final_lb = final_lb.rename(columns={
                         "TEAM": "Team", "agents": "Agents", "total_calls": "Total Calls",
@@ -1156,14 +1154,18 @@ with tab3:
                         "avg_prod_h": "Avg Prod Hrs (h)", "long_calls": "20+ Min Calls"
                     })
 
-                    # Assign Medal Index
+                    # Setup labels for the index
                     idx_labels = ["🥇", "🥈", "🥉"] + [""] * (len(lb) - 3) + ["∑"]
                     final_lb.index = idx_labels
 
-                    # Apply the same "TOTAL" styling we used in Dynamic Dashboard
+                    # HIGHLIGHT LOGIC: Use a separate function for stability
+                    def highlight_lb_total(s):
+                        # If the index of this row is '∑', color it dark gray
+                        is_total = s.name == "∑"
+                        return ['background-color: #374151; color: #FFFFFF; font-weight: bold' if is_total else '' for _ in s]
+
                     st.dataframe(
-                        final_lb.style.apply(lambda x: ['font-weight: bold; background-color: #374151; color: #FFFFFF;' 
-                                                       if x.name == '∑' else '' for i in x], axis=1),
+                        final_lb.style.apply(highlight_lb_total, axis=1),
                         use_container_width=True
                     )
 
