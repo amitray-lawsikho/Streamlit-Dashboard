@@ -1082,22 +1082,26 @@ with tab1:
             else:
                 report_df, total_duration_agg = process_metrics_logic(df)
                 report_df = report_df.sort_values(by="raw_dur_sec", ascending=False)
+                
+                # --- FIX: Define ans_t before using it in metrics ---
+                ans_t = len(df[df['status'].str.lower() == 'answered'])
 
-                # ── KPI STRIP (Reorganized for better visibility) ──
+                # ── KPI STRIP (Reorganized into 2 Rows for 2026 Metrics) ──
                 st.markdown('<div class="cw-section-title">Key Performance Indicators</div>', unsafe_allow_html=True)
                 
-                # Row 1: Volume Metrics
+                # Row 1: Volume Metrics (Total, Acefone, Ozonetel, Manual)
                 row1_1, row1_2, row1_3, row1_4 = st.columns(4)
                 row1_1.metric("Total Calls", f"{len(df):,}")
                 row1_2.metric("Acefone", f"{len(df[df['source'] == 'Acefone']):,}")
                 row1_3.metric("Ozonetel", f"{len(df[df['source'] == 'Ozonetel']):,}")
                 row1_4.metric("Manual", f"{len(df[df['source'] == 'Manual']):,}")
                 
-                # Row 2: Efficiency & Intelligence Metrics
+                # Row 2: Performance Metrics (Leads, Pickup, Active, Avg Duration)
                 row2_1, row2_2, row2_3, row2_4 = st.columns(4)
                 row2_1.metric("Unique Leads", f"{df['unique_lead_id'].nunique():,}")
                 row2_2.metric("Pick Up %", f"{round(ans_t / len(df) * 100) if len(df) > 0 else 0}%")
                 row2_3.metric("Active Callers", len(report_df))
+                # UNIQUE DIALLED replaced with AVG PROD HOURS as requested
                 row2_4.metric("Avg Prod Hours", format_dur_hm(report_df["raw_prod_sec"].mean()))
 
                 st.divider()
