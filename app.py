@@ -275,6 +275,7 @@ footer { visibility: hidden; }
 
 .insight-card {
     background: var(--metric-bg, #fff);
+    color: var(--text-primary, #111827) !important; /* Forces readable text */
     border: 1px solid var(--border, rgba(0,0,0,.08));
     border-radius: 8px;
     padding: 1.2rem 1.5rem;
@@ -303,6 +304,7 @@ footer { visibility: hidden; }
     font-size: 0.8rem;
     line-height: 1.6;
     margin-top: 10px;
+    color: inherit !important; /* Ensures it follows the card's readable color */
 }
 
 /* ── Tab styling ── */
@@ -1132,8 +1134,11 @@ with tab3:
                         .reset_index()
                         .sort_values("total_dur_h", ascending=False)
                     )
-
-                    # Create TOTAL row
+                    
+                    # Calculate Base LB
+                    lb_base = (report_df_all.groupby("TEAM").agg(...))
+                    
+                    # Create Total Row
                     lb_total = pd.DataFrame([{
                         "TEAM": "TOTAL",
                         "agents": lb_base["agents"].sum(),
@@ -1144,6 +1149,7 @@ with tab3:
                         "long_calls": lb_base["long_calls"].sum()
                     }])
 
+                    # Merge them
                     final_lb = pd.concat([lb_base, lb_total], ignore_index=True)
                     
                     # Rename for display
@@ -1157,16 +1163,19 @@ with tab3:
                     final_lb.index = ["🥇", "🥈", "🥉"] + [""] * (len(lb_base) - 3) + ["∑"]
 
                     # STYLING FIX: Use integer location to highlight the last row (TOTAL)
-                    def style_lb_rows(df):
-                        # Create a DataFrame of empty strings same shape as final_lb
+                    def highlight_lb_total(df):
+                        # Create empty style array
                         styles = pd.DataFrame('', index=df.index, columns=df.columns)
-                        # Apply styles to the last row (TOTAL) only
-                        styles.iloc[-1, :] = 'background-color: #374151; color: #FFFFFF; font-weight: bold;'
+                        # Check if 'TOTAL' is in the Team column for each row
+                        for i in range(len(df)):
+                            if df.iloc[i]['Team'] == 'TOTAL':
+                                styles.iloc[i, :] = 'background-color: #374151; color: #FFFFFF; font-weight: bold;'
                         return styles
 
                     st.dataframe(
-                        final_lb.style.apply(style_lb_rows, axis=None),
-                        use_container_width=True
+                        final_lb.style.apply(highlight_lb_total, axis=None),
+                        use_container_width=True,
+                        hide_index=False # Set to False if you want to see medals clearly
                     )
 
     else:
