@@ -5,9 +5,6 @@ import pandas as pd
 from datetime import datetime, date, time, timedelta
 import os
 import pytz
-import plotly.graph_objects as go
-import plotly.express as px
-from plotly.subplots import make_subplots
 import numpy as np
 
 # --- 1. Cloud Credentials Setup ---
