@@ -641,16 +641,27 @@ def compute_team_insights(df_merged, report_df):
             "body": f"Averaging {top_val} of qualifying call duration per agent — highest across all teams."
         })
 
-    # ── 2. Team with most low-duration agents ──
-    low_dur = report_df[report_df["raw_dur_sec"] < 11700]   # < 3.25 h
-    if not low_dur.empty:
-        low_team = low_dur.groupby("TEAM").size().idxmax()
-        low_cnt  = low_dur.groupby("TEAM").size().max()
-        insights.append({
-            "type": "bad", "icon": "⚠️",
-            "title": f"Focus Required: {low_team}",
-            "body": f"{low_cnt} agent(s) in {low_team} are below 3h 15m qualifying duration. Consider targeted coaching."
-        })
+    # ── 2. Highest Manual Calls Team (Replaces Low Duration) ──
+    # Filter for Manual source calls only
+    manual_df = df_merged[df_merged['source'] == 'Manual']
+    if not manual_df.empty:
+        # Get team with most manual calls
+        man_counts = manual_df.groupby('Team Name').agg(
+            total_manual=('source', 'count'),
+            unique_agents=('call_owner', 'nunique')
+        ).sort_values('total_manual', ascending=False)
+        
+        if not man_counts.empty:
+            top_man_team = man_counts.index[0]
+            total_m = man_counts.iloc[0]['total_manual']
+            agents_m = man_counts.iloc[0]['unique_agents']
+            
+            insights.append({
+                "type": "bad", 
+                "icon": "⚠️", 
+                "title": f"Focus Required: {top_man_team} (Highest manual calls)", 
+                "body": f"Total {total_m} Manual Calls are getting dialled by {agents_m} agents."
+            })
 
     # ── 3. Pick-up ratio analysis per team ──
     df_merged['_ans'] = df_merged['status'].str.lower() == 'answered'
