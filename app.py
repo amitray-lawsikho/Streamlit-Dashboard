@@ -691,16 +691,18 @@ def compute_team_insights(df_merged, report_df):
                      f"a strong signal of qualified prospect conversations. Replicate best practices across other teams.")
         })
 
-    # ── 5. Break discipline ──
-    remarks_series = report_df["REMARKS"].str.contains("Excessive Breaks", na=False)
+    # ── 5. Break Discipline (Excluding "Others") ──
+    # Filter report_df to exclude "Others" before checking breaks
+    break_df = report_df[report_df["TEAM"] != "Others"]
+    remarks_series = break_df["REMARKS"].str.contains("Excessive Breaks", na=False)
+    
     if remarks_series.sum() > 0:
-        b_agents = report_df.loc[remarks_series, "CALLER"].tolist()
-        b_teams  = report_df.loc[remarks_series, "TEAM"].value_counts().idxmax()
+        b_agents = break_df.loc[remarks_series, "CALLER"].tolist()
+        b_teams  = break_df.loc[remarks_series, "TEAM"].value_counts().idxmax()
         insights.append({
             "type": "warn", "icon": "⏸️",
             "title": f"Break Discipline Alert — {b_teams}",
-            "body": (f"{len(b_agents)} agent(s) flagged for excessive breaks (>2 breaks ≥15 min/day). "
-                     f"Heaviest cluster in {b_teams}. Consider shift-staggering or check-in protocols.")
+            "body": f"{len(b_agents)} agent(s) flagged for excessive breaks (>2 breaks ≥15 min/day). Heaviest cluster in {b_teams}. Consider shift-staggering or check-in protocols."
         })
 
     # ── 6. Productive hours vs duration gap ──
