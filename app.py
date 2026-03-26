@@ -706,9 +706,11 @@ def compute_team_insights(df_merged, report_df):
         })
 
     # ── 6. Lowest Productive Hours Team (Excluding "Others") ──
-    # Calculate average productive hours per team
+    # Filter the report to exclude "Others"
     prod_df = report_df[report_df["TEAM"] != "Others"]
+    
     if not prod_df.empty:
+        # Calculate average productive hours per team
         team_avg_prod = prod_df.groupby("TEAM")["raw_prod_sec"].mean().sort_values()
         
         if not team_avg_prod.empty:
