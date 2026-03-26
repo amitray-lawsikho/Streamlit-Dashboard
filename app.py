@@ -1324,23 +1324,43 @@ with tab3:
 
             col_score, col_main = st.columns([1, 3])
             with col_score:
-                st.markdown(f"""
-                <div class="ai-card" style="text-align:center; height: 100%;">
-                    <h4>Health Score</h4>
-                    <div class="score-ring" style="border-color: {health_color};">
-                        <div class="val" style="color: {health_color};">{score}</div>
-                        <div class="lbl">/ 100</div>
-                    </div>
-                    <div style="font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: {health_color}; letter-spacing: 0.1em; text-transform: uppercase;">
-                        {health}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+            # Key Insights Card
+            st.markdown(f"""
+            <div class="ai-card">
+                <h4>Key Insights</h4>
+                {bullets_html}
+            </div>
+            """, unsafe_allow_html=True)
+            
+            # Action Card
+            st.markdown(f"""
+            <div class="ai-card">
+                <h4>Recommended Action</h4>
+                <p>{top_action}</p>
+            </div>
+            """, unsafe_allow_html=True)
 
             with col_main:
                 # 1. Get insights data
                 key_insights = insights.get("key_insights", [])
+               tag_map = {"good": "tag-good", "warn": "tag-warn", "risk": "tag-risk", "info": "tag-info"}
+                emoji_map = {"good": "✓", "warn": "!", "risk": "✕", "info": "i"}
                 
+                bullets_html = ""
+                
+                for ins in key_insights:
+                    t = ins.get("type", "info")
+                    tc = tag_map.get(t, "tag-info")
+                    em = emoji_map.get(t, "i")
+                
+                    text = ins.get("text", "").replace("<", "&lt;").replace(">", "&gt;")
+                
+                    bullets_html += (
+                        '<div class="insight-bullet">'
+                        f'<span class="tag {tc}">{em}</span>'
+                        f'<span>{text}</span>'
+                        '</div>'
+                    )
                 # 2. Build clean text (Removing "WoW" and HTML tags)
                 clean_insights_text = ""
                 for ins in key_insights:
@@ -1354,16 +1374,24 @@ with tab3:
 
                 # 3. Display the Insights 
                 # Note: This is a single block. Ensure NO </div> is outside this string.
-                st.markdown(f"""
-                <div class="ai-card">
-                    <h4 style="color: var(--accent-amber); margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 5px;">
-                        KEY PERFORMANCE INSIGHTS
-                    </h4>
-                    <div style="color: var(--text-primary); font-size: 0.95rem; line-height: 1.8;">
-                        {clean_insights_text}
-                    </div>
-                </div>
-                """, unsafe_allow_html=True)
+                tag_map = {"good": "tag-good", "warn": "tag-warn", "risk": "tag-risk", "info": "tag-info"}
+                emoji_map = {"good": "✓", "warn": "!", "risk": "✕", "info": "i"}
+                
+                bullets_html = ""
+                
+                for ins in key_insights:
+                    t = ins.get("type", "info")
+                    tc = tag_map.get(t, "tag-info")
+                    em = emoji_map.get(t, "i")
+                
+                    text = ins.get("text", "").replace("<", "&lt;").replace(">", "&gt;")
+                
+                    bullets_html += (
+                        '<div class="insight-bullet">'
+                        f'<span class="tag {tc}">{em}</span>'
+                        f'<span>{text}</span>'
+                        '</div>'
+                    )
 
                 # 4. Recommendation Card
                 top_action = insights.get("top_action", "").replace("WoW", "")
