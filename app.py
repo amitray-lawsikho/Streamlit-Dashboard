@@ -1332,37 +1332,37 @@ with tab3:
 
             with col_main:
             key_insights = insights.get("key_insights", [])
-            tag_map = {"good": "tag-good", "warn": "tag-warn", "risk": "tag-risk", "info": "tag-info"}
-            emoji_map = {"good": "✓", "warn": "!", "risk": "✕", "info": "i"}
+                tag_map = {"good": "tag-good", "warn": "tag-warn", "risk": "tag-risk", "info": "tag-info"}
+                emoji_map = {"good": "✓", "warn": "!", "risk": "✕", "info": "i"}
+                
+                bullets_html = ""
+                for ins in key_insights:
+                    t = ins.get("type", "info")
+                    tc = tag_map.get(t, "tag-info")
+                    em = emoji_map.get(t, "i")
+                    # Added explicit styling to ensure text is visible in Light Mode
+                    bullets_html += f"""
+                    <div class="insight-bullet">
+                        <span class="tag {tc}">{em}</span>
+                        <span style="color: var(--text-primary);">{ins.get('text','')}</span>
+                    </div>"""
             
-            bullets_html = ""
-            for ins in key_insights:
-                t = ins.get("type", "info")
-                tc = tag_map.get(t, "tag-info")
-                em = emoji_map.get(t, "i")
-                # Added explicit styling to ensure text is visible in Light Mode
-                bullets_html += f"""
-                <div class="insight-bullet">
-                    <span class="tag {tc}">{em}</span>
-                    <span style="color: var(--text-primary);">{ins.get('text','')}</span>
-                </div>"""
-        
-            # Wrap the entire card in one markdown block
-            st.markdown(f"""
-            <div class="ai-card">
-                <h4 style="color: var(--accent-amber); margin-bottom: 10px;">KEY INSIGHTS</h4>
-                {bullets_html}
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Recommendation Card
-            top_action = insights.get("top_action", "")
-            st.markdown(f"""
-            <div class="ai-card" style="border-left: 4px solid var(--accent-amber);">
-                <h4 style="color: var(--accent-amber);">🎯 RECOMMENDED ACTION</h4>
-                <p style="color: var(--text-primary);">{top_action}</p>
-            </div>
-            """, unsafe_allow_html=True)
+                # Wrap the entire card in one markdown block
+                st.markdown(f"""
+                <div class="ai-card">
+                    <h4 style="color: var(--accent-amber); margin-bottom: 10px;">KEY INSIGHTS</h4>
+                    {bullets_html}
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Recommendation Card
+                top_action = insights.get("top_action", "")
+                st.markdown(f"""
+                <div class="ai-card" style="border-left: 4px solid var(--accent-amber);">
+                    <h4 style="color: var(--accent-amber);">🎯 RECOMMENDED ACTION</h4>
+                    <p style="color: var(--text-primary);">{top_action}</p>
+                </div>
+                """, unsafe_allow_html=True)
 
             st.divider()
 
