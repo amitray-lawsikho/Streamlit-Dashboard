@@ -1112,54 +1112,32 @@ with tab3:
 
                     st.divider()
 
-                    # ── 2. Team Leaderboard with Dynamic Medals ──
+                    # ── 2. Team Leaderboard (Charts & Analytics Headers Removed) ──
                     section_header("🏅 TEAM LEADERBOARD")
-                    
-                    # 1. Base calculation
-                    lb = (report_df_all.groupby("TEAM").agg(
-                        agents=("CALLER", "count"),
-                        total_calls=("TOTAL CALLS", "sum"),
-                        total_dur_h=("raw_dur_sec", lambda x: round(x.sum() / 3600, 1)),
-                        avg_dur_h=("raw_dur_sec", lambda x: round(x.mean() / 3600, 1)),
-                        avg_prod_h=("raw_prod_sec", lambda x: round(x.mean() / 3600, 1)),
-                        long_calls=("20+ MIN CALLS", "sum"),
-                    ).reset_index().sort_values("total_dur_h", ascending=False))
-
-                    # 2. Add TOTAL row (only if more than 1 team exists)
-                    if len(lb) > 1:
-                        lb_total = pd.DataFrame([{
-                            "TEAM": "TOTAL", "agents": lb["agents"].sum(),
-                            "total_calls": lb["total_calls"].sum(), "total_dur_h": lb["total_dur_h"].sum(),
-                            "avg_dur_h": round(lb["avg_dur_h"].mean(), 1), 
-                            "avg_prod_h": round(lb["avg_prod_h"].mean(), 1),
-                            "long_calls": lb["long_calls"].sum()
-                        }])
-                        lb = pd.concat([lb, lb_total], ignore_index=True)
-
-                    lb = lb.rename(columns={"TEAM": "Team", "agents": "Agents", "total_calls": "Total Calls", "total_dur_h": "Total Dur (h)", "avg_dur_h": "Avg Dur/Agent (h)", "avg_prod_h": "Avg Prod Hrs (h)", "long_calls": "20+ Min Calls"})
-
-                    # 3. DYNAMIC INDEX: Correctly maps medals and ∑
-                    medals = ["🥇", "🥈", "🥉"]
-                    row_count = len(lb)
-                    if row_count > 0:
-                        new_labels = []
-                        for i in range(row_count):
-                            if lb.iloc[i]["Team"] == "TOTAL":
-                                new_labels.append("∑")
-                            elif i < len(medals):
-                                new_labels.append(medals[i])
-                            else:
-                                new_labels.append("")
-                        lb.index = new_labels
-
-                    # 4. SAFE STYLING: Checks if "∑" exists to prevent KeyError
-                    def style_lb(df):
-                        styles = pd.DataFrame('', index=df.index, columns=df.columns)
-                        if "∑" in df.index:
-                            styles.loc["∑", :] = 'background-color: #374151; color: #FFFFFF; font-weight: bold;'
-                        return styles
-
-                    st.dataframe(
-                        lb.style.apply(style_lb, axis=None),
-                        use_container_width=True
+                    lb = (
+                        report_df_all.groupby("TEAM")
+                        .agg(
+                            agents=("CALLER", "count"),
+                            total_calls=("TOTAL CALLS", "sum"),
+                            total_dur_h=("raw_dur_sec", lambda x: round(x.sum() / 3600, 1)),
+                            avg_dur_h=("raw_dur_sec", lambda x: round(x.mean() / 3600, 1)),
+                            avg_prod_h=("raw_prod_sec", lambda x: round(x.mean() / 3600, 1)),
+                            long_calls=("20+ MIN CALLS", "sum"),
+                        )
+                        .reset_index().sort_values("total_dur_h", ascending=False)
+                        .rename(columns={
+                            "TEAM": "Team", "agents": "Agents", "total_calls": "Total Calls",
+                            "total_dur_h": "Total Dur (h)", "avg_dur_h": "Avg Dur/Agent (h)",
+                            "avg_prod_h": "Avg Prod Hrs (h)", "long_calls": "20+ Min Calls"
+                        })
                     )
+                    lb.index = ["🥇", "🥈", "🥉"] + [""] * max(0, len(lb) - 3)
+                    st.dataframe(lb, use_container_width=True)
+
+    else:
+        # ── Clean Placeholder ──
+        st.markdown("""
+        <div style='text-align:center;padding:3.5rem 1rem;opacity:.5;'>
+            <div style='font-size:3rem;margin-bottom:.6rem;'>🤖</div>
+            <div style='font-size:.95rem;font-weight:600;'>Click <b>Run Insights</b> to analyse your data</div>
+        </div>""", unsafe_allow_html=True)
