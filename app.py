@@ -1324,21 +1324,21 @@ with tab3:
 
             col_score, col_main = st.columns([1, 3])
             with col_score:
-            # Key Insights Card
-            st.markdown(f"""
-            <div class="ai-card">
-                <h4>Key Insights</h4>
-                {bullets_html}
-            </div>
-            """, unsafe_allow_html=True)
-            
-            # Action Card
-            st.markdown(f"""
-            <div class="ai-card">
-                <h4>Recommended Action</h4>
-                <p>{top_action}</p>
-            </div>
-            """, unsafe_allow_html=True)
+                # Key Insights Card
+                st.markdown(f"""
+                <div class="ai-card">
+                    <h4>Key Insights</h4>
+                    {bullets_html}
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Action Card
+                st.markdown(f"""
+                <div class="ai-card">
+                    <h4>Recommended Action</h4>
+                    <p>{top_action}</p>
+                </div>
+                """, unsafe_allow_html=True)
 
             with col_main:
                 # 1. Get insights data
