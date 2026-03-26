@@ -989,7 +989,7 @@ with st.sidebar:
         <div class="icon">📡</div>
         <div>
             <div class="name">CallerWise</div>
-            <div class="tagline">Duration Intelligence Platform</div>
+            <div class="tagline">Analysis Platform</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -1021,7 +1021,7 @@ with st.sidebar:
     <div style="font-family: var(--font-mono); font-size: 0.68rem; color: var(--text-muted); 
          padding: 0.6rem 0.75rem; background: var(--bg-card); border-radius: 6px; 
          border: 1px solid var(--border);">
-        🕐 Last sync<br>
+        🕐 Last Sync At<br>
         <span style="color: var(--accent-green);">{last_update_str}</span>
     </div>
     """, unsafe_allow_html=True)
@@ -1039,7 +1039,7 @@ st.markdown(f"""
         <div class="logo-icon">📡</div>
         <div>
             <h1>Duration Metrics</h1>
-            <div class="subtitle">Lawsikho &amp; Skill Arbitrage · Calling Metrics</div>
+            <div class="subtitle">Lawsikho &amp; Skill Arbitrage · Powered By Acefone & Ozonetel </div>
         </div>
     </div>
     <div style="display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
