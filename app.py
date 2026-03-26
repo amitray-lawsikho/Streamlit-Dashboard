@@ -398,7 +398,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
 
 def style_total(row):
     if row["CALLER"] == "TOTAL":
-        return ['font-weight: bold; background-color: rgba(79,142,247,.08); color: inherit'] * len(row)
+        return ['font-weight: bold; background-color: rgba(79,142,247,.15); color: #4F8EF7'] * len(row)
     if row.name == 0:
         return ['background-color: rgba(245,158,11,.18); color: inherit; font-weight: bold'] * len(row)
     elif row.name == 1:
@@ -888,26 +888,29 @@ def build_team_charts(df_merged, report_df):
             row[tag] = team_remarks.count(tag)
         heat_data.append(row)
 
-    heat_df = pd.DataFrame(heat_data).set_index("Team")
-    z_vals = heat_df.values
-    fig5 = go.Figure(go.Heatmap(
-        z=z_vals,
-        x=heat_df.columns.tolist(),
-        y=heat_df.index.tolist(),
-        colorscale=[[0, "rgba(79,142,247,.05)"], [0.4, "rgba(251,191,36,.5)"], [1, "rgba(248,113,113,.85)"]],
-        showscale=True,
-        text=z_vals,
-        texttemplate="%{text}",
-        textfont=dict(size=12, color="#F1F5F9"),
-        hoverongaps=False,
-        hovertemplate="<b>%{y}</b> — %{x}: %{z} agents<extra></extra>"
-    ))
-    fig5.update_layout(
-        **PLOTLY_LAYOUT, title="🌡 Team Issue Frequency Heatmap",
-        height=max(260, len(heat_df) * 50 + 80),
-        xaxis=dict(side="top", tickfont=dict(size=10))
-    )
-    charts.append(("Issue Heatmap", fig5))
+   heat_df = pd.DataFrame(heat_data).set_index("Team")
+    if heat_df.empty or heat_df.isna().all().all():
+        st.info("No issues recorded to display the Heatmap.")
+    else:
+        z_vals = heat_df.values
+        fig5 = go.Figure(go.Heatmap(
+            z=z_vals,
+            x=heat_df.columns.tolist(),
+            y=heat_df.index.tolist(),
+            colorscale=[[0, "rgba(79,142,247,.05)"], [0.4, "rgba(251,191,36,.5)"], [1, "rgba(248,113,113,.85)"]],
+            showscale=True,
+            text=z_vals,
+            texttemplate="%{text}",
+            textfont=dict(size=12, color="#F1F5F9"),
+            hoverongaps=False,
+            hovertemplate="<b>%{y}</b> — %{x}: %{z} agents<extra></extra>"
+        ))
+        fig5.update_layout(
+            **PLOTLY_LAYOUT, title="🌡 Team Issue Frequency Heatmap",
+            height=max(260, len(heat_df) * 50 + 80),
+            xaxis=dict(side="top", tickfont=dict(size=10))
+        )
+        charts.append(("Issue Heatmap", fig5))
 
     # ── Chart 6: Source contribution donut ──
     src_counts = df_merged["source"].value_counts()
@@ -1034,31 +1037,68 @@ with tab1:
                     report_df, total_duration_agg = process_metrics_logic(df)
                     report_df = report_df.sort_values(by="raw_dur_sec", ascending=False)
 
-                    # ── KPI Cards ──
-                    section_header("SUMMARY METRICS")
-                    ans_t = len(df[df['status'].str.lower() == 'answered'])
-                    pur   = f"{round(ans_t / len(df) * 100)}%" if len(df) > 0 else "0%"
-                    kpis  = [
-                        ("Total Calls",     len(df),                            "📲"),
-                        ("Acefone Calls",   len(df[df['source']=='Acefone']),   "🔵"),
-                        ("Ozonetel Calls",  len(df[df['source']=='Ozonetel']),  "🟣"),
-                        ("Manual Calls",    len(df[df['source']=='Manual']),    "✏️"),
-                        ("Unique Leads",    df['unique_lead_id'].nunique(),      "👤"),
-                        ("Pick-Up Ratio",   pur,                                "✅"),
-                        ("Active Callers",  len(report_df),                     "🎙️"),
-                        ("Avg Prod Hrs",    format_dur_hm(report_df["raw_prod_sec"].mean()), "⏱"),
-                    ]
-                    cols = st.columns(len(kpis))
-                    for col, (label, val, icon) in zip(cols, kpis):
-                        with col:
-                            st.markdown(f"""
-                            <div class="metric-card">
-                                <div class="metric-label">{icon} {label}</div>
-                                <div class="metric-value">{val}</div>
-                            </div>""", unsafe_allow_html=True)
+                    # --- TOP 3 PERFORMANCE HIGHLIGHTS ---
+                    section_header("🏆 TOP 3 PERFORMANCE HIGHLIGHTS")
+                    top_cols = st.columns(3)
+                    
+                    # 1. Top Performer (Duration)
+                    top_dur = report_df.iloc[0]
+                    with top_cols[0]:
+                        st.markdown(f"""
+                        <div class="metric-card" style="border-top: 3px solid var(--gold);">
+                            <div class="metric-label">🥇 TOP PERFORMER</div>
+                            <div class="metric-value" style="font-size:1.1rem;">{top_dur['CALLER']}</div>
+                            <div class="metric-delta">{top_dur['CALL DURATION > 3 MINS']} Duration</div>
+                        </div>""", unsafe_allow_html=True)
+                    
+                    # 2. Connectivity King (Pick-up Ratio)
+                    report_df['pur_val'] = report_df['PICK UP RATIO %'].str.replace('%','').astype(int)
+                    top_pur = report_df.sort_values('pur_val', ascending=False).iloc[0]
+                    with top_cols[1]:
+                        st.markdown(f"""
+                        <div class="metric-card" style="border-top: 3px solid var(--silver);">
+                            <div class="metric-label">📡 CONNECTIVITY KING</div>
+                            <div class="metric-value" style="font-size:1.1rem;">{top_pur['CALLER']}</div>
+                            <div class="metric-delta">{top_pur['PICK UP RATIO %']} Pick-up Rate</div>
+                        </div>""", unsafe_allow_html=True)
+                    
+                   # 3. High Engagement (20+ Min Calls)
+                top_long = report_df.sort_values('20+ MIN CALLS', ascending=False).iloc[0]
+                with top_cols[2]:
+                    st.markdown(f"""
+                        <div class="metric-card" style="border-top: 3px solid var(--bronze);">
+                            <div class="metric-label">🗣️ DEEP ENGAGEMENT</div>
+                            <div class="metric-value" style="font-size:1.1rem;">{top_long['CALLER']}</div>
+                            <div class="metric-delta">{top_long['20+ MIN CALLS']} Long Calls</div>
+                        </div>""", unsafe_allow_html=True)
 
-                    st.divider()
-                    section_header("AGENT PERFORMANCE TABLE")
+                # ── KPI Cards (This line should align with 'with top_cols[2]') ──
+                section_header("SUMMARY METRICS")
+                ans_t = len(df[df['status'].str.lower() == 'answered'])
+                pur_val = f"{round(ans_t / len(df) * 100)}%" if len(df) > 0 else "0%"
+                kpis  = [
+                    ("Total Calls",     len(df),                            "📲"),
+                    ("Acefone Calls",   len(df[df['source']=='Acefone']),   "🔵"),
+                    ("Ozonetel Calls",  len(df[df['source']=='Ozonetel']),  "🟣"),
+                    ("Manual Calls",    len(df[df['source']=='Manual']),    "✏️"),
+                    ("Unique Leads",    df['unique_lead_id'].nunique(),      "👤"),
+                    ("Pick-Up Ratio",   pur_val,                            "✅"),
+                    ("Active Callers",  len(report_df),                     "🎙️"),
+                    ("Avg Prod Hrs",    format_dur_hm(report_df["raw_prod_sec"].mean()), "⏱"),
+                ]
+                
+                cols = st.columns(len(kpis))
+                for col, (label, val, icon) in zip(cols, kpis):
+                    with col:
+                        st.markdown(f"""
+                        <div class="metric-card">
+                            <div class="metric-label">{icon} {label}</div>
+                            <div class="metric-value">{val}</div>
+                        </div>""", unsafe_allow_html=True)
+    
+                st.divider()
+                section_header("AGENT PERFORMANCE TABLE")
+                # ... (rest of your table and download button code here)
 
                     total_row = pd.DataFrame([{
                         "IN/OUT TIME": "-", "CALLER": "TOTAL", "TEAM": "-",
