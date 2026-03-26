@@ -789,7 +789,7 @@ def generate_ai_insights(report_df, df_raw, total_duration_agg, start_date, end_
         return {
             "overall_health": "N/A",
             "health_score": 0,
-            "key_insights": [{"type": "info", "text": "No data available"}],
+            "key_insights": insights[:5],
             "top_action": "Load valid data"
         }
 
@@ -1479,7 +1479,8 @@ with tab3:
                                      title='Flagged Issues Breakdown',
                                      color='Count',
                                      color_continuous_scale=[[0, '#1e3a5f'], [0.5, '#f59e0b'], [1, '#ef4444']])
-                    fig_rem.update_layout(**PLOTLY_LAYOUT, yaxis=dict(autorange='reversed'))
+                    fig_rem.update_layout(**PLOTLY_LAYOUT)
+                    fig_rem.update_yaxes(autorange='reversed')
                     fig_rem.update_coloraxes(showscale=False)
                     fig_rem.update_traces(marker_line_width=0)
                     st.plotly_chart(fig_rem, use_container_width=True)
