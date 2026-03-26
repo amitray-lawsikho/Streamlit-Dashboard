@@ -990,8 +990,8 @@ st.markdown(f"""
             <div class="cw-subtitle">LAWSIKHO &amp; SKILL ARBITRAGE &nbsp;·&nbsp; {display_start} to {display_end}</div>
         </div>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.25rem;">
-            <span class="cw-badge"><span class="cw-pulse"></span>Ozonetel &&nbsp;Acefone</span>
-            <span class="cw-badge">🕐 Updated: {last_update_str}</span>
+            <span class="cw-badge"><span class="cw-pulse"></span>OZONETEL &&nbsp;ACEFONE</span>
+            <span class="cw-badge">🕐 UPDATED AT: {last_update_str}</span>
         </div>
     </div>
 </div>
