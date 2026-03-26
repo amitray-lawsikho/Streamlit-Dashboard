@@ -722,18 +722,7 @@ def compute_team_insights(df_merged, report_df):
                      f"Heaviest cluster in {b_teams}. Consider shift-staggering or check-in protocols.")
         })
 
-    # ── 6. Source distribution insight ──
-    src = df_merged['source'].value_counts(normalize=True).mul(100).round(1)
-    if len(src) > 1:
-        dominant = src.index[0]
-        insights.append({
-            "type": "info", "icon": "📊",
-            "title": f"Call Source Mix — {dominant} Dominant",
-            "body": " | ".join([f"{s}: {v}%" for s, v in src.items()])
-                    + ". Balanced multi-source tracking ensures no blind spots in attribution."
-        })
-
-    # ── 7. Productive hours vs duration gap ──
+    # ── 6. Productive hours vs duration gap ──
     report_df['prod_h'] = report_df['raw_prod_sec'] / 3600
     report_df['dur_h']  = report_df['raw_dur_sec']  / 3600
     corr = report_df[['prod_h', 'dur_h']].corr().iloc[0, 1]
@@ -1203,8 +1192,10 @@ with tab3:
                     insights = compute_team_insights(df_ins, report_df_all)
 
                     if insights:
+                        # This creates two equal columns for the 6 cards
                         cols_ins = st.columns(2)
                         for i, ins in enumerate(insights):
+                            # % 2 ensures they alternate between left and right columns
                             with cols_ins[i % 2]:
                                 st.markdown(f"""
                                 <div class="insight-card {ins['type']}">
