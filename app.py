@@ -25,7 +25,7 @@ CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRT73ztvPNZSvIu5WLxo-
 # --- 2. Page Configuration ---
 st.set_page_config(
     layout="wide",
-    page_title="DURATION METRICS",
+    page_title="CALLING METRICS",
     initial_sidebar_state="expanded",
     page_icon="📞"
 )
@@ -761,7 +761,7 @@ st.markdown(f"""
 <div class="cw-header">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:.75rem;">
         <div>
-            <div class="cw-title">📞 DURATION METRICS</div>
+            <div class="cw-title">📞 CALLING METRICS</div>
             <div class="cw-subtitle">LAWSIKHO &amp; SKILL ARBITRAGE &nbsp;·&nbsp; {display_start} to {display_end}</div>
         </div>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.25rem;">
