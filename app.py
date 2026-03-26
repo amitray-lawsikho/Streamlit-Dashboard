@@ -641,7 +641,7 @@ def compute_team_insights(df_merged, report_df):
             "body": f"Averaging {top_val} of qualifying call duration per agent — highest across all teams."
         })
 
-    exclude_teams = ['Others', 'CD - Community Manager', 'Criminal - Community Manager']
+    exclude_teams = ['Others', 'CD - Community Manager', 'Criminal - Community Manager', 'Criminal - Community']
     # ── 2. Highest Manual Calls Team ──
     manual_df = df_merged[(df_merged['source'] == 'Manual') & (~df_merged['Team Name'].isin(exclude_teams))]
     if not manual_df.empty:
