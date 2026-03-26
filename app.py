@@ -810,6 +810,7 @@ with tab1:
                 if df.empty:
                     st.error("No results match the selected filters.")
                 else:
+                    st.session_state.filtered_df = df
                     report_df, total_duration_agg = process_metrics_logic(df)
                     report_df = report_df.sort_values(by="raw_dur_sec", ascending=False)
                     # Assign medals to Top 3
@@ -1063,29 +1064,24 @@ with tab2:
 # TAB 3 — INSIGHTS
 # ══════════════════════════════════════════════
 
-    # ══════════════════════════════════════════════
-# TAB 3 — INSIGHTS (Fixed Syntax & Logic)
-# ══════════════════════════════════════════════
-        # ══════════════════════════════════════════════
-# TAB 3 — INSIGHTS (Fixed Syntax & Logic)
-# ══════════════════════════════════════════════
         with tab3:
-            # Check if data has been loaded in Tab 1
-            if 'df' not in locals() or df.empty:
-                st.info("⚠️ No Static/Dynamic Report Generated. Generate Report using Filter by Vertical Or Date.")
+            # Check session_state instead of locals()
+            if 'filtered_df' not in st.session_state or st.session_state.filtered_df.empty:
+                st.info("⚠️ No Static/Dynamic Report Generated. Please go to 'Dynamic Dashboard', select your Vertical/Date, and click 'Generate Dynamic Report' first.")
             else:
-                # ── Insight Control Button ──
+                # Get the data from session state
+                df_for_insights = st.session_state.filtered_df
+                
                 if st.button("🔍 Run Insights on Current Data"):
-                    # REQUIREMENT: Disable if specific filters are active
                     if selected_team:
-                        st.warning("⚠️ Insights are designed for cross-team analysis. Generate Report using Filter by Vertical Or Date.")
+                        st.warning("⚠️ Insights are designed for cross-team analysis. Please clear the 'Filter by Team' selection.")
                     elif search_query:
-                        st.warning("⚠️ Insights are disabled during individual name searches. Generate Report using Filter by Vertical Or Date .")
+                        st.warning("⚠️ Insights are disabled during individual name searches.")
                     else:
                         with st.spinner("Analyzing team performance..."):
-                            # Logic to process and store insights
-                            report_df_all, _ = process_metrics_logic(df)
-                            insights_results = compute_team_insights(df, report_df_all)
+                            # Process the data specifically for insights
+                            report_df_all, _ = process_metrics_logic(df_for_insights)
+                            insights_results = compute_team_insights(df_for_insights, report_df_all)
                             st.session_state.team_insights = insights_results
                             st.rerun()
 
