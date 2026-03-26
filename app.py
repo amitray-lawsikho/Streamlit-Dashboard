@@ -1342,19 +1342,22 @@ with tab3:
                 # 1. Get insights data
                 key_insights = insights.get("key_insights", [])
                 
-                # 2. Build simple Markdown bullets
-                markdown_bullets = ""
+                # 2. Build clean Markdown bullets (No complex HTML inside)
+                markdown_text = ""
                 for ins in key_insights:
                     t = ins.get("type", "info")
-                    icon = "ℹ️" if t == "info" else "✅" if t == "good" else "⚠️" if t == "warn" else "🚨"
-                    markdown_bullets += f"{icon} **{ins.get('text','')}**\n\n"
+                    # Assign a clear emoji for the insight type
+                    icon = "📈" if t == "good" else "⚠️" if t == "warn" else "🚨" if t == "risk" else "ℹ️"
+                    markdown_text += f"{icon} {ins.get('text','')}\n\n"
 
-                # 3. Display the Insights (Corrected HTML structure)
+                # 3. Display the Insights Card (Fixed structure)
                 st.markdown(f"""
                 <div class="ai-card">
-                    <h4 style="color: var(--accent-amber); margin-bottom: 15px;">Key Insights</h4>
-                    <div style="color: var(--text-primary); line-height: 1.6;">
-                        {markdown_bullets}
+                    <h4 style="color: var(--accent-amber); margin-bottom: 15px; border-bottom: 1px solid var(--border); padding-bottom: 5px;">
+                        KEY PERFORMANCE INSIGHTS
+                    </h4>
+                    <div style="color: var(--text-primary); font-size: 0.95rem; line-height: 1.8;">
+                        {markdown_text}
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
