@@ -1323,6 +1323,7 @@ with tab3:
             health_color = {"Healthy": "#10b981", "Moderate": "#f59e0b", "Critical": "#ef4444"}.get(health, "#64748b")
 
             col_score, col_main = st.columns([1, 3])
+            col_score, col_main = st.columns([1, 3])
             with col_score:
                 st.markdown(f"""
                 <div class="ai-card" style="text-align:center; height: 100%;">
@@ -1331,14 +1332,49 @@ with tab3:
                         <div class="val" style="color: {health_color};">{score}</div>
                         <div class="lbl">/ 100</div>
                     </div>
-                    <div style="font-family: var(--font-display); font-size: 1rem; font-weight: 700; 
-                         color: {health_color}; letter-spacing: 0.1em; text-transform: uppercase;">
+                    <div style="font-family: var(--font-display); font-size: 1rem; font-weight: 700; color: {health_color}; letter-spacing: 0.1em; text-transform: uppercase;">
                         {health}
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
 
-            v
+            with col_main:
+                # 1. Get insights data
+                key_insights = insights.get("key_insights", [])
+                tag_map = {"good": "tag-good", "warn": "tag-warn", "risk": "tag-risk", "info": "tag-info"}
+                emoji_map = {"good": "✓", "warn": "!", "risk": "✕", "info": "i"}
+                
+                # 2. Build the HTML list
+                bullets_html = ""
+                for ins in key_insights:
+                    t = ins.get("type", "info")
+                    tc = tag_map.get(t, "tag-info")
+                    em = emoji_map.get(t, "i")
+                    # 'color: var(--text-primary)' makes this work in Light Mode
+                    bullets_html += f"""
+                    <div class="insight-bullet">
+                        <span class="tag {tc}">{em}</span>
+                        <span style="color: var(--text-primary); font-weight: 500;">{ins.get('text','')}</span>
+                    </div>"""
+
+                # 3. Display the Insights Card
+                st.markdown(f"""
+                <div class="ai-card">
+                    <h4>Key Insights</h4>
+                    {bullets_html}
+                </div>
+                """, unsafe_allow_html=True)
+
+                # 4. Display the Recommendation Card
+                top_action = insights.get("top_action", "")
+                st.markdown(f"""
+                <div class="ai-card" style="border-left: 4px solid var(--accent-amber);">
+                    <h4 style="color: var(--accent-amber);">🎯 Recommended Action</h4>
+                    <p style="color: var(--text-primary); font-size: 0.95rem;">{top_action}</p>
+                </div>
+                """, unsafe_allow_html=True)
+
+            # --- STRAY 'v' REMOVED FROM HERE ---
             st.divider()
 
             # ── CHARTS ROW 1 ──
