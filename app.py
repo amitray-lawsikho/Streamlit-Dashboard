@@ -275,15 +275,17 @@ footer { visibility: hidden; }
 
 .insight-card {
     background: var(--metric-bg, #fff);
-    color: var(--text-primary, #111827) !important; /* Forces readable text */
     border: 1px solid var(--border, rgba(0,0,0,.08));
-    border-radius: 8px;
-    padding: 1.2rem 1.5rem;
+    border-radius: var(--radius-md);
+    padding: 1.2rem 1.5rem; /* Increased padding for better breathing room */
     height: 100%;
-    min-height: 180px; /* Adjust this value if cards still look too short */
+    min-height: 160px; /* Ensures all containers are at least this tall */
     display: flex;
     flex-direction: column;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    justify-content: flex-start;
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition);
+    margin-bottom: 1rem;
 }
 
 .insight-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
@@ -300,11 +302,10 @@ footer { visibility: hidden; }
 }
 
 .insight-body {
-    flex-grow: 1;
     font-size: 0.8rem;
+    color: var(--text-muted, #6B7280);
     line-height: 1.6;
-    margin-top: 10px;
-    color: inherit !important; /* Ensures it follows the card's readable color */
+    flex-grow: 1;
 }
 
 /* ── Tab styling ── */
@@ -1121,8 +1122,7 @@ with tab3:
                    # ── 2. Team Leaderboard with TOTAL Row ──
                     section_header("🏅 TEAM LEADERBOARD")
                     
-                    # 1. Calculate the base metrics
-                    lb_base = (
+                    lb = (
                         report_df_all.groupby("TEAM")
                         .agg(
                             agents=("CALLER", "count"),
@@ -1136,40 +1136,39 @@ with tab3:
                         .sort_values("total_dur_h", ascending=False)
                     )
 
-                    # 2. Create the TOTAL row using the calculated lb_base
+                    # Create the TOTAL row
                     lb_total = pd.DataFrame([{
                         "TEAM": "TOTAL",
-                        "agents": lb_base["agents"].sum(),
-                        "total_calls": lb_base["total_calls"].sum(),
-                        "total_dur_h": lb_base["total_dur_h"].sum(),
-                        "avg_dur_h": round(lb_base["avg_dur_h"].mean(), 1),
-                        "avg_prod_h": round(lb_base["avg_prod_h"].mean(), 1),
-                        "long_calls": lb_base["long_calls"].sum()
+                        "agents": lb["agents"].sum(),
+                        "total_calls": lb["total_calls"].sum(),
+                        "total_dur_h": lb["total_dur_h"].sum(),
+                        "avg_dur_h": round(lb["avg_dur_h"].mean(), 1),
+                        "avg_prod_h": round(lb["avg_prod_h"].mean(), 1),
+                        "long_calls": lb["long_calls"].sum()
                     }])
 
-                    # 3. Combine and Rename
-                    final_lb = pd.concat([lb_base, lb_total], ignore_index=True)
+                    final_lb = pd.concat([lb, lb_total], ignore_index=True)
                     final_lb = final_lb.rename(columns={
                         "TEAM": "Team", "agents": "Agents", "total_calls": "Total Calls",
                         "total_dur_h": "Total Dur (h)", "avg_dur_h": "Avg Dur/Agent (h)",
                         "avg_prod_h": "Avg Prod Hrs (h)", "long_calls": "20+ Min Calls"
                     })
 
-                    # 4. Setup Medal Index
-                    final_lb.index = ["🥇", "🥈", "🥉"] + [""] * (len(lb_base) - 3) + ["∑"]
+                    # Setup labels for the index
+                    idx_labels = ["🥇", "🥈", "🥉"] + [""] * (len(lb) - 3) + ["∑"]
+                    final_lb.index = idx_labels
 
-                    # 5. Robust Styling Function
-                    def highlight_lb_total(df):
-                        styles = pd.DataFrame('', index=df.index, columns=df.columns)
-                        for i in range(len(df)):
-                            if df.iloc[i]['Team'] == 'TOTAL':
-                                styles.iloc[i, :] = 'background-color: #374151; color: #FFFFFF; font-weight: bold;'
-                        return styles
+                    # HIGHLIGHT LOGIC: Use a separate function for stability
+                    def highlight_lb_total(s):
+                        # If the index of this row is '∑', color it dark gray
+                        is_total = s.name == "∑"
+                        return ['background-color: #374151; color: #FFFFFF; font-weight: bold' if is_total else '' for _ in s]
 
                     st.dataframe(
-                        final_lb.style.apply(highlight_lb_total, axis=None),
+                        final_lb.style.apply(highlight_lb_total, axis=1),
                         use_container_width=True
                     )
+
     else:
         # ── Clean Placeholder ──
         st.markdown("""
