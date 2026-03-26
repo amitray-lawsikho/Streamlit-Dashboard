@@ -1064,90 +1064,80 @@ with tab2:
 # ══════════════════════════════════════════════
 
 with tab3:
-            if report_df_all.empty:
-                st.info("ℹ️ Please generate a report first to see AI insights.")
+            # Check if any report has been generated yet
+            # We use report_df_all which should be defined when Tab 1 or 2 runs
+            try:
+                data_exists = not report_df, total_duration_agg = process_metrics_logic(df)
+            except:
+                data_exists = False
+
+            if not 'df' in locals() or df.empty:
+                st.info("ℹ️ Please generate a 'Dynamic Report' first to see AI insights.")
             else:
-                # PLACE THE NEW LOGIC HERE
+                # ── Insight Control Button ──
                 if st.button("🔍 Run Insights on Current Data"):
+                    # REQUIREMENT: Disable if specific filters are active
                     if selected_team:
                         st.warning("⚠️ Insights are designed for cross-team analysis. Please clear the 'Filter by Team' selection to run insights.")
                     elif search_query:
                         st.warning("⚠️ Insights are disabled during individual name searches. Please clear the search box to run insights.")
                     else:
                         with st.spinner("Analyzing team performance..."):
-                            # This calls the function that now excludes 'Others' and 'CD - Community Manager'
-                            insights = compute_team_insights(df_merged, report_df_all)
+                            # This function now excludes 'Others' and 'CD - Community Manager'
+                            report_df_all, _ = process_metrics_logic(df)
+                            insights = compute_team_insights(df, report_df_all)
                             st.session_state.team_insights = insights
                             st.rerun()
 
-    if insight_start:
-        with st.spinner("Analysing patterns across all teams…"):
-            df_raw = fetch_call_data(start_date, end_date)
-            if df_raw.empty:
-                st.warning("No data for selected period.")
-            else:
-                df_raw['merge_key'] = df_raw['call_owner'].str.strip().str.lower()
-                df_ins = pd.merge(df_raw, df_team_mapping, on='merge_key', how='left')
-                df_ins['call_owner'] = df_ins['Caller Name'].fillna(df_ins['call_owner'])
-                df_ins = df_ins[df_ins['call_owner'].notna() & (df_ins['call_owner'] != '')]
-
-                if selected_team:     df_ins = df_ins[df_ins['Team Name'].isin(selected_team)]
-                if selected_vertical: df_ins = df_ins[df_ins['Vertical'].isin(selected_vertical)]
-
-                report_df_all, _ = process_metrics_logic(df_ins)
-
-                if report_df_all.empty:
-                    st.error("Not enough data for analysis.")
-                else:
-                    # ── 1. Insights Narrative ──
+                # ── Display Insights if they exist in session state ──
+                if 'team_insights' in st.session_state and st.session_state.team_insights:
                     section_header("🧠 GENERATED TEAM INSIGHTS")
-                    insights = compute_team_insights(df_ins, report_df_all)
-
-                    if insights:
-                        # This creates two equal columns for the 6 cards
-                        cols_ins = st.columns(2)
-                        for i, ins in enumerate(insights):
-                            # % 2 ensures they alternate between left and right columns
-                            with cols_ins[i % 2]:
-                                st.markdown(f"""
-                                <div class="insight-card {ins['type']}">
-                                    <div style='display:flex;align-items:center;gap:.4rem;'>
-                                        <span class="insight-icon">{ins['icon']}</span>
-                                        <span class="insight-title">{ins['title']}</span>
-                                    </div>
-                                    <div class="insight-body">{ins['body']}</div>
-                                </div>""", unsafe_allow_html=True)
-                    else:
-                        st.info("Not enough data to generate comparative insights.")
-
+                    
+                    cols_ins = st.columns(2)
+                    for i, ins in enumerate(st.session_state.team_insights):
+                        with cols_ins[i % 2]:
+                            st.markdown(f"""
+                            <div class="insight-card {ins['type']}">
+                                <div style='display:flex;align-items:center;gap:.6rem; margin-bottom: 8px;'>
+                                    <span style='font-size:1.2rem;'>{ins['icon']}</span>
+                                    <span class="insight-title" style="margin:0;">{ins['title']}</span>
+                                </div>
+                                <div class="insight-body">{ins['body']}</div>
+                            </div>""", unsafe_allow_html=True)
+                    
                     st.divider()
-
-                    # ── 2. Team Leaderboard (Charts & Analytics Headers Removed) ──
+                    
+                    # ── Team Leaderboard with TOTAL Row ──
                     section_header("🏅 TEAM LEADERBOARD")
-                    lb = (
-                        report_df_all.groupby("TEAM")
-                        .agg(
-                            agents=("CALLER", "count"),
-                            total_calls=("TOTAL CALLS", "sum"),
-                            total_dur_h=("raw_dur_sec", lambda x: round(x.sum() / 3600, 1)),
-                            avg_dur_h=("raw_dur_sec", lambda x: round(x.mean() / 3600, 1)),
-                            avg_prod_h=("raw_prod_sec", lambda x: round(x.mean() / 3600, 1)),
-                            long_calls=("20+ MIN CALLS", "sum"),
-                        )
-                        .reset_index().sort_values("total_dur_h", ascending=False)
-                        .rename(columns={
-                            "TEAM": "Team", "agents": "Agents", "total_calls": "Total Calls",
-                            "total_dur_h": "Total Dur (h)", "avg_dur_h": "Avg Dur/Agent (h)",
-                            "avg_prod_h": "Avg Prod Hrs (h)", "long_calls": "20+ Min Calls"
-                        })
-                    )
-                    lb.index = ["🥇", "🥈", "🥉"] + [""] * max(0, len(lb) - 3)
-                    st.dataframe(lb, use_container_width=True)
+                    report_df_all, _ = process_metrics_logic(df)
+                    lb_base = (report_df_all.groupby("TEAM").agg(
+                        agents=("CALLER", "count"),
+                        total_calls=("TOTAL CALLS", "sum"),
+                        total_dur_h=("raw_dur_sec", lambda x: round(x.sum() / 3600, 1)),
+                        avg_dur_h=("raw_dur_sec", lambda x: round(x.mean() / 3600, 1)),
+                        avg_prod_h=("raw_prod_sec", lambda x: round(x.mean() / 3600, 1)),
+                        long_calls=("20+ MIN CALLS", "sum"),
+                    ).reset_index().sort_values("total_dur_h", ascending=False))
 
-    else:
-        # ── Clean Placeholder ──
-        st.markdown("""
-        <div style='text-align:center;padding:3.5rem 1rem;opacity:.5;'>
-            <div style='font-size:3rem;margin-bottom:.6rem;'>🤖</div>
-            <div style='font-size:.95rem;font-weight:600;'>Click <b>Run Insights</b> to analyse your data</div>
-        </div>""", unsafe_allow_html=True)
+                    lb_total = pd.DataFrame([{
+                        "TEAM": "TOTAL", "agents": lb_base["agents"].sum(),
+                        "total_calls": lb_base["total_calls"].sum(), "total_dur_h": lb_base["total_dur_h"].sum(),
+                        "avg_dur_h": round(lb_base["avg_dur_h"].mean(), 1), 
+                        "avg_prod_h": round(lb_base["avg_prod_h"].mean(), 1),
+                        "long_calls": lb_base["long_calls"].sum()
+                    }])
+
+                    final_lb = pd.concat([lb_base, lb_total], ignore_index=True).rename(columns={"TEAM": "Team"})
+                    final_lb.index = ["🥇", "🥈", "🥉"] + [""] * (len(lb_base) - 3) + ["∑"]
+
+                    st.dataframe(
+                        final_lb.style.apply(lambda x: ['background-color: #374151; color: #FFFFFF; font-weight: bold' 
+                                                       if x.name == "∑" else '' for _ in x], axis=1),
+                        use_container_width=True
+                    )
+                else:
+                    st.markdown("""
+                        <div style='text-align:center;padding:3.5rem 1rem;opacity:.5;'>
+                            <div style='font-size:3rem;margin-bottom:.6rem;'>🤖</div>
+                            <div style='font-size:.95rem;font-weight:600;'>Click <b>Run Insights</b> to analyse your data</div>
+                        </div>""", unsafe_allow_html=True)
