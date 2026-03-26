@@ -719,23 +719,25 @@ def compute_team_insights(df_merged, report_df):
 # ─────────────────────────────────────────────
 
 st.sidebar.markdown("""
-    <div style='padding:.4rem 0 .8rem;'>
-        <div style='font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px; color:var(--text-muted,#6B7280);margin-bottom:.5rem;'>Report Controls</div>
-    </div>
+<div style='padding:.4rem 0 .8rem;'>
+    <div style='font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;
+                color:var(--text-muted,#6B7280);margin-bottom:.5rem;'>Report Controls</div>
+</div>
 """, unsafe_allow_html=True)
 
 min_d, max_d = get_available_dates()
-selected_dates = st.sidebar.date_input("📅 Date Range", value=(max_d, max_d), min_value=min_d, max_value=max_d, format="DD-MM-YYYY")
-
+selected_dates = st.sidebar.date_input(
+    "📅 Date Range", value=(max_d, max_d),
+    min_value=min_d, max_value=max_d, format="DD-MM-YYYY"
+)
 if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
     start_date, end_date = selected_dates
 else:
     start_date = end_date = selected_dates if not isinstance(selected_dates, tuple) else selected_dates[0]
 
 teams, verticals, df_team_mapping = get_metadata()
-
-selected_vertical = st.sidebar.multiselect("📂 Filter by Vertical", options=verticals)
 selected_team     = st.sidebar.multiselect("🏢 Filter by Team",     options=teams)
+selected_vertical = st.sidebar.multiselect("📂 Filter by Vertical", options=verticals)
 search_query      = st.sidebar.text_input("🔍 Search Name")
 
 st.sidebar.markdown("<div style='margin:.5rem 0'></div>", unsafe_allow_html=True)
@@ -810,7 +812,6 @@ with tab1:
                 if df.empty:
                     st.error("No results match the selected filters.")
                 else:
-                    st.session_state.filtered_df = df
                     report_df, total_duration_agg = process_metrics_logic(df)
                     report_df = report_df.sort_values(by="raw_dur_sec", ascending=False)
                     # Assign medals to Top 3
@@ -1061,76 +1062,82 @@ with tab2:
 
 
 # ══════════════════════════════════════════════
-# TAB 3 — INSIGHTS (Fixed Variable Scope)
+# TAB 3 — INSIGHTS
 # ══════════════════════════════════════════════
-        with tab3:
-            if 'filtered_df' not in st.session_state or st.session_state.filtered_df.empty:
-                st.info("⚠️ No Static/Dynamic Report Generated. Please go to 'Dynamic Dashboard', select your Vertical/Date, and click 'Generate Dynamic Report' first.")
+
+with tab3:
+    # ── Removed the OpenAI Power Block ──
+    # The header and primary button are now the main focus
+    insight_start = st.button("🔍 Run Insights on Current Data", type="primary")
+
+    if insight_start:
+        with st.spinner("Analysing patterns across all teams…"):
+            df_raw = fetch_call_data(start_date, end_date)
+            if df_raw.empty:
+                st.warning("No data for selected period.")
             else:
-                df_for_insights = st.session_state.filtered_df
-                
-                if st.button("🔍 Run Insights on Current Data"):
-                    if selected_team:
-                        st.warning("⚠️ Insights are designed for cross-team analysis. Please clear the 'Filter by Team' selection.")
-                    elif search_query:
-                        st.warning("⚠️ Insights are disabled during individual name searches.")
-                    else:
-                        with st.spinner("Analyzing team performance..."):
-                            # Logic to process and store insights
-                            report_df_all_ins, _ = process_metrics_logic(df_for_insights)
-                            insights_results = compute_team_insights(df_for_insights, report_df_all_ins)
-                            st.session_state.team_insights = insights_results
-                            st.rerun()
+                df_raw['merge_key'] = df_raw['call_owner'].str.strip().str.lower()
+                df_ins = pd.merge(df_raw, df_team_mapping, on='merge_key', how='left')
+                df_ins['call_owner'] = df_ins['Caller Name'].fillna(df_ins['call_owner'])
+                df_ins = df_ins[df_ins['call_owner'].notna() & (df_ins['call_owner'] != '')]
 
-                if 'team_insights' in st.session_state and st.session_state.team_insights:
-                    section_header("🧠 GENERATED TEAM INSIGHTS")
-                    
-                    cols_ins = st.columns(2)
-                    for i, ins in enumerate(st.session_state.team_insights):
-                        with cols_ins[i % 2]:
-                            st.markdown(f"""
-                            <div class="insight-card {ins['type']}">
-                                <div style='display:flex;align-items:center;gap:.6rem; margin-bottom: 8px;'>
-                                    <span style='font-size:1.2rem;'>{ins['icon']}</span>
-                                    <span class="insight-title" style="margin:0; color:#F1F5F9 !important;">{ins['title']}</span>
-                                </div>
-                                <div class="insight-body" style="color:#CBD5E1 !important;">{ins['body']}</div>
-                            </div>""", unsafe_allow_html=True)
-                    
-                    st.divider()
-                    
-                    # ── Team Leaderboard ──
-                    section_header("🏅 TEAM LEADERBOARD")
-                    # FIX: Use df_for_insights here instead of df
-                    report_df_all_lb, _ = process_metrics_logic(df_for_insights)
-                    lb_base = (report_df_all_lb.groupby("TEAM").agg(
-                        agents=("CALLER", "count"),
-                        total_calls=("TOTAL CALLS", "sum"),
-                        total_dur_h=("raw_dur_sec", lambda x: round(x.sum() / 3600, 1)),
-                        avg_dur_h=("raw_dur_sec", lambda x: round(x.mean() / 3600, 1)),
-                        avg_prod_h=("raw_prod_sec", lambda x: round(x.mean() / 3600, 1)),
-                        long_calls=("20+ MIN CALLS", "sum"),
-                    ).reset_index().sort_values("total_dur_h", ascending=False))
+                if selected_team:     df_ins = df_ins[df_ins['Team Name'].isin(selected_team)]
+                if selected_vertical: df_ins = df_ins[df_ins['Vertical'].isin(selected_vertical)]
 
-                    lb_total = pd.DataFrame([{
-                        "TEAM": "TOTAL", "agents": lb_base["agents"].sum(),
-                        "total_calls": lb_base["total_calls"].sum(), "total_dur_h": lb_base["total_dur_h"].sum(),
-                        "avg_dur_h": round(lb_base["avg_dur_h"].mean(), 1), 
-                        "avg_prod_h": round(lb_base["avg_prod_h"].mean(), 1),
-                        "long_calls": lb_base["long_calls"].sum()
-                    }])
+                report_df_all, _ = process_metrics_logic(df_ins)
 
-                    final_lb = pd.concat([lb_base, lb_total], ignore_index=True).rename(columns={"TEAM": "Team"})
-                    final_lb.index = ["🥇", "🥈", "🥉"] + [""] * (len(lb_base) - 3) + ["∑"]
-
-                    st.dataframe(
-                        final_lb.style.apply(lambda x: ['background-color: #374151; color: #FFFFFF; font-weight: bold' 
-                                                       if x.name == "∑" else '' for _ in x], axis=1),
-                        use_container_width=True
-                    )
+                if report_df_all.empty:
+                    st.error("Not enough data for analysis.")
                 else:
-                    st.markdown("""
-                        <div style='text-align:center;padding:3.5rem 1rem;opacity:.5;'>
-                            <div style='font-size:3rem;margin-bottom:.6rem;'>🤖</div>
-                            <div style='font-size:.95rem;font-weight:600;'>Click <b>Run Insights</b> to analyse team performance</div>
-                        </div>""", unsafe_allow_html=True)
+                    # ── 1. Insights Narrative ──
+                    section_header("🧠 GENERATED TEAM INSIGHTS")
+                    insights = compute_team_insights(df_ins, report_df_all)
+
+                    if insights:
+                        # This creates two equal columns for the 6 cards
+                        cols_ins = st.columns(2)
+                        for i, ins in enumerate(insights):
+                            # % 2 ensures they alternate between left and right columns
+                            with cols_ins[i % 2]:
+                                st.markdown(f"""
+                                <div class="insight-card {ins['type']}">
+                                    <div style='display:flex;align-items:center;gap:.4rem;'>
+                                        <span class="insight-icon">{ins['icon']}</span>
+                                        <span class="insight-title">{ins['title']}</span>
+                                    </div>
+                                    <div class="insight-body">{ins['body']}</div>
+                                </div>""", unsafe_allow_html=True)
+                    else:
+                        st.info("Not enough data to generate comparative insights.")
+
+                    st.divider()
+
+                    # ── 2. Team Leaderboard (Charts & Analytics Headers Removed) ──
+                    section_header("🏅 TEAM LEADERBOARD")
+                    lb = (
+                        report_df_all.groupby("TEAM")
+                        .agg(
+                            agents=("CALLER", "count"),
+                            total_calls=("TOTAL CALLS", "sum"),
+                            total_dur_h=("raw_dur_sec", lambda x: round(x.sum() / 3600, 1)),
+                            avg_dur_h=("raw_dur_sec", lambda x: round(x.mean() / 3600, 1)),
+                            avg_prod_h=("raw_prod_sec", lambda x: round(x.mean() / 3600, 1)),
+                            long_calls=("20+ MIN CALLS", "sum"),
+                        )
+                        .reset_index().sort_values("total_dur_h", ascending=False)
+                        .rename(columns={
+                            "TEAM": "Team", "agents": "Agents", "total_calls": "Total Calls",
+                            "total_dur_h": "Total Dur (h)", "avg_dur_h": "Avg Dur/Agent (h)",
+                            "avg_prod_h": "Avg Prod Hrs (h)", "long_calls": "20+ Min Calls"
+                        })
+                    )
+                    lb.index = ["🥇", "🥈", "🥉"] + [""] * max(0, len(lb) - 3)
+                    st.dataframe(lb, use_container_width=True)
+
+    else:
+        # ── Clean Placeholder ──
+        st.markdown("""
+        <div style='text-align:center;padding:3.5rem 1rem;opacity:.5;'>
+            <div style='font-size:3rem;margin-bottom:.6rem;'>🤖</div>
+            <div style='font-size:.95rem;font-weight:600;'>Click <b>Run Insights</b> to analyse your data</div>
+        </div>""", unsafe_allow_html=True)
