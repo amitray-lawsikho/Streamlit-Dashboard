@@ -719,25 +719,23 @@ def compute_team_insights(df_merged, report_df):
 # ─────────────────────────────────────────────
 
 st.sidebar.markdown("""
-<div style='padding:.4rem 0 .8rem;'>
-    <div style='font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;
-                color:var(--text-muted,#6B7280);margin-bottom:.5rem;'>Report Controls</div>
-</div>
+    <div style='padding:.4rem 0 .8rem;'>
+        <div style='font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px; color:var(--text-muted,#6B7280);margin-bottom:.5rem;'>Report Controls</div>
+    </div>
 """, unsafe_allow_html=True)
 
 min_d, max_d = get_available_dates()
-selected_dates = st.sidebar.date_input(
-    "📅 Date Range", value=(max_d, max_d),
-    min_value=min_d, max_value=max_d, format="DD-MM-YYYY"
-)
+selected_dates = st.sidebar.date_input("📅 Date Range", value=(max_d, max_d), min_value=min_d, max_value=max_d, format="DD-MM-YYYY")
+
 if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
     start_date, end_date = selected_dates
 else:
     start_date = end_date = selected_dates if not isinstance(selected_dates, tuple) else selected_dates[0]
 
 teams, verticals, df_team_mapping = get_metadata()
-selected_team     = st.sidebar.multiselect("🏢 Filter by Team",     options=teams)
+
 selected_vertical = st.sidebar.multiselect("📂 Filter by Vertical", options=verticals)
+selected_team     = st.sidebar.multiselect("🏢 Filter by Team",     options=teams)
 search_query      = st.sidebar.text_input("🔍 Search Name")
 
 st.sidebar.markdown("<div style='margin:.5rem 0'></div>", unsafe_allow_html=True)
@@ -1066,9 +1064,21 @@ with tab2:
 # ══════════════════════════════════════════════
 
 with tab3:
-    # ── Removed the OpenAI Power Block ──
-    # The header and primary button are now the main focus
-    insight_start = st.button("🔍 Run Insights on Current Data", type="primary")
+            if report_df_all.empty:
+                st.info("ℹ️ Please generate a report first to see AI insights.")
+            else:
+                # PLACE THE NEW LOGIC HERE
+                if st.button("🔍 Run Insights on Current Data"):
+                    if selected_team:
+                        st.warning("⚠️ Insights are designed for cross-team analysis. Please clear the 'Filter by Team' selection to run insights.")
+                    elif search_query:
+                        st.warning("⚠️ Insights are disabled during individual name searches. Please clear the search box to run insights.")
+                    else:
+                        with st.spinner("Analyzing team performance..."):
+                            # This calls the function that now excludes 'Others' and 'CD - Community Manager'
+                            insights = compute_team_insights(df_merged, report_df_all)
+                            st.session_state.team_insights = insights
+                            st.rerun()
 
     if insight_start:
         with st.spinner("Analysing patterns across all teams…"):
