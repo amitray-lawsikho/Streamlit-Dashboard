@@ -1171,24 +1171,13 @@ with tab2:
 
 
 # ══════════════════════════════════════════════
-# TAB 3 — AI INSIGHTS  (free, data-driven)
+# TAB 3 — AI INSIGHTS
 # ══════════════════════════════════════════════
 
 with tab3:
-    st.markdown("""
-    <div style='display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;'>
-        <div style='font-size:1.5rem;'>🤖</div>
-        <div>
-            <div style='font-weight:700;font-size:1rem;'>AI Insights Engine</div>
-            <div style='font-size:.73rem;color:var(--text-muted,#6B7280);'>
-                Fully automated · Connected to Dynamic and Static Reports Generated
-            </div>
-        </div>
-        <span class="cw-badge" style='margin-left:auto;'>⚡POWERED BY : OPENAI</span>
-    </div>
-    """, unsafe_allow_html=True)
-
-    insight_start = st.button("🔍 Generate AI Insights", type="primary")
+    # ── Removed the OpenAI Power Block ──
+    # The header and primary button are now the main focus
+    insight_start = st.button("🔍 Run AI Insights on Current Data", type="primary")
 
     if insight_start:
         with st.spinner("Analysing patterns across all teams…"):
@@ -1251,12 +1240,11 @@ with tab3:
                     )
                     lb.index = ["🥇", "🥈", "🥉"] + [""] * max(0, len(lb) - 3)
                     st.dataframe(lb, use_container_width=True)
+
     else:
+        # ── Clean Placeholder ──
         st.markdown("""
         <div style='text-align:center;padding:3.5rem 1rem;opacity:.5;'>
             <div style='font-size:3rem;margin-bottom:.6rem;'>🤖</div>
-            <div style='font-size:.95rem;font-weight:600;'>Click <b>Generate AI Insights</b> to analyse your generated data</div>
-            <div style='font-size:.75rem;margin-top:.4rem;'>
-                Generates insight cards + interactive charts + team leaderboard — instantly.
-            </div>
+            <div style='font-size:.95rem;font-weight:600;'>Click <b>Run AI Insights</b> to analyse your data</div>
         </div>""", unsafe_allow_html=True)
