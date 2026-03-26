@@ -1125,7 +1125,7 @@ with tab3:
                         long_calls=("20+ MIN CALLS", "sum"),
                     ).reset_index().sort_values("total_dur_h", ascending=False))
 
-                    # 2. Add TOTAL row (only if more than 1 team is visible)
+                    # 2. Add TOTAL row (only if more than 1 team exists)
                     if len(lb) > 1:
                         lb_total = pd.DataFrame([{
                             "TEAM": "TOTAL", "agents": lb["agents"].sum(),
@@ -1138,12 +1138,10 @@ with tab3:
 
                     lb = lb.rename(columns={"TEAM": "Team", "agents": "Agents", "total_calls": "Total Calls", "total_dur_h": "Total Dur (h)", "avg_dur_h": "Avg Dur/Agent (h)", "avg_prod_h": "Avg Prod Hrs (h)", "long_calls": "20+ Min Calls"})
 
-                    # 3. DYNAMIC INDEX: This prevents the ValueError
+                    # 3. DYNAMIC INDEX: Correctly maps medals and ∑
                     medals = ["🥇", "🥈", "🥉"]
                     row_count = len(lb)
-                    
                     if row_count > 0:
-                        # Create labels only for the rows we actually have
                         new_labels = []
                         for i in range(row_count):
                             if lb.iloc[i]["Team"] == "TOTAL":
@@ -1154,9 +1152,14 @@ with tab3:
                                 new_labels.append("")
                         lb.index = new_labels
 
-                    # 4. Final Display with style safety
+                    # 4. SAFE STYLING: Checks if "∑" exists to prevent KeyError
+                    def style_lb(df):
+                        styles = pd.DataFrame('', index=df.index, columns=df.columns)
+                        if "∑" in df.index:
+                            styles.loc["∑", :] = 'background-color: #374151; color: #FFFFFF; font-weight: bold;'
+                        return styles
+
                     st.dataframe(
-                        lb.style.apply(lambda x: ['background-color: #374151; color: #FFFFFF; font-weight: bold' 
-                                                       if x.name == "∑" else '' for _ in x], axis=1),
+                        lb.style.apply(style_lb, axis=None),
                         use_container_width=True
                     )
