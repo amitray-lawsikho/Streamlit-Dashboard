@@ -899,8 +899,11 @@ def build_team_charts(df_merged, report_df):
             hoverongaps=False,
             hovertemplate="<b>%{y}</b> — %{x}: %{z} agents<extra></extra>"
         ))
+        fig5.update_layout(**PLOTLY_LAYOUT)
+        
+        # Apply heatmap-specific overrides second
         fig5.update_layout(
-            **PLOTLY_LAYOUT, title="🌡 Team Issue Frequency Heatmap",
+            title="🌡 Team Issue Frequency Heatmap",
             height=max(260, len(heat_df) * 50 + 80),
             xaxis=dict(side="top", tickfont=dict(size=10))
         )
@@ -982,11 +985,11 @@ st.markdown(f"""
 <div class="cw-header">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:.75rem;">
         <div>
-            <div class="cw-title">📞 CallerWise Duration Metrics</div>
+            <div class="cw-title">📞 DURATION M</div>
             <div class="cw-subtitle">LAWSIKHO &amp; SKILL ARBITRAGE &nbsp;·&nbsp; {display_start} to {display_end}</div>
         </div>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.25rem;">
-            <span class="cw-badge"><span class="cw-pulse"></span>Live&nbsp;Data</span>
+            <span class="cw-badge"><span class="cw-pulse"></span>Ozonetel &&nbsp; Acefone</span>
             <span class="cw-badge">🕐 Updated: {last_update_str}</span>
         </div>
     </div>
