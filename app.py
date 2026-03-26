@@ -750,6 +750,7 @@ def compute_team_insights(df_merged, report_df):
     return insights
 
 def build_team_charts(df_merged, report_df):
+    """Returns a list of (title, plotly_figure) tuples."""
     charts = []
     if df_merged.empty or report_df.empty:
         return charts
@@ -762,26 +763,23 @@ def build_team_charts(df_merged, report_df):
         df_merged.groupby("Team Name")['_ans']
         .agg(answered="sum", total="count")
         .assign(pur=lambda x: (x["answered"] / x["total"] * 100).round(1))
-        .reset_index()
-        .sort_values("pur", ascending=True)
+        .reset_index().sort_values("pur", ascending=True)
     )
     overall_pur = (df_merged['_ans'].sum() / len(df_merged) * 100).round(1)
     bar_colors = [color_map.get(t, PALETTE[0]) for t in pur["Team Name"]]
 
-    fig1 = go.Figure()
-    fig1.add_trace(go.Bar(
-        y=pur["Team Name"], x=pur["pur"],
-        orientation="h",
+    fig1 = go.Figure(go.Bar(
+        y=pur["Team Name"], x=pur["pur"], orientation="h",
         marker=dict(color=bar_colors),
-        text=[f"{v}%" for v in pur["pur"]],
-        textposition="outside",
-        textfont=dict(size=11, color="#F1F5F9"),
+        text=[f"{v}%" for v in pur["pur"]], textposition="outside",
+        textfont=dict(size=11, color="#F1F5F9")
     ))
     fig1.add_vline(x=overall_pur, line_dash="dot", line_color="#FBBF24")
-    fig1.update_layout(**PLOTLY_LAYOUT, height=max(220, len(pur) * 44 + 60), showlegend=False, title=None)
+    fig1.update_layout(**PLOTLY_LAYOUT)
+    fig1.update_layout(height=max(220, len(pur) * 44 + 60), showlegend=False, title=None)
     charts.append(("📞 Pick-Up Ratio by Team", fig1))
 
-    # ── Chart 2: Call Volume Breakdown ──
+    # ── Chart 2: Call Volume Quality Bands ──
     call_vol = (
         report_df.groupby("TEAM")
         .agg(total=("TOTAL CALLS", "sum"), above3=("CALLS > 3 MINS", "sum"),
@@ -791,8 +789,9 @@ def build_team_charts(df_merged, report_df):
     fig2 = go.Figure()
     for col, name, color in [("above3", ">3 Min", "#4F8EF7"), ("mid", "15-20 Min", "#A78BFA"), ("long", "20+ Min", "#34D399")]:
         fig2.add_trace(go.Bar(name=name, x=call_vol["TEAM"], y=call_vol[col], marker_color=color))
-    fig2.update_layout(**PLOTLY_LAYOUT, barmode="group", height=320, title=None)
-    charts.append(("📈 Call Quality Distribution", fig2))
+    fig2.update_layout(**PLOTLY_LAYOUT)
+    fig2.update_layout(barmode="group", height=320, title=None)
+    charts.append(("📈 Call Volume Quality Bands", fig2))
 
     # ── Chart 3: Agent Efficiency Map ──
     scatter_df = report_df[report_df["raw_dur_sec"] > 0].copy()
@@ -802,10 +801,11 @@ def build_team_charts(df_merged, report_df):
         sub = scatter_df[scatter_df["TEAM"] == team]
         fig3.add_trace(go.Scatter(x=sub["prod_h"], y=sub["dur_h"], mode="markers", name=team,
                                  marker=dict(size=10, color=color_map.get(team, "#4F8EF7"), opacity=.82)))
-    fig3.update_layout(**PLOTLY_LAYOUT, height=380, xaxis_title="Productive Hours (h)", yaxis_title="Duration (h)", title=None)
+    fig3.update_layout(**PLOTLY_LAYOUT)
+    fig3.update_layout(height=380, xaxis_title="Productive Hours (h)", yaxis_title="Duration (h)", title=None)
     charts.append(("🔵 Agent Efficiency Map", fig3))
 
-    # ── Chart 4: Team-level issues heatmap ──
+    # ── Chart 4: Issue Heatmap (FIXED CRASH HERE) ──
     issue_tags = ["Late Check-In", "Early Check-Out", "Low Calls", "Low Duration", "Excessive Breaks", "Less Productive"]
     heat_data = []
     for team in report_df["TEAM"].unique():
@@ -815,11 +815,17 @@ def build_team_charts(df_merged, report_df):
         heat_data.append(row)
     heat_df = pd.DataFrame(heat_data).set_index("Team")
     
-    if not heat_df.empty and not heat_df.isna().all().all():
+    if not heat_df.empty:
         fig4 = go.Figure(go.Heatmap(z=heat_df.values, x=heat_df.columns.tolist(), y=heat_df.index.tolist(),
                                     colorscale=[[0, "rgba(79,142,247,.05)"], [1, "rgba(248,113,113,.85)"]],
                                     text=heat_df.values, texttemplate="%{text}"))
-        fig4.update_layout(**PLOTLY_LAYOUT, height=max(260, len(heat_df) * 50 + 80), xaxis=dict(side="top"), title=None)
+        # FIXED: We split the update_layout to avoid xaxis conflict
+        fig4.update_layout(**PLOTLY_LAYOUT)
+        fig4.update_layout(
+            height=max(260, len(heat_df) * 50 + 80),
+            xaxis=dict(side="top", tickfont=dict(size=10)),
+            title=None
+        )
         charts.append(("🌡 Team Issue Frequency Heatmap", fig4))
 
     return charts
@@ -1226,7 +1232,7 @@ with tab3:
 
                     # ── Charts ──
                     section_header("📊 INTERACTIVE TEAM ANALYTICS")
-                    # ── Charts ──
+                   # ── Charts Logic ──
                     charts = build_team_charts(df_ins, report_df_all)
 
                     if charts:
@@ -1244,14 +1250,14 @@ with tab3:
                             section_header(charts[2][0])
                             st.plotly_chart(charts[2][1], use_container_width=True, config={"displayModeBar": False})
 
-                        # Row 3: Issue Heatmap
+                        # Row 3: Heatmap
                         if len(charts) >= 4:
                             section_header(charts[3][0])
                             st.plotly_chart(charts[3][1], use_container_width=True, config={"displayModeBar": False})
 
                     st.divider()
 
-                    # ── Leaderboard (Stays at the very bottom) ──
+                    # ── Leaderboard (Final Section) ──
                     section_header("🏅 TEAM LEADERBOARD")
                     lb = (
                         report_df_all.groupby("TEAM")
@@ -1263,8 +1269,7 @@ with tab3:
                             avg_prod_h=("raw_prod_sec", lambda x: round(x.mean() / 3600, 1)),
                             long_calls=("20+ MIN CALLS", "sum"),
                         )
-                        .reset_index()
-                        .sort_values("total_dur_h", ascending=False)
+                        .reset_index().sort_values("total_dur_h", ascending=False)
                         .rename(columns={
                             "TEAM": "Team", "agents": "Agents", "total_calls": "Total Calls",
                             "total_dur_h": "Total Dur (h)", "avg_dur_h": "Avg Dur/Agent (h)",
@@ -1273,7 +1278,6 @@ with tab3:
                     )
                     lb.index = ["🥇", "🥈", "🥉"] + [""] * max(0, len(lb) - 3)
                     st.dataframe(lb, use_container_width=True)
-
     else:
         st.markdown("""
         <div style='text-align:center;padding:3.5rem 1rem;opacity:.5;'>
