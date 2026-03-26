@@ -705,19 +705,23 @@ def compute_team_insights(df_merged, report_df):
             "body": f"{len(b_agents)} agent(s) flagged for excessive breaks (>2 breaks ≥15 min/day). Heaviest cluster in {b_teams}. Consider shift-staggering or check-in protocols."
         })
 
-    # ── 6. Productive hours vs duration gap ──
-    report_df['prod_h'] = report_df['raw_prod_sec'] / 3600
-    report_df['dur_h']  = report_df['raw_dur_sec']  / 3600
-    corr = report_df[['prod_h', 'dur_h']].corr().iloc[0, 1]
-    if not np.isnan(corr):
-        direction = "strong positive" if corr > 0.6 else ("moderate" if corr > 0.35 else "weak")
-        insights.append({
-            "type": "info", "icon": "⏱️",
-            "title": f"Productive Hours ↔ Duration Correlation: {corr:.2f} ({direction})",
-            "body": ("Agents with higher productive hours consistently accumulate more qualifying duration." 
-                     if corr > 0.5 else 
-                     "Productive hours and qualifying duration diverge — some agents may be logging long sessions with fewer deep calls. Check call mix.")
-        })
+    # ── 6. Lowest Productive Hours Team (Excluding "Others") ──
+    # Calculate average productive hours per team
+    prod_df = report_df[report_df["TEAM"] != "Others"]
+    if not prod_df.empty:
+        team_avg_prod = prod_df.groupby("TEAM")["raw_prod_sec"].mean().sort_values()
+        
+        if not team_avg_prod.empty:
+            worst_prod_team = team_avg_prod.index[0]
+            # Count agents in that specific team
+            agent_count = len(prod_df[prod_df["TEAM"] == worst_prod_team])
+            
+            insights.append({
+                "type": "bad", 
+                "icon": "⏱️", 
+                "title": f"Focus Required: Lowest Productive Hours: {worst_prod_team}", 
+                "body": f"{agent_count} agents on {worst_prod_team} team have the least average productive hours as compared to other teams."
+            })
 
     return insights
 
