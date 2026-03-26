@@ -1063,15 +1063,15 @@ with tab2:
 # TAB 3 — INSIGHTS
 # ══════════════════════════════════════════════
 
-with tab3:
-            # Check if any report has been generated yet
-            # We use report_df_all which should be defined when Tab 1 or 2 runs
-            try:
-                data_exists = not report_df, total_duration_agg = process_metrics_logic(df)
-            except:
-                data_exists = False
-
-            if not 'df' in locals() or df.empty:
+    # ══════════════════════════════════════════════
+# TAB 3 — INSIGHTS (Fixed Syntax & Logic)
+# ══════════════════════════════════════════════
+        # ══════════════════════════════════════════════
+# TAB 3 — INSIGHTS (Fixed Syntax & Logic)
+# ══════════════════════════════════════════════
+        with tab3:
+            # Check if data has been loaded in Tab 1
+            if 'df' not in locals() or df.empty:
                 st.info("ℹ️ Please generate a 'Dynamic Report' first to see AI insights.")
             else:
                 # ── Insight Control Button ──
@@ -1083,13 +1083,13 @@ with tab3:
                         st.warning("⚠️ Insights are disabled during individual name searches. Please clear the search box to run insights.")
                     else:
                         with st.spinner("Analyzing team performance..."):
-                            # This function now excludes 'Others' and 'CD - Community Manager'
+                            # Logic to process and store insights
                             report_df_all, _ = process_metrics_logic(df)
-                            insights = compute_team_insights(df, report_df_all)
-                            st.session_state.team_insights = insights
+                            insights_results = compute_team_insights(df, report_df_all)
+                            st.session_state.team_insights = insights_results
                             st.rerun()
 
-                # ── Display Insights if they exist in session state ──
+                # ── Display Insights ──
                 if 'team_insights' in st.session_state and st.session_state.team_insights:
                     section_header("🧠 GENERATED TEAM INSIGHTS")
                     
@@ -1100,14 +1100,14 @@ with tab3:
                             <div class="insight-card {ins['type']}">
                                 <div style='display:flex;align-items:center;gap:.6rem; margin-bottom: 8px;'>
                                     <span style='font-size:1.2rem;'>{ins['icon']}</span>
-                                    <span class="insight-title" style="margin:0;">{ins['title']}</span>
+                                    <span class="insight-title" style="margin:0; color:#F1F5F9 !important;">{ins['title']}</span>
                                 </div>
-                                <div class="insight-body">{ins['body']}</div>
+                                <div class="insight-body" style="color:#CBD5E1 !important;">{ins['body']}</div>
                             </div>""", unsafe_allow_html=True)
                     
                     st.divider()
                     
-                    # ── Team Leaderboard with TOTAL Row ──
+                    # ── Team Leaderboard ──
                     section_header("🏅 TEAM LEADERBOARD")
                     report_df_all, _ = process_metrics_logic(df)
                     lb_base = (report_df_all.groupby("TEAM").agg(
@@ -1139,5 +1139,5 @@ with tab3:
                     st.markdown("""
                         <div style='text-align:center;padding:3.5rem 1rem;opacity:.5;'>
                             <div style='font-size:3rem;margin-bottom:.6rem;'>🤖</div>
-                            <div style='font-size:.95rem;font-weight:600;'>Click <b>Run Insights</b> to analyse your data</div>
+                            <div style='font-size:.95rem;font-weight:600;'>Click <b>Run Insights</b> to analyse team performance</div>
                         </div>""", unsafe_allow_html=True)
