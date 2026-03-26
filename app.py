@@ -1338,33 +1338,33 @@ with tab3:
                 </div>
                 """, unsafe_allow_html=True)
 
-           with col_main:
-                # 1. Get insights data
-                key_insights = insights.get("key_insights", [])
-                
-                # 2. Build simple Markdown bullets instead of complex HTML
-                markdown_bullets = ""
-                for ins in key_insights:
-                    t = ins.get("type", "info")
-                    # Assign an emoji based on type
-                    icon = "ℹ️" if t == "info" else "✅" if t == "good" else "⚠️" if t == "warn" else "🚨"
+               with col_main:
+                    # 1. Get insights data
+                    key_insights = insights.get("key_insights", [])
                     
-                    # Create a clean markdown line
-                    markdown_bullets += f"{icon} **{ins.get('text','')}**\n\n"
-
-                # 3. Display in a clean, theme-aware box
-                st.markdown(f"""
-                <div class="ai-card">
-                    <h4 style="color: var(--accent-amber); margin-bottom: 15px;">Key Insights</h4>
-                    <div style="color: var(--text-primary); line-height: 1.6;">
-                        {markdown_bullets}
+                    # 2. Build simple Markdown bullets instead of complex HTML
+                    markdown_bullets = ""
+                    for ins in key_insights:
+                        t = ins.get("type", "info")
+                        # Assign an emoji based on type
+                        icon = "ℹ️" if t == "info" else "✅" if t == "good" else "⚠️" if t == "warn" else "🚨"
+                        
+                        # Create a clean markdown line
+                        markdown_bullets += f"{icon} **{ins.get('text','')}**\n\n"
+    
+                    # 3. Display in a clean, theme-aware box
+                    st.markdown(f"""
+                    <div class="ai-card">
+                        <h4 style="color: var(--accent-amber); margin-bottom: 15px;">Key Insights</h4>
+                        <div style="color: var(--text-primary); line-height: 1.6;">
+                            {markdown_bullets}
+                        </div>
                     </div>
-                </div>
-                """, unsafe_allow_html=True)
-
-                # 4. Simple Recommendation Card
-                top_action = insights.get("top_action", "")
-                st.info(f"**🎯 Recommended Action:** {top_action}")
+                    """, unsafe_allow_html=True)
+    
+                    # 4. Simple Recommendation Card
+                    top_action = insights.get("top_action", "")
+                    st.info(f"**🎯 Recommended Action:** {top_action}")
 
             # --- STRAY 'v' REMOVED FROM HERE ---
             st.divider()
