@@ -631,7 +631,7 @@ def process_metrics_logic(df_filtered):
 
 
 # ─────────────────────────────────────────────
-# AI INSIGHTS ENGINE  (100% free – pure maths)
+# INSIGHTS ENGINE 
 # ─────────────────────────────────────────────
 
 def compute_team_insights(df_merged, report_df):
@@ -793,7 +793,7 @@ st.markdown(f"""
 tab1, tab2, tab3 = st.tabs([
     "🚀 Dynamic Dashboard",
     "📅 Duration Report",
-    "🤖 AI Insights"
+    "🤖 Insights"
 ])
 
 
@@ -1070,13 +1070,13 @@ with tab2:
 
 
 # ══════════════════════════════════════════════
-# TAB 3 — AI INSIGHTS
+# TAB 3 — INSIGHTS
 # ══════════════════════════════════════════════
 
 with tab3:
     # ── Removed the OpenAI Power Block ──
     # The header and primary button are now the main focus
-    insight_start = st.button("🔍 Run AI Insights on Current Data", type="primary")
+    insight_start = st.button("🔍 Run Insights on Current Data", type="primary")
 
     if insight_start:
         with st.spinner("Analysing patterns across all teams…"):
