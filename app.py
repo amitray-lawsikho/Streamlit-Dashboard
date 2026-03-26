@@ -1310,7 +1310,7 @@ with tab3:
             # ── AI INSIGHT CARDS ──
             st.markdown('<div class="cw-section-title">AI-Generated Performance Analysis</div>', unsafe_allow_html=True)
 
-            with st.spinner('Consulting Claude…'):
+            with st.spinner('Generating Insights…'):
                 insights = generate_ai_insights(report_df_ai, df_ai, total_dur_ai, start_date, end_date)
 
             health = insights.get("overall_health", "N/A")
