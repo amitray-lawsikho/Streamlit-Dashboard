@@ -1209,7 +1209,7 @@ with tab3:
                 if report_df_all.empty:
                     st.error("Not enough data for analysis.")
                 else:
-                    # ── Insights narrative ──
+                    # ── 1. AI Insights Narrative ──
                     section_header("🧠 AUTO-GENERATED TEAM INSIGHTS")
                     insights = compute_team_insights(df_ins, report_df_all)
 
@@ -1226,38 +1226,11 @@ with tab3:
                                     <div class="insight-body">{ins['body']}</div>
                                 </div>""", unsafe_allow_html=True)
                     else:
-                        st.info("Not enough team variety in data to generate comparative insights.")
+                        st.info("Not enough data to generate comparative insights.")
 
                     st.divider()
 
-                    # ── Charts ──
-                    section_header("📊 INTERACTIVE TEAM ANALYTICS")
-                   # ── Charts Logic ──
-                    charts = build_team_charts(df_ins, report_df_all)
-
-                    if charts:
-                        # Row 1: Pick-up and Volume
-                        c1, c2 = st.columns(2)
-                        with c1:
-                            section_header(charts[0][0])
-                            st.plotly_chart(charts[0][1], use_container_width=True, config={"displayModeBar": False})
-                        with c2:
-                            section_header(charts[1][0])
-                            st.plotly_chart(charts[1][1], use_container_width=True, config={"displayModeBar": False})
-
-                        # Row 2: Efficiency Map
-                        if len(charts) >= 3:
-                            section_header(charts[2][0])
-                            st.plotly_chart(charts[2][1], use_container_width=True, config={"displayModeBar": False})
-
-                        # Row 3: Heatmap
-                        if len(charts) >= 4:
-                            section_header(charts[3][0])
-                            st.plotly_chart(charts[3][1], use_container_width=True, config={"displayModeBar": False})
-
-                    st.divider()
-
-                    # ── Leaderboard (Final Section) ──
+                    # ── 2. Team Leaderboard (Charts & Analytics Headers Removed) ──
                     section_header("🏅 TEAM LEADERBOARD")
                     lb = (
                         report_df_all.groupby("TEAM")
