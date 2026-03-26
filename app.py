@@ -1100,45 +1100,45 @@ with tab1:
                 section_header("AGENT PERFORMANCE TABLE")
                 # ... (rest of your table and download button code here)
 
-                    total_row = pd.DataFrame([{
-                        "IN/OUT TIME": "-", "CALLER": "TOTAL", "TEAM": "-",
-                        "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
-                        "CALL STATUS": "-", "PICK UP RATIO %": "-",
-                        "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
-                        "CALLS 15-20 MINS": int(report_df["CALLS 15-20 MINS"].sum()),
-                        "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
-                        "CALL DURATION > 3 MINS": format_dur_hm(total_duration_agg),
-                        "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod_sec"].sum()),
-                        "BREAKS (>=15 MINS)": "-", "REMARKS": "-"
-                    }])
+                total_row = pd.DataFrame([{
+                    "IN/OUT TIME": "-", "CALLER": "TOTAL", "TEAM": "-",
+                    "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
+                    "CALL STATUS": "-", "PICK UP RATIO %": "-",
+                    "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
+                    "CALLS 15-20 MINS": int(report_df["CALLS 15-20 MINS"].sum()),
+                    "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
+                    "CALL DURATION > 3 MINS": format_dur_hm(total_duration_agg),
+                    "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod_sec"].sum()),
+                    "BREAKS (>=15 MINS)": "-", "REMARKS": "-"
+                }])
 
-                    display_cols = [
-                        "IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS",
-                        "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS",
-                        "20+ MIN CALLS", "CALL DURATION > 3 MINS",
-                        "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)", "REMARKS"
-                    ]
-                    final_df = pd.concat([report_df, total_row], ignore_index=True)
-                    st.dataframe(
-                        final_df.style.apply(style_total, axis=1)
-                                      .set_properties(**{'white-space': 'pre-wrap'}),
-                        column_order=display_cols,
-                        use_container_width=True, hide_index=True
-                    )
+                display_cols = [
+                    "IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS",
+                    "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS",
+                    "20+ MIN CALLS", "CALL DURATION > 3 MINS",
+                    "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)", "REMARKS"
+                ]
+                final_df = pd.concat([report_df, total_row], ignore_index=True)
+                st.dataframe(
+                    final_df.style.apply(style_total, axis=1)
+                                  .set_properties(**{'white-space': 'pre-wrap'}),
+                    column_order=display_cols,
+                    use_container_width=True, hide_index=True
+                )
 
-                    st.divider()
-                    target_cols = [
-                        "client_number", "call_datetime", "call_starttime_clean",
-                        "call_endtime_clean", "call_duration", "status", "direction",
-                        "service", "reason", "call_owner", "Call Date",
-                        "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"
-                    ]
-                    existing_cols = [c for c in target_cols if c in df.columns]
-                    st.download_button(
-                        label="📥 Download CDR",
-                        data=df[existing_cols].to_csv(index=False).encode('utf-8'),
-                        file_name="CDR_LOG.csv", mime='text/csv'
-                    )
+                st.divider()
+                target_cols = [
+                    "client_number", "call_datetime", "call_starttime_clean",
+                    "call_endtime_clean", "call_duration", "status", "direction",
+                    "service", "reason", "call_owner", "Call Date",
+                    "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"
+                ]
+                existing_cols = [c for c in target_cols if c in df.columns]
+                st.download_button(
+                    label="📥 Download CDR",
+                    data=df[existing_cols].to_csv(index=False).encode('utf-8'),
+                    file_name="CDR_LOG.csv", mime='text/csv'
+                )
     else:
         st.markdown("""
         <div style='text-align:center;padding:3rem 1rem;opacity:.5;'>
