@@ -8,7 +8,6 @@ import pytz
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import anthropic
 
 # ═══════════════════════════════════════════════════
 # 1. CLOUD CREDENTIALS SETUP
@@ -46,26 +45,18 @@ st.markdown("""
 <style>
 /* ── ROOT TOKENS ── */
 :root {
-    --bg-base:      #080c14;
-    --bg-surface:   #0d1321;
-    --bg-card:      #111827;
-    --bg-card-alt:  #161f30;
+    /* Use Streamlit variables to adapt to Light/Dark mode automatically */
+    --bg-base:      var(--pd-background-color, #080c14);
+    --bg-surface:   var(--pd-secondary-background-color, #0d1321);
+    --text-primary: var(--pd-text-color, #f1f5f9);
+    --text-muted:   #8899ac;
     --border:       #1e2d45;
-    --border-glow:  #2563eb44;
-    --accent-amber: #f59e0b;
-    --accent-cyan:  #06b6d4;
+    
+    /* Branding Colors stay constant */
     --accent-blue:  #3b82f6;
+    --accent-amber: #f59e0b;
     --accent-green: #10b981;
     --accent-red:   #ef4444;
-    --text-primary: #f1f5f9;
-    --text-muted:   #64748b;
-    --text-dim:     #334155;
-    --gold:         #fbbf24;
-    --silver:       #94a3b8;
-    --bronze:       #c47b3d;
-    --font-display: 'Rajdhani', sans-serif;
-    --font-body:    'IBM Plex Sans', sans-serif;
-    --font-mono:    'IBM Plex Mono', monospace;
 }
 
 /* ── GLOBAL RESET ── */
@@ -73,10 +64,16 @@ st.markdown("""
 
 .stApp {
     background-color: var(--bg-base) !important;
-    font-family: var(--font-body) !important;
     color: var(--text-primary) !important;
 }
-
+.ai-card {
+    background: var(--bg-surface); /* Adapts to theme */
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1rem;
+    color: var(--text-primary) !important;
+}
 /* ── SCROLLBAR ── */
 ::-webkit-scrollbar { width: 4px; height: 4px; }
 ::-webkit-scrollbar-track { background: var(--bg-base); }
