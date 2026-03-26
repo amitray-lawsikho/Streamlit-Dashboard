@@ -920,7 +920,11 @@ with tab1:
                 else:
                     report_df, total_duration_agg = process_metrics_logic(df)
                     report_df = report_df.sort_values(by="raw_dur_sec", ascending=False)
-
+                    # Assign medals to Top 3
+                    report_df['Rank'] = "" # Default empty
+                    if len(report_df) > 0: report_df.iloc[0, report_df.columns.get_loc('Rank')] = "🥇"
+                    if len(report_df) > 1: report_df.iloc[1, report_df.columns.get_loc('Rank')] = "🥈"
+                    if len(report_df) > 2: report_df.iloc[2, report_df.columns.get_loc('Rank')] = "🥉"
                     # --- TOP 3 PERFORMANCE HIGHLIGHTS ---
                     section_header("🏆 TOP 3 PERFORMANCE HIGHLIGHTS")
                     top_cols = st.columns(3)
@@ -983,6 +987,7 @@ with tab1:
                     section_header("AGENT PERFORMANCE TABLE")
 
                     total_row = pd.DataFrame([{
+                        "Rank": "",
                         "IN/OUT TIME": "-", "CALLER": "TOTAL", "TEAM": "-",
                         "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
                         "CALL STATUS": "-", "PICK UP RATIO %": "-",
@@ -994,17 +999,20 @@ with tab1:
                         "BREAKS (>=15 MINS)": "-", "REMARKS": "-"
                     }])
 
+                    # Define column order - Medals first, raw columns excluded
                     display_cols = [
-                        "IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS",
+                        "Rank", "IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS",
                         "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS",
                         "20+ MIN CALLS", "CALL DURATION > 3 MINS",
                         "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)", "REMARKS"
                     ]
+                    
                     final_df = pd.concat([report_df, total_row], ignore_index=True)
+                    
                     st.dataframe(
                         final_df.style.apply(style_total, axis=1)
                                       .set_properties(**{'white-space': 'pre-wrap'}),
-                        column_order=display_cols,
+                        column_order=display_cols, # Only shows columns in this list
                         use_container_width=True, hide_index=True
                     )
 
