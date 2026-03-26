@@ -811,9 +811,9 @@ def generate_ai_insights(report_df, df_raw, total_duration_agg, start_date, end_
     if wow:
         def trend_text(metric, val):
             if val > 5:
-                return f"{metric} improved by {val}% WoW"
+                return f"{metric} improved by {val}%"
             elif val < -5:
-                return f"{metric} dropped by {abs(val)}% WoW"
+                return f"{metric} dropped by {abs(val)}%"
             else:
                 return f"{metric} is stable ({val}% change)"
     
