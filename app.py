@@ -1072,15 +1072,15 @@ with tab2:
         with tab3:
             # Check if data has been loaded in Tab 1
             if 'df' not in locals() or df.empty:
-                st.info("ℹ️ Please generate a 'Dynamic Report' first to see AI insights.")
+                st.info("⚠️ Insights are designed for cross-team analysis. Please 'Filter by Vertical OR Date'  to run insights.")
             else:
                 # ── Insight Control Button ──
                 if st.button("🔍 Run Insights on Current Data"):
                     # REQUIREMENT: Disable if specific filters are active
                     if selected_team:
-                        st.warning("⚠️ Insights are designed for cross-team analysis. Please clear the 'Filter by Team' selection to run insights.")
+                        st.warning("⚠️ Insights are designed for cross-team analysis. Please 'Filter by Vertical OR Date'  to run insights.")
                     elif search_query:
-                        st.warning("⚠️ Insights are disabled during individual name searches. Please clear the search box to run insights.")
+                        st.warning("⚠️ Insights are disabled during individual name searches. Please 'Filter by Vertical OR Date'  to run insights.")
                     else:
                         with st.spinner("Analyzing team performance..."):
                             # Logic to process and store insights
