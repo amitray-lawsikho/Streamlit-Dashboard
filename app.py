@@ -271,20 +271,30 @@ footer { visibility: hidden; }
 }
 
 /* ── Insight cards ── */
+/* ── Insight cards ── */
+[data-testid="stVerticalBlock"] > div > div > [data-testid="stHorizontalBlock"] {
+    align-items: stretch !important;
+}
+
 .insight-card {
     background: var(--metric-bg, #fff);
     border: 1px solid var(--border, rgba(0,0,0,.08));
     border-radius: var(--radius-md);
     padding: 1rem 1.1rem;
-    margin-bottom: .6rem;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
     box-shadow: var(--shadow-sm);
     transition: var(--transition);
 }
+
 .insight-card:hover { box-shadow: var(--shadow-md); }
 .insight-card.good  { border-left: 3px solid #34D399; }
 .insight-card.warn  { border-left: 3px solid #FBBF24; }
 .insight-card.bad   { border-left: 3px solid #F87171; }
 .insight-card.info  { border-left: 3px solid #4F8EF7; }
+
 .insight-icon { font-size: 1.1rem; }
 .insight-title {
     font-size: .82rem;
@@ -296,6 +306,7 @@ footer { visibility: hidden; }
     font-size: .76rem;
     color: var(--text-muted, #6B7280);
     line-height: 1.5;
+    flex-grow: 1;
 }
 
 /* ── Tab styling ── */
@@ -1207,9 +1218,9 @@ with tab3:
                             with cols_ins[i % 2]:
                                 st.markdown(f"""
                                 <div class="insight-card {ins['type']}">
-                                    <div style='display:flex;align-items:center;gap:.4rem;'>
+                                    <div style='display:flex;align-items:center;gap:.4rem; margin-bottom: 8px;'>
                                         <span class="insight-icon">{ins['icon']}</span>
-                                        <span class="insight-title">{ins['title']}</span>
+                                        <span class="insight-title" style="margin:0;">{ins['title']}</span>
                                     </div>
                                     <div class="insight-body">{ins['body']}</div>
                                 </div>""", unsafe_allow_html=True)
