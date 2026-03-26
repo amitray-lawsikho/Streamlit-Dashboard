@@ -944,7 +944,7 @@ with tab1:
                     with top_cols[1]:
                         st.markdown(f"""
                         <div class="metric-card" style="border-top: 3px solid var(--silver);">
-                            <div class="metric-label">📞 HIGHEST CALLS</div>
+                            <div class="metric-label">📞 HIGHEST CALL ATTEMPTS</div>
                             <div class="metric-value" style="font-size:1.1rem;">{top_calls['CALLER']}</div>
                             <div class="metric-delta">{top_calls['TOTAL CALLS']} Total Calls</div>
                         </div>""", unsafe_allow_html=True)
