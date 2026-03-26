@@ -271,41 +271,43 @@ footer { visibility: hidden; }
 }
 
 /* ── Insight cards ── */
-/* ── Insight cards ── */
 [data-testid="stVerticalBlock"] > div > div > [data-testid="stHorizontalBlock"] {
     align-items: stretch !important;
+    gap: 1.5rem !important; /* Adds space between the left and right cards */
 }
 
 .insight-card {
     background: var(--metric-bg, #fff);
     border: 1px solid var(--border, rgba(0,0,0,.08));
     border-radius: var(--radius-md);
-    padding: 1rem 1.1rem;
+    padding: 1.2rem 1.5rem; /* Increased padding for better breathing room */
     height: 100%;
+    min-height: 160px; /* Ensures all containers are at least this tall */
     display: flex;
     flex-direction: column;
     justify-content: flex-start;
     box-shadow: var(--shadow-sm);
     transition: var(--transition);
+    margin-bottom: 1rem;
 }
 
-.insight-card:hover { box-shadow: var(--shadow-md); }
-.insight-card.good  { border-left: 3px solid #34D399; }
-.insight-card.warn  { border-left: 3px solid #FBBF24; }
-.insight-card.bad   { border-left: 3px solid #F87171; }
-.insight-card.info  { border-left: 3px solid #4F8EF7; }
+.insight-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+.insight-card.good  { border-left: 4px solid #34D399; }
+.insight-card.warn  { border-left: 4px solid #FBBF24; }
+.insight-card.bad   { border-left: 4px solid #F87171; }
+.insight-card.info  { border-left: 4px solid #4F8EF7; }
 
-.insight-icon { font-size: 1.1rem; }
 .insight-title {
-    font-size: .82rem;
+    font-size: 0.9rem;
     font-weight: 700;
     color: var(--text-primary, #111827);
-    margin: .2rem 0;
+    margin-bottom: 0.5rem !important;
 }
+
 .insight-body {
-    font-size: .76rem;
+    font-size: 0.8rem;
     color: var(--text-muted, #6B7280);
-    line-height: 1.5;
+    line-height: 1.6;
     flex-grow: 1;
 }
 
@@ -1214,13 +1216,12 @@ with tab3:
                         # This creates two equal columns for the 6 cards
                         cols_ins = st.columns(2)
                         for i, ins in enumerate(insights):
-                            # % 2 ensures they alternate between left and right columns
                             with cols_ins[i % 2]:
                                 st.markdown(f"""
                                 <div class="insight-card {ins['type']}">
-                                    <div style='display:flex;align-items:center;gap:.4rem; margin-bottom: 8px;'>
-                                        <span class="insight-icon">{ins['icon']}</span>
-                                        <span class="insight-title" style="margin:0;">{ins['title']}</span>
+                                    <div style='display:flex;align-items:center;gap:0.6rem;'>
+                                        <span style='font-size:1.2rem;'>{ins['icon']}</span>
+                                        <span class="insight-title">{ins['title']}</span>
                                     </div>
                                     <div class="insight-body">{ins['body']}</div>
                                 </div>""", unsafe_allow_html=True)
