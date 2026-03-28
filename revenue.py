@@ -390,16 +390,22 @@ def get_months_in_range(start_date, end_date):
 
 @st.cache_data(ttl=120, show_spinner=False)
 def get_metadata():
-    """Load teamsheet CSV — deduplicated for filter options."""
     df_meta = pd.read_csv(CSV_URL)
-    df_meta.columns = df_meta.columns.str.strip()
+    df_meta.columns = df_meta.columns.str.strip().str.replace('\xa0', '', regex=False)
 
-    # Parse Month column (handles dd/mm/yyyy or yyyy-mm-dd)
-    df_meta['Month'] = pd.to_datetime(df_meta['Month'], dayfirst=True, errors='coerce').dt.date
+    # Rename Month column safely — find it by partial match in case of spacing issues
+    month_col = next((c for c in df_meta.columns if c.strip().lower() == 'month'), None)
+    if month_col and month_col != 'Month':
+        df_meta.rename(columns={month_col: 'Month'}, inplace=True)
+
+    if 'Month' in df_meta.columns:
+        df_meta['Month'] = pd.to_datetime(df_meta['Month'], dayfirst=True, errors='coerce').dt.date
+    else:
+        df_meta['Month'] = None  # Graceful fallback — targets won't resolve but app won't crash
 
     # Unique filter options (across all months — distinct names/teams/verticals)
-    teams     = sorted(df_meta['Team Name'].dropna().unique())
-    verticals = sorted(df_meta['Vertical'].dropna().unique())
+    teams     = sorted(df_meta['Team Name'].dropna().unique()) if 'Team Name' in df_meta.columns else []
+    verticals = sorted(df_meta['Vertical'].dropna().unique())  if 'Vertical'  in df_meta.columns else []
 
     # merge_key for joining to revenue
     df_meta['merge_key'] = df_meta['Caller Name'].str.strip().str.lower()
