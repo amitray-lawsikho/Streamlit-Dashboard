@@ -136,6 +136,7 @@ footer { visibility: hidden; }
     color: #FFFFFF;
     letter-spacing: .5px;
     margin: 0 0 .25rem;
+    text-align: center;
 }
 .cw-subtitle {
     font-size: .82rem;
@@ -143,6 +144,7 @@ footer { visibility: hidden; }
     font-weight: 400;
     margin: 0;
     font-family: 'DM Mono', monospace;
+    text-align: center;
 }
 .cw-badge {
     display: inline-flex;
@@ -240,6 +242,7 @@ footer { visibility: hidden; }
     letter-spacing: 1.2px;
     color: var(--accent-primary, #4F8EF7);
     white-space: nowrap;
+    text-align: center;
 }
 
 /* ── Static team header ── */
@@ -289,11 +292,13 @@ footer { visibility: hidden; }
     font-weight: 700;
     color: var(--text-primary, #111827);
     margin: .2rem 0;
+     text-align: center;
 }
 .insight-body {
     font-size: .76rem;
     color: var(--text-muted, #6B7280);
     line-height: 1.5;
+    text-align: center;
 }
 
 /* ── Tab styling ── */
