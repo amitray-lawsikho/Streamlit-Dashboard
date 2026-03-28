@@ -609,7 +609,7 @@ function goTo(url) {
     </div>
 
     <div class="hero-sub">
-      Real-time insights across Leads, Revenue &amp; LeadsCalling
+      Real-time insights across Leads, Revenue &amp; Calling
     </div>
 
     <div class="hero-rule">
