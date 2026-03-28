@@ -777,7 +777,7 @@ st.markdown(f"""
 tab1, tab2, tab3 = st.tabs([
     "🚀 Dynamic Dashboard",
     "📅 Duration Report",
-    "🤖 Insights"
+    "🧠 Insights"
 ])
 
 
@@ -1120,6 +1120,6 @@ with tab3:
     else:
         st.markdown("""
         <div style='text-align:center;padding:6rem 1rem;opacity:.6;'>
-            <div style='font-size:4rem;margin-bottom:1rem;'>🤖</div>
+            <div style='font-size:4rem;margin-bottom:1rem;'>🧠</div>
             <div style='font-size:.95rem;font-weight:600;'>Click <b>Run Insights</b> to analyse your data</div>
         </div>""", unsafe_allow_html=True)
