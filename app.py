@@ -921,8 +921,8 @@ with tab1:
                     )
     else:
         st.markdown("""
-        <div style='text-align:center;padding:3rem 1rem;opacity:.5;'>
-            <div style='font-size:2.5rem;margin-bottom:.5rem;'>🚀</div>
+        <div style='text-align:center;padding:6rem 1rem;opacity:.6;'>
+            <div style='font-size:4rem;margin-bottom:1rem;'>🚀</div>
             <div style='font-size:.9rem;font-weight:600;'>Select a date range and click <b>Generate Dynamic Report</b></div>
         </div>""", unsafe_allow_html=True)
 
@@ -1051,8 +1051,8 @@ with tab2:
                             )
     else:
         st.markdown("""
-        <div style='text-align:center;padding:3rem 1rem;opacity:.5;'>
-            <div style='font-size:2.5rem;margin-bottom:.5rem;'>📅</div>
+        <div style='text-align:center;padding:6rem 1rem;opacity:.6;'>
+            <div style='font-size:4rem;margin-bottom:1rem;'>📅</div>
             <div style='font-size:.9rem;font-weight:600;'>Click <b>Generate Duration Report</b> in the sidebar</div>
         </div>""", unsafe_allow_html=True)
 
@@ -1137,7 +1137,7 @@ with tab3:
     else:
         # ── Clean Placeholder ──
         st.markdown("""
-        <div style='text-align:center;padding:3.5rem 1rem;opacity:.5;'>
-            <div style='font-size:3rem;margin-bottom:.6rem;'>🤖</div>
+        <div style='text-align:center;padding:6rem 1rem;opacity:.6;'>
+            <div style='font-size:4rem;margin-bottom:1rem;'>🤖</div>
             <div style='font-size:.95rem;font-weight:600;'>Click <b>Run Insights</b> to analyse your data</div>
         </div>""", unsafe_allow_html=True)
