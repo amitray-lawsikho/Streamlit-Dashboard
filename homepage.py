@@ -725,7 +725,7 @@ body::before {
     <div class="footer-bottom">
       Developed and Designed by Amit Ray
       <span class="footer-dot"></span>
-      amitray@lawsikho.com
+      Reach out for Support and Queries
     </div>
   </div>
 
