@@ -411,9 +411,7 @@ def get_metadata():
     df_meta['merge_key'] = df_meta['Caller Name'].str.strip().str.lower()
 
     return teams, verticals, df_meta
-with st.sidebar.expander("🛠 Debug: Sheet Columns"):
-    st.write(list(df_team_mapping.columns))
-    
+
 @st.cache_data(ttl=120, show_spinner=False)
 def get_last_update():
     query = f"""
