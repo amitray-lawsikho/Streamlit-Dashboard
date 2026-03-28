@@ -136,7 +136,6 @@ footer { visibility: hidden; }
     color: #FFFFFF;
     letter-spacing: .5px;
     margin: 0 0 .25rem;
-    text-align: center;
 }
 .cw-subtitle {
     font-size: .82rem;
@@ -144,7 +143,6 @@ footer { visibility: hidden; }
     font-weight: 400;
     margin: 0;
     font-family: 'DM Mono', monospace;
-    text-align: center;
 }
 .cw-badge {
     display: inline-flex;
