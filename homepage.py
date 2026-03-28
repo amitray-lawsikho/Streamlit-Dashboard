@@ -229,14 +229,13 @@ body::before {
     letter-spacing: -1.5px;
     margin-bottom: .8rem;
 }
-.hero-headline {
-    font-family: 'Playfair Display', serif;
-    font-size: clamp(2.2rem, 5vw, 3.8rem);
-    font-weight: 600;
-    line-height: 1.12;
-    color: #FFFFFF;
-    letter-spacing: -.5px;
-    margin-bottom: .8rem;
+.hero-headline .accent {
+    background: linear-gradient(125deg, #F97316 0%, #FB923C 40%, #FBBF24 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    display: inline-block;
+    -webkit-font-smoothing: antialiased;
 }
 
 .hero-sub {
