@@ -107,54 +107,48 @@ footer { visibility: hidden; }
 
 /* ── Top banner/header ── */
 .cw-header {
-    background: linear-gradient(135deg, #1e3a5f 0%, #2d1b69 50%, #1a3a4f 100%);
+    background: var(--bg-surface, #FFFFFF);
+    border: 1px solid var(--border, rgba(0,0,0,.08));
     border-radius: var(--radius-lg);
     padding: 1.5rem 2rem 1.2rem;
     margin-bottom: 1.2rem;
     position: relative;
     overflow: hidden;
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-sm);
 }
-.cw-header::before {
-    content: "";
-    position: absolute;
-    top: -40px; right: -40px;
-    width: 200px; height: 200px;
-    background: radial-gradient(circle, rgba(79,142,247,.18) 0%, transparent 70%);
-    border-radius: 50%;
-}
+
+/* Remove the decorative radial overlays too */
+.cw-header::before,
 .cw-header::after {
-    content: "";
-    position: absolute;
-    bottom: -30px; left: 30%;
-    width: 260px; height: 120px;
-    background: radial-gradient(ellipse, rgba(167,139,250,.12) 0%, transparent 70%);
+    display: none;
 }
+
 .cw-title {
     font-size: 1.65rem;
     font-weight: 700;
-    color: #FFFFFF;
+    color: var(--text-primary, #111827);  /* ✅ Black in light, white in dark */
     letter-spacing: .5px;
     margin: 0 0 .25rem;
 }
+
 .cw-subtitle {
     font-size: .82rem;
-    color: rgba(255,255,255,.6);
+    color: var(--text-muted, #6B7280);    /* ✅ Muted in both themes */
     font-weight: 400;
     margin: 0;
     font-family: 'DM Mono', monospace;
 }
+
 .cw-badge {
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    background: rgba(255,255,255,.12);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,.15);
+    background: var(--bg-muted, #EEF2F9);         /* ✅ Theme-adaptive */
+    border: 1px solid var(--border, rgba(0,0,0,.08));
     border-radius: 20px;
     padding: 3px 10px;
     font-size: .73rem;
-    color: rgba(255,255,255,.85);
+    color: var(--text-primary, #111827);           /* ✅ Theme-adaptive */
     font-family: 'DM Mono', monospace;
 }
 .cw-pulse {
