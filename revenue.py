@@ -678,26 +678,24 @@ selected_month_label = st.sidebar.selectbox(
 selected_month_date = month_options[selected_month_label]
 
 if selected_month_date is not None:
-    # Auto-set full month range
     start_date = selected_month_date
     next_month = (selected_month_date.replace(day=28) + timedelta(days=4)).replace(day=1)
     end_date   = next_month - timedelta(days=1)
-    st.sidebar.markdown(
-        f"<div style='font-size:.75rem;color:var(--text-muted,#6B7280);padding:.2rem 0 .5rem;'>"
-        f"📅 <b>Date Range</b><br>"
-        f"<span style='font-family:monospace;'>{start_date.strftime('%d-%m-%Y')} → {end_date.strftime('%d-%m-%Y')}</span>"
-        f"</div>",
-        unsafe_allow_html=True
+    # Date picker pre-filled with the month range, still editable
+    selected_dates = st.sidebar.date_input(
+        "📅 Date Range", value=(start_date, end_date),
+        min_value=min_d, max_value=max_d, format="DD-MM-YYYY"
     )
 else:
     selected_dates = st.sidebar.date_input(
         "📅 Date Range", value=(max_d, max_d),
         min_value=min_d, max_value=max_d, format="DD-MM-YYYY"
     )
-    if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
-        start_date, end_date = selected_dates
-    else:
-        start_date = end_date = selected_dates if not isinstance(selected_dates, tuple) else selected_dates[0]
+
+if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
+    start_date, end_date = selected_dates
+else:
+    start_date = end_date = selected_dates if not isinstance(selected_dates, tuple) else selected_dates[0]
 
 teams, verticals, df_team_mapping = get_metadata()
 selected_vertical = st.sidebar.multiselect("📂 Filter by Vertical", options=verticals)
