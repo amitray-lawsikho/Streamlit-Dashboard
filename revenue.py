@@ -489,6 +489,7 @@ def resolve_targets(df_meta, start_date, end_date):
         return {}
 
     dedup = relevant.drop_duplicates(subset=[caller_col, month_col])
+    dedup[target_col] = pd.to_numeric(dedup[target_col], errors='coerce').fillna(0)
     target_map = (
         dedup.groupby(caller_col)[target_col]
         .sum()
@@ -542,7 +543,7 @@ def process_revenue_metrics(df, df_meta, start_date, end_date):
     for caller, grp in df.groupby('Caller_name'):
         revenue     = grp['Fee_paid'].sum()
         enrollments = int(grp['is_new'].sum())
-        target      = target_map.get(caller, 0)
+        target = float(target_map.get(caller, 0) or 0)
         info        = desig_map.get(caller, {})
 
         rows.append({
