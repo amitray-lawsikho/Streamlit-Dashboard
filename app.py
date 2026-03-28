@@ -107,14 +107,13 @@ footer { visibility: hidden; }
 
 /* ── Top banner/header ── */
 .cw-header {
-    background: var(--bg-surface, #FFFFFF);
-    border: 1px solid var(--border, rgba(0,0,0,.08));
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%);
     border-radius: var(--radius-lg);
     padding: 1.5rem 2rem 1.2rem;
     margin-bottom: 1.2rem;
     position: relative;
     overflow: hidden;
-    box-shadow: var(--shadow-sm);
+    box-shadow: var(--shadow-lg);
 }
 
 /* Remove the decorative radial overlays too */
