@@ -5,7 +5,7 @@ from google.oauth2 import service_account
 
 st.set_page_config(
     page_title="Analytics Hub — LawSikho",
-    page_icon="📊",
+    page_icon="🏠",
     layout="wide",
     initial_sidebar_state="collapsed"
 )
