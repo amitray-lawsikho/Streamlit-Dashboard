@@ -449,7 +449,7 @@ def fetch_revenue_data(start_date, end_date):
         df['merge_key']   = df['Caller_name'].str.lower()
         df['Fee_paid']    = pd.to_numeric(df['Fee_paid'], errors='coerce').fillna(0)
         df['Course_Price'] = pd.to_numeric(df['Course_Price'], errors='coerce').fillna(0)
-        df['is_new']      = df['Enrollment'].astype(str).str.strip().str.lower() == 'new'
+        df['is_new'] = df['Enrollment'].astype(str).str.strip().str.lower().str.contains('new enrollment', na=False)
     return df
 
 
@@ -543,7 +543,8 @@ def process_revenue_metrics(df, df_meta, start_date, end_date):
     for caller, grp in df.groupby('Caller_name'):
         revenue     = grp['Fee_paid'].sum()
         enrollments = int(grp['is_new'].sum())
-        target = float(target_map.get(caller, 0) or 0)
+        target_map_norm = {str(k).strip().lower(): v for k, v in target_map.items()}
+        target = float(target_map_norm.get(caller.strip().lower(), 0) or 0)
         info        = desig_map.get(caller, {})
 
         rows.append({
@@ -657,14 +658,44 @@ st.sidebar.markdown("""
 """, unsafe_allow_html=True)
 
 min_d, max_d = get_available_dates()
-selected_dates = st.sidebar.date_input(
-    "📅 Date Range", value=(max_d, max_d),
-    min_value=min_d, max_value=max_d, format="DD-MM-YYYY"
+
+# ── Month Quick-Select ──
+def build_month_options(min_date, max_date):
+    options = {"Custom Range": None}
+    cur = date(min_date.year, min_date.month, 1)
+    end = date(max_date.year, max_date.month, 1)
+    while cur <= end:
+        label = cur.strftime("%B %Y")          # e.g. "January 2026"
+        options[label] = cur
+        cur = (cur.replace(day=28) + timedelta(days=4)).replace(day=1)
+    return options
+
+month_options = build_month_options(min_d, max_d)
+selected_month_label = st.sidebar.selectbox(
+    "🗓️ Month", options=list(reversed(list(month_options.keys())))
 )
-if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
-    start_date, end_date = selected_dates
+
+selected_month_date = month_options[selected_month_label]
+
+if selected_month_date is not None:
+    # Auto-set full month range
+    start_date = selected_month_date
+    # Last day of that month
+    next_month = (selected_month_date.replace(day=28) + timedelta(days=4)).replace(day=1)
+    end_date   = next_month - timedelta(days=1)
+    st.sidebar.date_input(
+        "📅 Date Range", value=(start_date, end_date),
+        min_value=min_d, max_value=max_d, format="DD-MM-YYYY", disabled=True
+    )
 else:
-    start_date = end_date = selected_dates if not isinstance(selected_dates, tuple) else selected_dates[0]
+    selected_dates = st.sidebar.date_input(
+        "📅 Date Range", value=(max_d, max_d),
+        min_value=min_d, max_value=max_d, format="DD-MM-YYYY"
+    )
+    if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
+        start_date, end_date = selected_dates
+    else:
+        start_date = end_date = selected_dates if not isinstance(selected_dates, tuple) else selected_dates[0]
 
 teams, verticals, df_team_mapping = get_metadata()
 selected_vertical = st.sidebar.multiselect("📂 Filter by Vertical", options=verticals)
