@@ -702,8 +702,7 @@ body::before {
         </div>
         <div class="dcard-title">Lead Metrics</div>
         <div class="dcard-desc">
-          Pipeline health, lead source quality, conversion rates &amp; funnel
-          drop-off analysis. Currently under development.
+          Currently under development.
         </div>
         <div class="dcard-tags">
           <span class="dtag">Pipeline</span>
