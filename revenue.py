@@ -677,14 +677,20 @@ selected_month_label = st.sidebar.selectbox(
 
 selected_month_date = month_options[selected_month_label]
 
-min_d  = pd.Timestamp(min_d).date()
-max_d  = pd.Timestamp(max_d).date()
+# Force all boundary dates to plain Python date objects
+min_d = pd.Timestamp(min_d).date()
+max_d = pd.Timestamp(max_d).date()
 
 if selected_month_date is not None:
-    s = selected_month_date
-    next_month   = (s.replace(day=28) + timedelta(days=4)).replace(day=1)
-    default_start = s
-    default_end   = min(next_month - timedelta(days=1), max_d)
+    s          = pd.Timestamp(selected_month_date).date()
+    next_month = (s.replace(day=28) + timedelta(days=4)).replace(day=1)
+    month_end  = next_month - timedelta(days=1)
+    # Clamp strictly inside [min_d, max_d]
+    default_start = max(s, min_d)
+    default_end   = min(month_end, max_d)
+    # Safety: ensure start never exceeds end after clamping
+    if default_start > default_end:
+        default_start = default_end
 else:
     default_start = max_d
     default_end   = max_d
@@ -701,6 +707,7 @@ if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
     start_date, end_date = selected_dates
 else:
     start_date = end_date = selected_dates if not isinstance(selected_dates, tuple) else selected_dates[0]
+
 teams, verticals, df_team_mapping = get_metadata()
 selected_vertical = st.sidebar.multiselect("📂 Filter by Vertical", options=verticals)
 selected_team     = st.sidebar.multiselect("🏢 Filter by Team",     options=teams)
