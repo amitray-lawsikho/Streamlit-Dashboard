@@ -411,7 +411,9 @@ def get_metadata():
     df_meta['merge_key'] = df_meta['Caller Name'].str.strip().str.lower()
 
     return teams, verticals, df_meta
-
+with st.sidebar.expander("🛠 Debug: Sheet Columns"):
+    st.write(list(df_team_mapping.columns))
+    
 @st.cache_data(ttl=120, show_spinner=False)
 def get_last_update():
     query = f"""
@@ -468,8 +470,21 @@ def _col(df, name):
 def resolve_targets(df_meta, start_date, end_date):
     months_needed  = get_months_in_range(start_date, end_date)
     caller_col     = _col(df_meta, 'Caller Name')
-    target_col     = _col(df_meta, 'Target')
     month_col      = _col(df_meta, 'Month')
+
+    # Try common variations of the Target column name
+    target_col = None
+    for candidate in ['Target', 'target', 'TARGET', 'Monthly Target', 'Monthly target', 'Sales Target']:
+        try:
+            target_col = _col(df_meta, candidate)
+            break
+        except KeyError:
+            continue
+
+    if target_col is None:
+        # Last resort — show available columns in error for debugging
+        st.warning(f"⚠️ Target column not found. Sheet columns are: `{list(df_meta.columns)}`")
+        return {}
 
     relevant = df_meta[df_meta[month_col].isin(months_needed)].copy()
     if relevant.empty:
