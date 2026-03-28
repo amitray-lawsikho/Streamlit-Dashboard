@@ -555,6 +555,19 @@ body::before {
 }
 
 </style>
+<script>
+function goTo(url) {
+    try {
+        window.top.location.href = url;
+    } catch(e) {
+        try {
+            window.parent.location.href = url;
+        } catch(e2) {
+            window.open(url, '_blank');
+        }
+    }
+}
+</script>
 </head>
 <body>
 <div class="page">
@@ -654,7 +667,7 @@ body::before {
     <div class="cards-grid">
 
       <!-- Card 1: Calling -->
-      <a class="dcard dcard-call" href="#" onclick="window.top.location.href='https://dashboard-lawsikho-call.streamlit.app/'; return false;">
+      <a class="dcard dcard-call" href="javascript:void(0)" onclick="goTo('https://dashboard-lawsikho-call.streamlit.app/')">
         <div class="dcard-glow"></div>
         <div class="dcard-header">
           <div class="dcard-icon">🔔</div>
@@ -674,7 +687,7 @@ body::before {
       </a>
 
       <!-- Card 2: Revenue -->
-      <a class="dcard dcard-rev" href="#" onclick="window.top.location.href='https://dashboard-lawsikho-revenue.streamlit.app/'; return false;">
+      <a class="dcard dcard-rev" href="javascript:void(0)" onclick="goTo('https://dashboard-lawsikho-revenue.streamlit.app/')">
         <div class="dcard-glow"></div>
         <div class="dcard-header">
           <div class="dcard-icon">💰</div>
