@@ -27,7 +27,7 @@ st.set_page_config(
     layout="wide",
     page_title="CALLING METRICS",
     initial_sidebar_state="expanded",
-    page_icon="☎"
+    page_icon="🔔"
 )
 
 # --- PROFESSIONAL WARM THEME (Yellow · Orange · Red) ---
@@ -657,7 +657,7 @@ def compute_team_insights(df_merged, report_df):
     worst_pur = pur.idxmin()
     if best_pur != worst_pur:
         insights.append({
-            "type": "info", "icon": "☎",
+            "type": "info", "icon": "🔔",
             "title": f"Pick-Up Ratio Spread: {best_pur} vs {worst_pur}",
             "body": (f"{best_pur} leads at {pur[best_pur]}% answer rate. "
                      f"{worst_pur} trails at {pur[worst_pur]}%. "
@@ -758,7 +758,7 @@ st.markdown(f"""
 <div class="cw-header">
     <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:.75rem;">
         <div>
-            <div class="cw-title">☎ CALLING METRICS</div>
+            <div class="cw-title">🔔 CALLING METRICS</div>
             <div class="cw-subtitle">LAWSIKHO &amp; SKILL ARBITRAGE &nbsp;·&nbsp; {display_start} to {display_end}</div>
         </div>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.25rem;">
