@@ -581,11 +581,11 @@ body::before {
 
     <!-- Main headline -->
     <div class="hero-headline">
-      All your dashboards,<br><span class="accent">in one place.</span>
+      All your dashboards,<br><span class="accent">at one place</span>
     </div>
 
     <div class="hero-sub">
-      Real-time insights across calling, revenue &amp; leads —<br>powered by BigQuery
+      Real-time insights across Calling, Revenue &amp; Leads
     </div>
 
     <div class="hero-rule">
