@@ -83,7 +83,7 @@ html = """
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -229,11 +229,14 @@ body::before {
     letter-spacing: -1.5px;
     margin-bottom: .8rem;
 }
-.hero-headline .accent {
-    background: linear-gradient(125deg, #F97316 0%, #FB923C 40%, #FBBF24 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+.hero-headline {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(2.2rem, 5vw, 3.8rem);
+    font-weight: 600;
+    line-height: 1.12;
+    color: #FFFFFF;
+    letter-spacing: -.5px;
+    margin-bottom: .8rem;
 }
 
 .hero-sub {
@@ -466,9 +469,9 @@ body::before {
 }
 
 .dcard-title {
-    font-family: 'Syne', sans-serif;
-    font-size: 1.2rem; font-weight: 700;
-    color: #fff; letter-spacing: -.3px;
+    font-family: 'Playfair Display', serif;
+    font-size: 1.2rem; font-weight: 600;
+    color: #fff; letter-spacing: -.1px;
 }
 
 .dcard-desc {
