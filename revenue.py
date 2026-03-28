@@ -539,13 +539,17 @@ def process_revenue_metrics(df, df_meta, start_date, end_date):
     target_map  = resolve_targets(df_meta, start_date, end_date)
     desig_map   = resolve_designations(df_meta, start_date, end_date)
 
+    # Normalize once outside the loop
+    target_map_norm = {str(k).strip().lower(): v for k, v in target_map.items()}
+    desig_map_norm  = {str(k).strip().lower(): v for k, v in desig_map.items()}
+
     rows = []
     for caller, grp in df.groupby('Caller_name'):
         revenue     = grp['Fee_paid'].sum()
         enrollments = int(grp['is_new'].sum())
-        target_map_norm = {str(k).strip().lower(): v for k, v in target_map.items()}
-        target = float(target_map_norm.get(caller.strip().lower(), 0) or 0)
-        info        = desig_map.get(caller, {})
+        caller_key  = caller.strip().lower()
+        target      = float(target_map_norm.get(caller_key, 0) or 0)
+        info        = desig_map_norm.get(caller_key, {})
 
         rows.append({
             "DESIGNATION":        info.get('Academic Counselor/TL/ATL', '—'),
@@ -1010,7 +1014,7 @@ with tab2:
                     )
                     lb['Revenue'] = lb['Revenue'].apply(fmt_inr)
                     lb['Target']  = lb['Target'].apply(fmt_inr)
-                    medals = ["🥇", "🥈", "🥉"] + [""] * max(0, len(lb) - 3)
+                    medals = (["🥇", "🥈", "🥉"] + [""] * len(lb))[:len(lb)]
                     lb.insert(0, "🏅", medals)
                     lb.columns = ['🏅', 'Team', 'Callers', 'Enrollments', 'Revenue', 'Target', 'Achievement %']
                     st.dataframe(lb.reset_index(drop=True), use_container_width=True, hide_index=True)
@@ -1023,7 +1027,7 @@ with tab2:
                     cl['TARGET (₹)']          = cl['raw_target'].apply(fmt_inr)
                     cl['REVENUE ACHIEVED (₹)'] = cl['raw_revenue'].apply(fmt_inr)
                     cl['ACHIEVEMENT %']        = cl['ACHIEVEMENT %'].apply(lambda x: f"{x}%")
-                    cl_medals = ["🥇", "🥈", "🥉"] + [""] * max(0, len(cl) - 3)
+                    cl_medals = (["🥇", "🥈", "🥉"] + [""] * len(cl))[:len(cl)]
                     cl.insert(0, '🏅', cl_medals)
                     caller_cols = ['🏅', 'CALLER NAME', 'TEAM', 'ENROLLMENTS', 'TARGET (₹)', 'REVENUE ACHIEVED (₹)', 'ACHIEVEMENT %']
                     st.dataframe(cl[caller_cols].reset_index(drop=True), use_container_width=True, hide_index=True)
