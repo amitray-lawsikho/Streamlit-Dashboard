@@ -736,8 +736,8 @@ else:
     start_date = end_date = selected_dates if not isinstance(selected_dates, tuple) else selected_dates[0]
 
 teams, verticals, df_team_mapping = get_metadata()
-selected_team     = st.sidebar.multiselect("🏢 Filter by Team",     options=teams)
 selected_vertical = st.sidebar.multiselect("📂 Filter by Vertical", options=verticals)
+selected_team     = st.sidebar.multiselect("🏢 Filter by Team",     options=teams)
 search_query      = st.sidebar.text_input("🔍 Search Name")
 
 st.sidebar.markdown("<div style='margin:.5rem 0'></div>", unsafe_allow_html=True)
@@ -1113,26 +1113,30 @@ with tab3:
                     st.divider()
 
                     # ── 2. Team Leaderboard (Charts & Analytics Headers Removed) ──
-                    section_header("🏅 TEAM LEADERBOARD")
-                    lb = (
-                        report_df_all.groupby("TEAM")
-                        .agg(
-                            agents=("CALLER", "count"),
-                            total_calls=("TOTAL CALLS", "sum"),
-                            total_dur_h=("raw_dur_sec", lambda x: round(x.sum() / 3600, 1)),
-                            avg_dur_h=("raw_dur_sec", lambda x: round(x.mean() / 3600, 1)),
-                            avg_prod_h=("raw_prod_sec", lambda x: round(x.mean() / 3600, 1)),
-                            long_calls=("20+ MIN CALLS", "sum"),
+                    if not selected_team and not search_query:
+                        st.divider()
+                        section_header("🏅 TEAM LEADERBOARD")
+                        lb = (
+                            report_df_all.groupby("TEAM")
+                            .agg(
+                                agents=("CALLER", "count"),
+                                total_calls=("TOTAL CALLS", "sum"),
+                                total_dur_h=("raw_dur_sec", lambda x: round(x.sum() / 3600, 1)),
+                                avg_dur_h=("raw_dur_sec", lambda x: round(x.mean() / 3600, 1)),
+                                avg_prod_h=("raw_prod_sec", lambda x: round(x.mean() / 3600, 1)),
+                                long_calls=("20+ MIN CALLS", "sum"),
+                            )
+                            .reset_index().sort_values("total_dur_h", ascending=False)
+                            .rename(columns={
+                                "TEAM": "Team", "agents": "Agents", "total_calls": "Total Calls",
+                                "total_dur_h": "Total Dur (h)", "avg_dur_h": "Avg Dur/Agent (h)",
+                                "avg_prod_h": "Avg Prod Hrs (h)", "long_calls": "20+ Min Calls"
+                            })
                         )
-                        .reset_index().sort_values("total_dur_h", ascending=False)
-                        .rename(columns={
-                            "TEAM": "Team", "agents": "Agents", "total_calls": "Total Calls",
-                            "total_dur_h": "Total Dur (h)", "avg_dur_h": "Avg Dur/Agent (h)",
-                            "avg_prod_h": "Avg Prod Hrs (h)", "long_calls": "20+ Min Calls"
-                        })
-                    )
-                    lb.index = ["🥇", "🥈", "🥉"] + [""] * max(0, len(lb) - 3)
-                    st.dataframe(lb, use_container_width=True)
+                        medals = ["🥇", "🥈", "🥉"] + [""] * max(0, len(lb) - 3)
+                        lb.insert(0, "🏅", medals)
+                        lb = lb.reset_index(drop=True)
+                        st.dataframe(lb, use_container_width=True, hide_index=True)
 
     else:
         # ── Clean Placeholder ──
