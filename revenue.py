@@ -661,7 +661,7 @@ min_d, max_d = get_available_dates()
 
 # ── Month Quick-Select ──
 def build_month_options(min_date, max_date):
-    options = {"Custom Range": None}
+    options = {}
     cur = date(min_date.year, min_date.month, 1)
     end = date(max_date.year, max_date.month, 1)
     while cur <= end:
