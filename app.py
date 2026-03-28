@@ -30,20 +30,20 @@ st.set_page_config(
     page_icon="📞"
 )
 
-# --- PROFESSIONAL THEME-ADAPTIVE CSS ---
+# --- PROFESSIONAL WARM THEME (Yellow · Orange · Red) ---
 st.markdown("""
 <style>
 /* ── Google Font Import ── */
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
 
-/* ── CSS Variables – Light & Dark via Streamlit's data-theme ── */
+/* ── CSS Variables – Warm Palette ── */
 :root {
-    --accent-primary:   #4F8EF7;
-    --accent-secondary: #A78BFA;
-    --accent-success:   #34D399;
-    --accent-warn:      #FBBF24;
-    --accent-danger:    #F87171;
-    --gold:             #F59E0B;
+    --accent-primary:   #F97316;   /* Orange-500          */
+    --accent-secondary: #EF4444;   /* Red-500             */
+    --accent-success:   #EAB308;   /* Yellow-500          */
+    --accent-warn:      #FBBF24;   /* Amber-400           */
+    --accent-danger:    #DC2626;   /* Red-600             */
+    --gold:             #F59E0B;   /* Amber-500           */
     --silver:           #9CA3AF;
     --bronze:           #CD7F32;
     --radius-sm:        8px;
@@ -57,40 +57,40 @@ st.markdown("""
 
 /* Light theme tokens */
 [data-testid="stAppViewContainer"]:not([class*="dark"]) {
-    --bg-base:      #F6F8FC;
+    --bg-base:      #FFF8F3;
     --bg-surface:   #FFFFFF;
     --bg-elevated:  #FFFFFF;
-    --bg-muted:     #EEF2F9;
-    --border:       rgba(0,0,0,.08);
+    --bg-muted:     #FEF3E8;
+    --border:       rgba(249,115,22,.12);
     --text-primary: #111827;
     --text-muted:   #6B7280;
     --metric-bg:    #FFFFFF;
 }
 
-/* Dark theme tokens – uses Streamlit's dark data-theme attribute */
+/* Dark theme tokens */
 @media (prefers-color-scheme: dark) {
     :root {
-        --bg-base:      #0F1117;
-        --bg-surface:   #1A1D27;
-        --bg-elevated:  #21253A;
-        --bg-muted:     #1E2130;
-        --border:       rgba(255,255,255,.07);
-        --text-primary: #F1F5F9;
-        --text-muted:   #94A3B8;
-        --metric-bg:    #21253A;
+        --bg-base:      #0F0A05;
+        --bg-surface:   #1A1006;
+        --bg-elevated:  #231508;
+        --bg-muted:     #1E1207;
+        --border:       rgba(249,115,22,.10);
+        --text-primary: #FEF3E8;
+        --text-muted:   #D1A67A;
+        --metric-bg:    #231508;
     }
 }
 
 /* Streamlit dark mode override */
 [data-theme="dark"] {
-    --bg-base:      #0F1117 !important;
-    --bg-surface:   #1A1D27 !important;
-    --bg-elevated:  #21253A !important;
-    --bg-muted:     #1E2130 !important;
-    --border:       rgba(255,255,255,.07) !important;
-    --text-primary: #F1F5F9 !important;
-    --text-muted:   #94A3B8 !important;
-    --metric-bg:    #21253A !important;
+    --bg-base:      #0F0A05 !important;
+    --bg-surface:   #1A1006 !important;
+    --bg-elevated:  #231508 !important;
+    --bg-muted:     #1E1207 !important;
+    --border:       rgba(249,115,22,.10) !important;
+    --text-primary: #FEF3E8 !important;
+    --text-muted:   #D1A67A !important;
+    --metric-bg:    #231508 !important;
 }
 
 /* ── Global Typography ── */
@@ -103,11 +103,11 @@ footer { visibility: hidden; }
 [data-testid="stStatusWidget"],
 .stStatusWidget { display: none !important; }
 [data-testid="stMainViewContainer"] { padding-top: 1.5rem; }
-[data-testid="stSidebar"] { border-right: 1px solid var(--border, rgba(0,0,0,.08)); }
+[data-testid="stSidebar"] { border-right: 1px solid var(--border, rgba(249,115,22,.12)); }
 
-/* ── Top banner/header ── */
+/* ── Top banner/header — deep warm dark ── */
 .cw-header {
-    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e3a5f 100%);
+    background: linear-gradient(135deg, #1c0700 0%, #7c2d12 50%, #431407 100%);
     border-radius: var(--radius-lg);
     padding: 1.5rem 2rem 1.2rem;
     margin-bottom: 1.2rem;
@@ -116,7 +116,6 @@ footer { visibility: hidden; }
     box-shadow: var(--shadow-lg);
 }
 
-/* Remove the decorative radial overlays too */
 .cw-header::before,
 .cw-header::after {
     display: none;
@@ -141,17 +140,17 @@ footer { visibility: hidden; }
     display: inline-flex;
     align-items: center;
     gap: 5px;
-    background: var(--bg-muted, #EEF2F9);         /* ✅ Theme-adaptive */
-    border: 1px solid var(--border, rgba(0,0,0,.08));
+    background: var(--bg-muted, #FEF3E8);
+    border: 1px solid var(--border, rgba(249,115,22,.12));
     border-radius: 20px;
     padding: 3px 10px;
     font-size: .73rem;
-    color: var(--text-primary, #111827);           /* ✅ Theme-adaptive */
+    color: var(--text-primary, #111827);
     font-family: 'DM Mono', monospace;
 }
 .cw-pulse {
     width: 6px; height: 6px;
-    background: #34D399;
+    background: #EAB308;
     border-radius: 50%;
     display: inline-block;
     animation: pulse-ring 1.8s ease-in-out infinite;
@@ -170,7 +169,7 @@ footer { visibility: hidden; }
 }
 .metric-card {
     background: var(--metric-bg, #fff);
-    border: 1px solid var(--border, rgba(0,0,0,.08));
+    border: 1px solid var(--border, rgba(249,115,22,.12));
     border-radius: var(--radius-md);
     padding: .9rem 1rem;
     transition: var(--transition);
@@ -184,7 +183,7 @@ footer { visibility: hidden; }
     position: absolute;
     top: 0; left: 0;
     width: 100%; height: 3px;
-    background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+    background: linear-gradient(90deg, #F97316, #EF4444);
     opacity: 0;
     transition: opacity .2s;
 }
@@ -207,7 +206,7 @@ footer { visibility: hidden; }
 }
 .metric-delta {
     font-size: .7rem;
-    color: var(--accent-success, #34D399);
+    color: #EAB308;
     margin-top: .2rem;
     font-weight: 500;
 }
@@ -222,7 +221,7 @@ footer { visibility: hidden; }
 .section-header-line {
     flex: 1;
     height: 1px;
-    background: linear-gradient(90deg, var(--accent-primary), transparent);
+    background: linear-gradient(90deg, #F97316, transparent);
     opacity: .35;
 }
 .section-title {
@@ -230,7 +229,7 @@ footer { visibility: hidden; }
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 1.2px;
-    color: var(--accent-primary, #4F8EF7);
+    color: #F97316;
     white-space: nowrap;
     text-align: center;
 }
@@ -243,7 +242,7 @@ footer { visibility: hidden; }
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 1px;
-    color: var(--accent-primary, #4F8EF7);
+    color: #F97316;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -254,17 +253,17 @@ footer { visibility: hidden; }
     flex: 1;
     max-width: 120px;
     height: 1px;
-    background: linear-gradient(90deg, transparent, var(--accent-primary));
+    background: linear-gradient(90deg, transparent, #F97316);
     opacity: .4;
 }
 .static-team-header::after {
-    background: linear-gradient(90deg, var(--accent-primary), transparent);
+    background: linear-gradient(90deg, #F97316, transparent);
 }
 
 /* ── Insight cards ── */
 .insight-card {
     background: var(--metric-bg, #fff);
-    border: 1px solid var(--border, rgba(0,0,0,.08));
+    border: 1px solid var(--border, rgba(249,115,22,.12));
     border-radius: var(--radius-md);
     padding: 1rem 1.1rem;
     margin-bottom: .6rem;
@@ -272,17 +271,17 @@ footer { visibility: hidden; }
     transition: var(--transition);
 }
 .insight-card:hover { box-shadow: var(--shadow-md); }
-.insight-card.good  { border-left: 3px solid #34D399; }
+.insight-card.good  { border-left: 3px solid #EAB308; }
 .insight-card.warn  { border-left: 3px solid #FBBF24; }
-.insight-card.bad   { border-left: 3px solid #F87171; }
-.insight-card.info  { border-left: 3px solid #4F8EF7; }
+.insight-card.bad   { border-left: 3px solid #EF4444; }
+.insight-card.info  { border-left: 3px solid #F97316; }
 .insight-icon { font-size: 1.1rem; }
 .insight-title {
     font-size: .82rem;
     font-weight: 700;
     color: var(--text-primary, #111827);
     margin: .2rem 0;
-     text-align: center;
+    text-align: center;
 }
 .insight-body {
     font-size: .76rem;
@@ -294,7 +293,7 @@ footer { visibility: hidden; }
 /* ── Tab styling ── */
 [data-testid="stTabs"] [role="tablist"] {
     gap: .3rem;
-    border-bottom: 1px solid var(--border, rgba(0,0,0,.08));
+    border-bottom: 1px solid var(--border, rgba(249,115,22,.12));
     padding-bottom: 0;
 }
 [data-testid="stTabs"] button[role="tab"] {
@@ -307,9 +306,9 @@ footer { visibility: hidden; }
     transition: var(--transition);
 }
 
-/* ── Dataframe header override ── */
+/* ── Dataframe header — deep warm dark ── */
 div[data-testid="stDataFrame"] thead tr th {
-    background: linear-gradient(135deg, #1e3a5f, #2d1b69) !important;
+    background: linear-gradient(135deg, #431407, #7c1d1d) !important;
     color: #fff !important;
     font-family: 'DM Sans', sans-serif !important;
     font-size: .72rem !important;
@@ -334,19 +333,19 @@ div[data-testid="stDataFrame"] thead tr th {
     transition: var(--transition);
 }
 [data-testid="stSidebar"] .stButton>button:first-child {
-    background: linear-gradient(135deg, #2563EB, #7C3AED) !important;
+    background: linear-gradient(135deg, #EA580C, #DC2626) !important;
     color: #fff !important;
     border: none !important;
 }
 [data-testid="stSidebar"] .stButton>button:last-child {
-    background: linear-gradient(135deg, #0F766E, #1D4ED8) !important;
+    background: linear-gradient(135deg, #B45309, #EA580C) !important;
     color: #fff !important;
     border: none !important;
 }
 
 /* ── Download button ── */
 .stDownloadButton>button {
-    background: linear-gradient(135deg, #1e3a5f, #2d1b69) !important;
+    background: linear-gradient(135deg, #431407, #7c1d1d) !important;
     color: #fff !important;
     border: none !important;
     border-radius: var(--radius-sm) !important;
@@ -358,7 +357,7 @@ div[data-testid="stDataFrame"] thead tr th {
 .stDownloadButton>button:hover { opacity: .88; transform: translateY(-1px); }
 
 /* ── Divider ── */
-hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !important; }
+hr { border-color: var(--border, rgba(249,115,22,.12)) !important; margin: 1.2rem 0 !important; }
 
 /* ── Plotly chart borders ── */
 .js-plotly-plot {
@@ -366,7 +365,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
     overflow: hidden;
 }
 
-/* ── KPI pill for insights ── */
+/* ── KPI pills ── */
 .kpi-pill {
     display: inline-flex;
     align-items: center;
@@ -377,10 +376,10 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
     font-weight: 600;
     font-family: 'DM Mono', monospace;
 }
-.kpi-pill.green { background: rgba(52,211,153,.15); color: #10B981; }
-.kpi-pill.amber { background: rgba(251,191,36,.15);  color: #D97706; }
-.kpi-pill.red   { background: rgba(248,113,113,.15); color: #EF4444; }
-.kpi-pill.blue  { background: rgba(79,142,247,.15);  color: #3B82F6; }
+.kpi-pill.green  { background: rgba(234,179,8,.15);   color: #CA8A04; }
+.kpi-pill.amber  { background: rgba(251,191,36,.15);  color: #D97706; }
+.kpi-pill.red    { background: rgba(239,68,68,.15);   color: #DC2626; }
+.kpi-pill.blue   { background: rgba(249,115,22,.15);  color: #EA580C; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -415,7 +414,7 @@ def section_header(label):
     <div class="section-header">
         <div class="section-header-line"></div>
         <span class="section-title">{label}</span>
-        <div class="section-header-line" style="background:linear-gradient(90deg,transparent,var(--accent-primary))"></div>
+        <div class="section-header-line" style="background:linear-gradient(90deg,transparent,#F97316)"></div>
     </div>""", unsafe_allow_html=True)
 
 
@@ -613,14 +612,10 @@ def process_metrics_logic(df_filtered):
 
 
 # ─────────────────────────────────────────────
-# INSIGHTS 
+# INSIGHTS
 # ─────────────────────────────────────────────
 
 def compute_team_insights(df_merged, report_df):
-    """
-    Returns structured insight objects computed purely from call data.
-    No external API, no cost, fully offline.
-    """
     insights = []
 
     if df_merged.empty or report_df.empty:
@@ -638,6 +633,7 @@ def compute_team_insights(df_merged, report_df):
         })
 
     exclude_teams = ['Others', 'CD - Community Manager', 'CD - Community', 'Criminal - Community Manager', 'Criminal - Community', 'ID - Community Manager', 'ID - Community', 'Clerkship community', 'Women ai - Community']
+
     # ── 2. Highest Manual Calls Team ──
     manual_df = df_merged[(df_merged['source'] == 'Manual') & (~df_merged['Team Name'].isin(exclude_teams))]
     if not manual_df.empty:
@@ -645,7 +641,7 @@ def compute_team_insights(df_merged, report_df):
             total_manual=('source', 'count'),
             unique_agents=('call_owner', 'nunique')
         ).sort_values('total_manual', ascending=False)
-        
+
         if not man_counts.empty:
             top_man_team = man_counts.index[0]
             insights.append({
@@ -682,7 +678,7 @@ def compute_team_insights(df_merged, report_df):
                      f"a strong signal of qualified prospect conversations. Replicate best practices across other teams.")
         })
 
-    # ── 5. Break Discipline (Excluding "Others") ──
+    # ── 5. Break Discipline ──
     break_df = report_df[~report_df["TEAM"].isin(exclude_teams)]
     remarks_series = break_df["REMARKS"].str.contains("Excessive Breaks", na=False)
     if remarks_series.sum() > 0:
@@ -694,7 +690,7 @@ def compute_team_insights(df_merged, report_df):
             "body": f"{b_count} agent(s) flagged for excessive breaks (>2 breaks ≥15 min/day). Heaviest cluster in {b_teams}."
         })
 
-    # ── 6. Lowest Productive Hours Team (Excluding "Others") ──
+    # ── 6. Lowest Productive Hours Team ──
     prod_df = report_df[~report_df["TEAM"].isin(exclude_teams)]
     if not prod_df.empty:
         team_avg_prod = prod_df.groupby("TEAM")["raw_prod_sec"].mean().sort_values()
@@ -745,7 +741,7 @@ st.sidebar.divider()
 st.sidebar.markdown("""
 <div style='font-size:.72rem; color:var(--text-muted,#6B7280); font-weight:500; letter-spacing:0.3px;'>
     DESIGNED BY: <b>AMIT RAY</b><br>
-    <a href="mailto:amitray@lawsikho.com" style="color:var(--accent-primary); text-decoration:none;">amitray@lawsikho.com</a>
+    <a href="mailto:amitray@lawsikho.com" style="color:#F97316; text-decoration:none;">amitray@lawsikho.com</a>
 </div>
 """, unsafe_allow_html=True)
 
@@ -810,16 +806,14 @@ with tab1:
                 else:
                     report_df, total_duration_agg = process_metrics_logic(df)
                     report_df = report_df.sort_values(by="raw_dur_sec", ascending=False)
-                    # Assign medals to Top 3
-                    report_df['Rank'] = "" # Default empty
+                    report_df['Rank'] = ""
                     if len(report_df) > 0: report_df.iloc[0, report_df.columns.get_loc('Rank')] = "🥇"
                     if len(report_df) > 1: report_df.iloc[1, report_df.columns.get_loc('Rank')] = "🥈"
                     if len(report_df) > 2: report_df.iloc[2, report_df.columns.get_loc('Rank')] = "🥉"
-                    # --- TOP 3 PERFORMANCE HIGHLIGHTS ---
+
                     section_header("🏆 TOP 3 PERFORMANCE HIGHLIGHTS")
                     top_cols = st.columns(3)
-                    
-                    # 1. Top Performer (Duration)
+
                     top_dur = report_df.iloc[0]
                     with top_cols[0]:
                         st.markdown(f"""
@@ -828,8 +822,7 @@ with tab1:
                             <div class="metric-value" style="font-size:1.1rem;">{top_dur['CALLER']}</div>
                             <div class="metric-delta">{top_dur['CALL DURATION > 3 MINS']} Duration</div>
                         </div>""", unsafe_allow_html=True)
-                    
-                    # 2. Highest Calls (Replaces Connectivity King)
+
                     top_calls = report_df.sort_values('TOTAL CALLS', ascending=False).iloc[0]
                     with top_cols[1]:
                         st.markdown(f"""
@@ -838,8 +831,7 @@ with tab1:
                             <div class="metric-value" style="font-size:1.1rem;">{top_calls['CALLER']}</div>
                             <div class="metric-delta">{top_calls['TOTAL CALLS']} Total Calls</div>
                         </div>""", unsafe_allow_html=True)
-                    
-                    # 3. Deep Engagement (20+ Min Calls)
+
                     top_long = report_df.sort_values('20+ MIN CALLS', ascending=False).iloc[0]
                     with top_cols[2]:
                         st.markdown(f"""
@@ -849,21 +841,20 @@ with tab1:
                             <div class="metric-delta">{top_long['20+ MIN CALLS']} Long Calls</div>
                         </div>""", unsafe_allow_html=True)
 
-                    # ── SUMMARY METRICS (Aligning indentation to fix visibility) ──
                     section_header("SUMMARY METRICS")
                     ans_t = len(df[df['status'].str.lower() == 'answered'])
                     pur_val = f"{round(ans_t / len(df) * 100)}%" if len(df) > 0 else "0%"
                     kpis  = [
                         ("Total Calls",     len(df),                            "📲"),
                         ("Acefone Calls",   len(df[df['source']=='Acefone']),   "🔵"),
-                        ("Ozonetel Calls",  len(df[df['source']=='Ozonetel']),  "🟣"),
+                        ("Ozonetel Calls",  len(df[df['source']=='Ozonetel']),  "🟠"),
                         ("Manual Calls",    len(df[df['source']=='Manual']),    "✏️"),
                         ("Unique Leads",    df['unique_lead_id'].nunique(),      "👤"),
                         ("Pick-Up Ratio",   pur_val,                            "✅"),
                         ("Active Callers",  len(report_df),                     "🎙️"),
                         ("Avg Prod Hrs",    format_dur_hm(report_df["raw_prod_sec"].mean()), "⏱"),
                     ]
-                    
+
                     cols = st.columns(len(kpis))
                     for col, (label, val, icon) in zip(cols, kpis):
                         with col:
@@ -889,20 +880,19 @@ with tab1:
                         "BREAKS (>=15 MINS)": "-", "REMARKS": "-"
                     }])
 
-                    # Define column order - Medals first, raw columns excluded
                     display_cols = [
                         "Rank", "IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS",
                         "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS",
                         "20+ MIN CALLS", "CALL DURATION > 3 MINS",
                         "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)", "REMARKS"
                     ]
-                    
+
                     final_df = pd.concat([report_df, total_row], ignore_index=True)
-                    
+
                     st.dataframe(
                         final_df.style.apply(style_total, axis=1)
                                       .set_properties(**{'white-space': 'pre-wrap'}),
-                        column_order=display_cols, # Only shows columns in this list
+                        column_order=display_cols,
                         use_container_width=True, hide_index=True
                     )
 
@@ -1007,7 +997,6 @@ with tab2:
                             )
                             st.divider()
 
-                    # TL report
                     tl_ad_pool = df_static_master[tl_ad_mask]
                     if not tl_ad_pool.empty:
                         report_df_tl, tl_dur_agg_sec = process_metrics_logic(tl_ad_pool)
@@ -1062,8 +1051,6 @@ with tab2:
 # ══════════════════════════════════════════════
 
 with tab3:
-    # ── Removed the OpenAI Power Block ──
-    # The header and primary button are now the main focus
     insight_start = st.button("🔍 Run Insights on Current Data", type="primary")
 
     if insight_start:
@@ -1085,15 +1072,12 @@ with tab3:
                 if report_df_all.empty:
                     st.error("Not enough data for analysis.")
                 else:
-                    # ── 1. Insights Narrative ──
                     section_header("🧠 GENERATED TEAM INSIGHTS")
                     insights = compute_team_insights(df_ins, report_df_all)
 
                     if insights:
-                        # This creates two equal columns for the 6 cards
                         cols_ins = st.columns(2)
                         for i, ins in enumerate(insights):
-                            # % 2 ensures they alternate between left and right columns
                             with cols_ins[i % 2]:
                                 st.markdown(f"""
                                 <div class="insight-card {ins['type']}">
@@ -1108,7 +1092,6 @@ with tab3:
 
                     st.divider()
 
-                    # ── 2. Team Leaderboard (Charts & Analytics Headers Removed) ──
                     if not selected_team and not search_query:
                         st.divider()
                         section_header("🏅 TEAM LEADERBOARD")
@@ -1135,7 +1118,6 @@ with tab3:
                         st.dataframe(lb, use_container_width=True, hide_index=True)
 
     else:
-        # ── Clean Placeholder ──
         st.markdown("""
         <div style='text-align:center;padding:6rem 1rem;opacity:.6;'>
             <div style='font-size:4rem;margin-bottom:1rem;'>🤖</div>
