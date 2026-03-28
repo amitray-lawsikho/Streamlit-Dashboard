@@ -221,12 +221,12 @@ body::before {
 
 /* ── Headline ── */
 .hero-headline {
-    font-family: 'Playfair Display', serif;
-    font-size: clamp(2.2rem, 5vw, 3.8rem);
-    font-weight: 600;
-    line-height: 1.12;
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.4rem, 5.5vw, 4.2rem);
+    font-weight: 800;
+    line-height: 1.08;
     color: #FFFFFF;
-    letter-spacing: -.5px;
+    letter-spacing: -1.5px;
     margin-bottom: .8rem;
 }
 .hero-headline .accent {
