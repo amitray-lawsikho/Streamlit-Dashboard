@@ -3,7 +3,6 @@ import streamlit.components.v1 as components
 from google.cloud import bigquery
 from google.oauth2 import service_account
 
-# ── Must be first Streamlit call ──
 st.set_page_config(
     page_title="Analytics Hub — LawSikho",
     page_icon="📊",
@@ -11,7 +10,6 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# ── Hide ALL Streamlit chrome via st.markdown (this part works fine) ──
 st.markdown("""
 <style>
 footer { visibility: hidden; }
@@ -21,20 +19,18 @@ header[data-testid="stHeader"] { display: none !important; }
 [data-testid="collapsedControl"] { display: none !important; }
 [data-testid="stSidebarCollapsedControl"] { display: none !important; }
 [data-testid="stAppViewContainer"],
-[data-testid="stMain"], .main { background: #080810 !important; }
+[data-testid="stMain"], .main { background: #0B1120 !important; }
 section[data-testid="stMain"] > div:first-child { padding-top: 0 !important; }
 [data-testid="stMainViewContainer"] { padding-top: 0 !important; }
 .block-container { padding: 0 !important; max-width: 100% !important; }
+iframe { display: block; }
 </style>
 """, unsafe_allow_html=True)
 
-# ── Replace with your actual GitHub raw URLs ──
-# Repo MUST be public. Format:
-# https://raw.githubusercontent.com/YOUR_GITHUB_USERNAME/YOUR_REPO_NAME/main/assets/filename.png
+# ── Logo URLs — replace with your actual GitHub raw URLs ──
 LAWSIKHO_LOGO       = "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/assets/lawsikho_logo.png"
 SKILLARBITRAGE_LOGO = "https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/assets/skillarbitrage_logo.png"
 
-# ── Live stats from BigQuery ──
 @st.cache_data(ttl=300, show_spinner=False)
 def get_stats():
     try:
@@ -79,433 +75,658 @@ def get_stats():
 
 call_time, call_cnt, rev_time, rev_cnt = get_stats()
 
-# ══════════════════════════════════════════════════════════════
-# FULL HTML PAGE — rendered via components.html()
-# This completely bypasses Streamlit's markdown parser.
-# All CSS { } are literal — no escaping needed here.
-# ══════════════════════════════════════════════════════════════
-
 html = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<link rel="preconnect" href="https://fonts.googleapis.com" />
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
 <style>
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
+
 html, body {
-    font-family: 'Outfit', sans-serif;
-    background: #080810;
-    color: #fff;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: #0B1120;
+    color: #E2E8F0;
     min-height: 100vh;
     overflow-x: hidden;
 }
 
-/* ── Background ── */
+/* ── Moderate professional background ── */
+body {
+    background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(59,130,246,.12) 0%, transparent 60%),
+        radial-gradient(ellipse 60% 40% at 90% 80%, rgba(249,115,22,.08) 0%, transparent 55%),
+        radial-gradient(ellipse 50% 35% at 10% 90%, rgba(139,92,246,.06) 0%, transparent 50%),
+        #0B1120;
+}
+
+/* Subtle grid overlay */
 body::before {
     content: "";
     position: fixed; inset: 0;
-    background-image: radial-gradient(circle, rgba(255,255,255,.04) 1px, transparent 1px);
-    background-size: 28px 28px;
-    pointer-events: none; z-index: 0;
-}
-body::after {
-    content: "";
-    position: fixed; inset: 0;
-    background:
-        radial-gradient(ellipse 60% 40% at 20% 20%, rgba(249,115,22,.07) 0%, transparent 60%),
-        radial-gradient(ellipse 50% 35% at 80% 70%, rgba(99,102,241,.06) 0%, transparent 55%),
-        radial-gradient(ellipse 40% 30% at 55% 85%, rgba(239,68,68,.04) 0%, transparent 50%);
+    background-image:
+        linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+    background-size: 48px 48px;
     pointer-events: none; z-index: 0;
 }
 
-/* ── Layout ── */
-.hub {
-    position: relative; z-index: 1;
-    padding-bottom: 4rem;
-}
+.page { position: relative; z-index: 1; }
 
-/* ── Hero ── */
-.hub-hero {
-    display: flex; flex-direction: column;
+/* ════════════════════════════
+   HERO
+════════════════════════════ */
+.hero {
+    display: flex;
+    flex-direction: column;
     align-items: center;
-    padding: 3.5rem 2rem 2rem;
     text-align: center;
+    padding: 4rem 2rem 3rem;
 }
 
-/* Logos */
-.logo-row {
-    display: flex; align-items: center;
+/* ── Logo block ── */
+.logo-block {
+    display: flex;
+    align-items: center;
     justify-content: center;
-    gap: 2rem; margin-bottom: 2.5rem;
+    gap: 0;
+    margin-bottom: 1.6rem;
 }
-.logo-wrap {
-    display: flex; flex-direction: column;
-    align-items: center; gap: .45rem;
+
+.logo-side {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 2rem;
 }
+
 .logo-img {
-    height: 50px; width: auto;
+    height: 46px;
+    width: auto;
     object-fit: contain;
     mix-blend-mode: lighten;
-    filter: brightness(1.2) contrast(1.1);
-    opacity: .92;
-    transition: opacity .25s, transform .25s;
+    filter: brightness(1.25) contrast(1.1) saturate(.95);
+    transition: transform .25s, opacity .25s;
 }
-.logo-img:hover { opacity: 1; transform: scale(1.04); }
+.logo-img:hover { transform: scale(1.05); }
+
+/* Fallback text if image fails */
 .logo-fallback {
     display: none;
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 1.35rem; font-weight: 600;
-    color: #fff; letter-spacing: 1px;
-}
-.logo-name {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: .55rem; font-weight: 500;
-    letter-spacing: 2px; text-transform: uppercase;
-    color: rgba(255,255,255,.25);
-}
-.logo-sep {
-    width: 1px; height: 48px;
-    background: linear-gradient(180deg,
-        transparent 0%,
-        rgba(249,115,22,.45) 40%,
-        rgba(249,115,22,.45) 60%,
-        transparent 100%);
+    font-family: 'Syne', sans-serif;
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: -.5px;
 }
 
-/* Headline */
-.hub-eyebrow {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: .68rem; font-weight: 500;
-    letter-spacing: 3px; text-transform: uppercase;
-    color: #F97316; margin-bottom: 1rem; opacity: .85;
+/* Glowing vertical separator */
+.logo-glow-sep {
+    width: 1px;
+    height: 52px;
+    background: linear-gradient(180deg,
+        transparent 0%,
+        rgba(249,115,22,.8) 35%,
+        rgba(251,146,60,.9) 50%,
+        rgba(249,115,22,.8) 65%,
+        transparent 100%);
+    box-shadow: 0 0 8px rgba(249,115,22,.6), 0 0 20px rgba(249,115,22,.3);
+    border-radius: 1px;
+    flex-shrink: 0;
 }
-.hub-headline {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: clamp(2.8rem, 6vw, 5rem);
-    font-weight: 300; line-height: 1.1;
-    color: #fff; letter-spacing: -.5px;
-    margin-bottom: .6rem;
+
+/* ── Tagline ── */
+.hero-tagline {
+    font-family: 'Fira Code', monospace;
+    font-size: .78rem;
+    font-weight: 400;
+    color: rgba(255,255,255,.38);
+    letter-spacing: 1.5px;
+    margin-bottom: 2rem;
 }
-.hub-headline strong {
-    font-weight: 600;
-    background: linear-gradient(120deg, #fff 0%, #F97316 60%, #EF4444 100%);
+
+/* ── Eyebrow ── */
+.hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    font-family: 'Fira Code', monospace;
+    font-size: .68rem;
+    font-weight: 500;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: #F97316;
+    background: rgba(249,115,22,.08);
+    border: 1px solid rgba(249,115,22,.18);
+    border-radius: 100px;
+    padding: .3rem 1rem;
+    margin-bottom: 1.4rem;
+}
+.eyebrow-dot {
+    width: 5px; height: 5px;
+    background: #F97316;
+    border-radius: 50%;
+    box-shadow: 0 0 6px #F97316;
+    animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%       { opacity: .5; transform: scale(1.4); }
+}
+
+/* ── Headline ── */
+.hero-headline {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(2.4rem, 5.5vw, 4.2rem);
+    font-weight: 800;
+    line-height: 1.08;
+    color: #FFFFFF;
+    letter-spacing: -1.5px;
+    margin-bottom: .8rem;
+}
+.hero-headline .accent {
+    background: linear-gradient(125deg, #F97316 0%, #FB923C 40%, #FBBF24 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
 }
-.hub-tagline {
-    font-size: .88rem; font-weight: 300;
-    color: rgba(255,255,255,.35);
-    letter-spacing: .5px; margin-bottom: 2rem;
-}
-.hub-rule {
-    width: 48px; height: 1px;
-    background: linear-gradient(90deg, transparent, #F97316, transparent);
-    margin: 0 auto 3rem;
+
+.hero-sub {
+    font-size: .95rem;
+    font-weight: 300;
+    color: rgba(255,255,255,.42);
+    letter-spacing: .3px;
+    margin-bottom: 3rem;
+    max-width: 480px;
 }
 
-/* ── Stat pills ── */
-.stats-strip {
-    display: flex; justify-content: center;
-    gap: .75rem; flex-wrap: wrap;
-    padding: 0 2rem; margin-bottom: 3rem;
+/* ── Thin rule ── */
+.hero-rule {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    width: 100%;
+    max-width: 560px;
+    margin-bottom: 3rem;
 }
-.stat-pill {
-    display: flex; align-items: center; gap: .7rem;
-    background: rgba(255,255,255,.03);
-    border: 1px solid rgba(255,255,255,.07);
-    border-radius: 100px;
-    padding: .6rem 1.1rem .6rem .7rem;
-    transition: border-color .2s, background .2s;
+.hero-rule-line {
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,.08));
 }
-.stat-pill:hover {
-    border-color: rgba(249,115,22,.2);
-    background: rgba(249,115,22,.03);
+.hero-rule-line.r { background: linear-gradient(90deg, rgba(255,255,255,.08), transparent); }
+.hero-rule-label {
+    font-family: 'Fira Code', monospace;
+    font-size: .6rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.2);
+    white-space: nowrap;
 }
-.stat-dot {
-    width: 32px; height: 32px; border-radius: 50%;
-    display: flex; align-items: center;
-    justify-content: center; font-size: 1rem; flex-shrink: 0;
+
+/* ════════════════════════════
+   STAT PILLS
+════════════════════════════ */
+.stats-row {
+    display: flex;
+    justify-content: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    padding: 0 2rem;
+    margin-bottom: 4rem;
 }
-.stat-dot.call { background: rgba(249,115,22,.12); }
-.stat-dot.rev  { background: rgba(52,211,153,.10); }
-.stat-dot.lead { background: rgba(129,140,248,.10); }
-.stat-pill-body { display: flex; flex-direction: column; gap: 1px; }
-.stat-pill-label {
-    font-size: .6rem; font-weight: 600;
+
+.stat-card {
+    display: flex;
+    align-items: center;
+    gap: .85rem;
+    background: rgba(255,255,255,.04);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 16px;
+    padding: .9rem 1.3rem;
+    min-width: 220px;
+    flex: 1;
+    max-width: 300px;
+    backdrop-filter: blur(12px);
+    transition: all .2s;
+}
+.stat-card:hover {
+    border-color: rgba(249,115,22,.22);
+    background: rgba(249,115,22,.04);
+    transform: translateY(-2px);
+}
+.stat-icon-wrap {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .95rem; flex-shrink: 0;
+}
+.si-call { background: rgba(249,115,22,.14); }
+.si-rev  { background: rgba(52,211,153,.12); }
+.si-lead { background: rgba(139,92,246,.12); }
+.stat-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.stat-lbl {
+    font-family: 'Fira Code', monospace;
+    font-size: .58rem; font-weight: 500;
     text-transform: uppercase; letter-spacing: 1px;
     color: rgba(255,255,255,.3);
-    font-family: 'JetBrains Mono', monospace;
-    white-space: nowrap;
 }
-.stat-pill-val {
-    font-size: .82rem; font-weight: 500;
-    color: rgba(255,255,255,.85);
-    font-family: 'JetBrains Mono', monospace;
-    white-space: nowrap;
+.stat-val {
+    font-family: 'Fira Code', monospace;
+    font-size: .8rem; font-weight: 500;
+    color: rgba(255,255,255,.82);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.stat-pill-sub {
-    font-size: .6rem; color: rgba(255,255,255,.2);
-    font-family: 'JetBrains Mono', monospace;
-}
-.badge-live {
-    font-size: .55rem; font-weight: 700; letter-spacing: 1px;
-    color: #34D399; background: rgba(52,211,153,.1);
-    border: 1px solid rgba(52,211,153,.15);
-    border-radius: 20px; padding: 1px 7px;
-    margin-left: .3rem; text-transform: uppercase;
-}
-.badge-wip {
-    font-size: .55rem; font-weight: 700; letter-spacing: 1px;
-    color: #FBBF24; background: rgba(251,191,36,.1);
-    border: 1px solid rgba(251,191,36,.15);
-    border-radius: 20px; padding: 1px 7px;
-    margin-left: .3rem; text-transform: uppercase;
-}
-
-/* ── Section label ── */
-.section-label {
-    text-align: center;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: .62rem; font-weight: 500;
-    letter-spacing: 3px; text-transform: uppercase;
+.stat-sub {
+    font-family: 'Fira Code', monospace;
+    font-size: .58rem;
     color: rgba(255,255,255,.2);
-    margin-bottom: 1.5rem;
+}
+.pill-live {
+    margin-left: auto; flex-shrink: 0;
+    font-family: 'Fira Code', monospace;
+    font-size: .55rem; font-weight: 500;
+    letter-spacing: .8px; text-transform: uppercase;
+    color: #34D399;
+    background: rgba(52,211,153,.1);
+    border: 1px solid rgba(52,211,153,.18);
+    border-radius: 20px; padding: 2px 8px;
+}
+.pill-wip {
+    margin-left: auto; flex-shrink: 0;
+    font-family: 'Fira Code', monospace;
+    font-size: .55rem; font-weight: 500;
+    letter-spacing: .8px; text-transform: uppercase;
+    color: #FBBF24;
+    background: rgba(251,191,36,.1);
+    border: 1px solid rgba(251,191,36,.18);
+    border-radius: 20px; padding: 2px 8px;
 }
 
-/* ── Cards ── */
-.cards-row {
+/* ════════════════════════════
+   DASHBOARDS SECTION
+════════════════════════════ */
+.dashboards-section {
+    padding: 0 2rem 5rem;
+    max-width: 1120px;
+    margin: 0 auto;
+}
+
+.section-head {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+.section-line {
+    flex: 1;
+    height: 1px;
+    background: rgba(255,255,255,.07);
+}
+.section-lbl {
+    font-family: 'Fira Code', monospace;
+    font-size: .65rem;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: rgba(255,255,255,.25);
+    white-space: nowrap;
+}
+
+/* 3 equal separate cards */
+.cards-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-    gap: 1px;
-    max-width: 1080px; margin: 0 auto;
-    padding: 0 2rem 3rem;
-    background: rgba(255,255,255,.05);
-    border-radius: 20px; overflow: hidden;
-    border: 1px solid rgba(255,255,255,.05);
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
 }
-.dash-card {
-    position: relative; background: #080810;
-    padding: 2.2rem 2rem;
-    text-decoration: none; color: inherit;
-    display: flex; flex-direction: column; gap: .8rem;
+
+@media (max-width: 900px) {
+    .cards-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 1200px) and (min-width: 901px) {
+    .cards-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.dcard {
+    position: relative;
+    background: rgba(255,255,255,.035);
+    border: 1px solid rgba(255,255,255,.09);
+    border-radius: 20px;
+    padding: 1.8rem 1.7rem 1.5rem;
+    text-decoration: none;
+    color: inherit;
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
     overflow: hidden;
-    transition: background .2s;
+    transition: transform .25s cubic-bezier(.4,0,.2,1),
+                box-shadow .25s, border-color .25s, background .25s;
 }
-.dash-card:hover { background: rgba(255,255,255,.025); }
-.dash-card.disabled { pointer-events: none; cursor: default; opacity: .45; }
-.dash-card::before {
-    content: "";
-    position: absolute; top: 0; left: 0; right: 0; height: 1px;
+.dcard:hover {
+    transform: translateY(-5px);
+    text-decoration: none;
 }
-.dc-call::before { background: linear-gradient(90deg, transparent, #F97316 50%, transparent); }
-.dc-rev::before  { background: linear-gradient(90deg, transparent, #34D399 50%, transparent); }
-.dc-lead::before { background: linear-gradient(90deg, transparent, #818CF8 50%, transparent); }
-.dash-glow {
-    position: absolute; width: 200px; height: 200px;
-    border-radius: 50%; top: -80px; right: -60px;
-    filter: blur(70px); opacity: 0;
-    pointer-events: none; transition: opacity .35s;
+.dcard.wip {
+    pointer-events: none;
+    cursor: default;
+    opacity: .55;
 }
-.dc-call .dash-glow  { background: #F97316; }
-.dc-rev  .dash-glow  { background: #34D399; }
-.dc-lead .dash-glow  { background: #818CF8; }
-.dash-card:hover .dash-glow { opacity: .08; }
-.dc-top {
-    display: flex; align-items: flex-start;
+
+/* Top accent line per card */
+.dcard-call { border-top: 2px solid rgba(249,115,22,.4); }
+.dcard-rev  { border-top: 2px solid rgba(52,211,153,.35); }
+.dcard-lead { border-top: 2px solid rgba(139,92,246,.3); }
+
+.dcard-call:hover {
+    border-color: #F97316;
+    background: rgba(249,115,22,.04);
+    box-shadow: 0 20px 60px rgba(249,115,22,.1), 0 4px 16px rgba(0,0,0,.3);
+}
+.dcard-rev:hover {
+    border-color: #34D399;
+    background: rgba(52,211,153,.04);
+    box-shadow: 0 20px 60px rgba(52,211,153,.08), 0 4px 16px rgba(0,0,0,.3);
+}
+
+/* Glow orb */
+.dcard-glow {
+    position: absolute;
+    width: 220px; height: 220px;
+    border-radius: 50%;
+    top: -90px; right: -70px;
+    filter: blur(80px);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .3s;
+}
+.dcard-call .dcard-glow { background: #F97316; }
+.dcard-rev  .dcard-glow { background: #34D399; }
+.dcard-lead .dcard-glow { background: #8B5CF6; }
+.dcard:hover .dcard-glow { opacity: .1; }
+
+/* Card header */
+.dcard-header {
+    display: flex;
+    align-items: flex-start;
     justify-content: space-between;
 }
-.dc-icon { font-size: 1.6rem; line-height: 1; }
-.dc-wip-tag {
-    font-size: .58rem; font-weight: 700;
-    letter-spacing: 1px; text-transform: uppercase;
-    color: #FBBF24; background: rgba(251,191,36,.08);
-    border: 1px solid rgba(251,191,36,.15);
-    border-radius: 6px; padding: 3px 8px;
-    font-family: 'JetBrains Mono', monospace;
+.dcard-icon { font-size: 1.8rem; line-height: 1; }
+.dcard-wip-badge {
+    font-family: 'Fira Code', monospace;
+    font-size: .55rem; font-weight: 500;
+    text-transform: uppercase; letter-spacing: 1px;
+    color: #FBBF24;
+    background: rgba(251,191,36,.08);
+    border: 1px solid rgba(251,191,36,.18);
+    border-radius: 8px; padding: 3px 9px;
 }
-.dc-title {
-    font-family: 'Cormorant Garamond', serif;
-    font-size: 1.55rem; font-weight: 500;
-    color: #fff; line-height: 1.15; letter-spacing: -.2px;
+
+.dcard-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 1.2rem; font-weight: 700;
+    color: #fff; letter-spacing: -.3px;
 }
-.dc-desc {
-    font-size: .78rem; font-weight: 300;
-    color: rgba(255,255,255,.38);
+
+.dcard-desc {
+    font-size: .8rem; font-weight: 300;
+    color: rgba(255,255,255,.42);
     line-height: 1.7; flex: 1;
 }
-.dc-tags { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .2rem; }
-.dc-tag {
-    font-size: .58rem; font-weight: 500;
-    letter-spacing: .5px; color: rgba(255,255,255,.35);
-    border: 1px solid rgba(255,255,255,.08);
-    border-radius: 4px; padding: 2px 8px;
-    font-family: 'JetBrains Mono', monospace;
-    text-transform: uppercase;
+
+/* Tags */
+.dcard-tags {
+    display: flex; flex-wrap: wrap; gap: .4rem;
+    margin-top: .2rem;
 }
-.dc-cta {
-    display: flex; align-items: center; gap: .4rem;
-    font-size: .75rem; font-weight: 500;
-    color: rgba(255,255,255,.25);
-    margin-top: .4rem;
-    transition: color .2s, gap .2s;
-    font-family: 'JetBrains Mono', monospace;
+.dtag {
+    font-family: 'Fira Code', monospace;
+    font-size: .58rem; font-weight: 400;
+    color: rgba(255,255,255,.32);
+    background: rgba(255,255,255,.05);
+    border: 1px solid rgba(255,255,255,.08);
+    border-radius: 6px; padding: 2px 9px;
+    text-transform: uppercase; letter-spacing: .4px;
+}
+
+/* CTA */
+.dcard-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-family: 'Fira Code', monospace;
+    font-size: .72rem; font-weight: 500;
+    color: rgba(255,255,255,.28);
+    margin-top: .3rem;
+    transition: gap .2s, color .2s;
     letter-spacing: .3px;
     text-decoration: none;
 }
-.dc-call:hover .dc-cta { color: #F97316; gap: .6rem; }
-.dc-rev:hover  .dc-cta { color: #34D399; gap: .6rem; }
+.dcard-call:hover .dcard-cta { color: #F97316; gap: .65rem; }
+.dcard-rev:hover  .dcard-cta { color: #34D399; gap: .65rem; }
 
-/* ── Footer ── */
-.hub-footer {
-    text-align: center; padding: 2rem 1rem;
-    font-family: 'JetBrains Mono', monospace;
-    font-size: .6rem; letter-spacing: 1.5px;
-    text-transform: uppercase; color: rgba(255,255,255,.12);
+/* ════════════════════════════
+   FOOTER
+════════════════════════════ */
+.site-footer {
+    border-top: 1px solid rgba(255,255,255,.06);
+    padding: 2rem 2rem 2.5rem;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+}
+.footer-top {
+    font-family: 'Fira Code', monospace;
+    font-size: .68rem;
+    font-weight: 500;
+    letter-spacing: .8px;
+    color: rgba(255,255,255,.35);
+}
+.footer-bottom {
+    font-family: 'Fira Code', monospace;
+    font-size: .62rem;
+    letter-spacing: .5px;
+    color: rgba(255,255,255,.18);
+}
+.footer-dot {
+    display: inline-block;
+    width: 3px; height: 3px;
+    background: rgba(249,115,22,.5);
+    border-radius: 50%;
+    margin: 0 .5rem;
+    vertical-align: middle;
 }
 
 </style>
 </head>
 <body>
+<div class="page">
 
-<div class="hub">
+  <!-- ════ HERO ════ -->
+  <div class="hero">
 
-  <!-- HERO -->
-  <div class="hub-hero">
-
-    <div class="logo-row">
-      <div class="logo-wrap">
+    <!-- Logo row: image | glow sep | image -->
+    <div class="logo-block">
+      <div class="logo-side">
         <img class="logo-img"
-             src="LAWSIKHO_LOGO_PLACEHOLDER"
+             src="LAWSIKHO_LOGO_PH"
              alt="LawSikho"
-             onerror="this.style.display='none';this.nextElementSibling.style.display='block';" />
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
         <span class="logo-fallback">LawSikho</span>
-        <span class="logo-name">LawSikho</span>
       </div>
-      <div class="logo-sep"></div>
-      <div class="logo-wrap">
+      <div class="logo-glow-sep"></div>
+      <div class="logo-side">
         <img class="logo-img"
-             src="SA_LOGO_PLACEHOLDER"
+             src="SA_LOGO_PH"
              alt="Skill Arbitrage"
-             onerror="this.style.display='none';this.nextElementSibling.style.display='block';" />
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex';" />
         <span class="logo-fallback">Skill Arbitrage</span>
-        <span class="logo-name">Skill Arbitrage</span>
       </div>
     </div>
 
-    <div class="hub-eyebrow">Internal Analytics</div>
-    <div class="hub-headline">All your dashboards,<br><strong>in one place.</strong></div>
-    <div class="hub-tagline">Real-time data across calling, revenue &amp; leads — powered by BigQuery</div>
-    <div class="hub-rule"></div>
+    <!-- Tagline below logos -->
+    <div class="hero-tagline">India Learning &nbsp;📚&nbsp; India Earning</div>
+
+    <!-- Eyebrow pill -->
+    <div class="hero-eyebrow">
+      <span class="eyebrow-dot"></span>
+      Internal Analytics Hub
+    </div>
+
+    <!-- Main headline -->
+    <div class="hero-headline">
+      All your dashboards,<br><span class="accent">in one place.</span>
+    </div>
+
+    <div class="hero-sub">
+      Real-time insights across calling, revenue &amp; leads —<br>powered by BigQuery
+    </div>
+
+    <div class="hero-rule">
+      <div class="hero-rule-line"></div>
+      <span class="hero-rule-label">Live Dashboards</span>
+      <div class="hero-rule-line r"></div>
+    </div>
 
   </div>
 
-  <!-- STAT PILLS -->
-  <div class="stats-strip">
-    <div class="stat-pill">
-      <div class="stat-dot call">🔔</div>
-      <div class="stat-pill-body">
-        <span class="stat-pill-label">Calling <span class="badge-live">● Live</span></span>
-        <span class="stat-pill-val">CALL_TIME_PLACEHOLDER</span>
-        <span class="stat-pill-sub">CALL_CNT_PLACEHOLDER records</span>
+  <!-- ════ STAT CARDS ════ -->
+  <div class="stats-row">
+
+    <div class="stat-card">
+      <div class="stat-icon-wrap si-call">🔔</div>
+      <div class="stat-info">
+        <span class="stat-lbl">Calling Data</span>
+        <span class="stat-val">CALL_TIME_PH</span>
+        <span class="stat-sub">CALL_CNT_PH records</span>
       </div>
+      <span class="pill-live">● Live</span>
     </div>
-    <div class="stat-pill">
-      <div class="stat-dot rev">💰</div>
-      <div class="stat-pill-body">
-        <span class="stat-pill-label">Revenue <span class="badge-live">● Live</span></span>
-        <span class="stat-pill-val">REV_TIME_PLACEHOLDER</span>
-        <span class="stat-pill-sub">REV_CNT_PLACEHOLDER records</span>
+
+    <div class="stat-card">
+      <div class="stat-icon-wrap si-rev">💰</div>
+      <div class="stat-info">
+        <span class="stat-lbl">Revenue Data</span>
+        <span class="stat-val">REV_TIME_PH</span>
+        <span class="stat-sub">REV_CNT_PH records</span>
       </div>
+      <span class="pill-live">● Live</span>
     </div>
-    <div class="stat-pill">
-      <div class="stat-dot lead">📊</div>
-      <div class="stat-pill-body">
-        <span class="stat-pill-label">Leads <span class="badge-wip">🚧 WIP</span></span>
-        <span class="stat-pill-val" style="color:rgba(255,255,255,.3);">Under Development</span>
-        <span class="stat-pill-sub">Pipeline coming soon</span>
+
+    <div class="stat-card">
+      <div class="stat-icon-wrap si-lead">📊</div>
+      <div class="stat-info">
+        <span class="stat-lbl">Lead Data</span>
+        <span class="stat-val" style="color:rgba(255,255,255,.28);">Under Development</span>
+        <span class="stat-sub">Pipeline coming soon</span>
       </div>
+      <span class="pill-wip">🚧 WIP</span>
     </div>
-  </div>
-
-  <!-- SECTION LABEL -->
-  <div class="section-label">— Dashboards —</div>
-
-  <!-- CARDS -->
-  <div class="cards-row">
-
-    <a class="dash-card dc-call" href="https://dashboard-lawsikho-call.streamlit.app/" target="_blank">
-      <div class="dash-glow"></div>
-      <div class="dc-top"><div class="dc-icon">🔔</div></div>
-      <div class="dc-title">Calling Metrics</div>
-      <div class="dc-desc">Full CDR analysis across Ozonetel, Acefone &amp; Manual calls.
-        Agent-level performance, break tracking, productive hours &amp; team leaderboards.</div>
-      <div class="dc-tags">
-        <span class="dc-tag">Ozonetel</span>
-        <span class="dc-tag">Acefone</span>
-        <span class="dc-tag">Manual</span>
-        <span class="dc-tag">CDR</span>
-      </div>
-      <span class="dc-cta">Open Dashboard &nbsp;→</span>
-    </a>
-
-    <a class="dash-card dc-rev" href="https://dashboard-lawsikho-revenue.streamlit.app/" target="_blank">
-      <div class="dash-glow"></div>
-      <div class="dc-top"><div class="dc-icon">💰</div></div>
-      <div class="dc-title">Revenue Metrics</div>
-      <div class="dc-desc">Enrollment revenue, target achievement &amp; caller-level breakdown.
-        Course performance, source mix &amp; team leaderboards.</div>
-      <div class="dc-tags">
-        <span class="dc-tag">Enrollments</span>
-        <span class="dc-tag">Targets</span>
-        <span class="dc-tag">Courses</span>
-        <span class="dc-tag">Teams</span>
-      </div>
-      <span class="dc-cta">Open Dashboard &nbsp;→</span>
-    </a>
-
-    <a class="dash-card dc-lead disabled" href="#" style="pointer-events:none;cursor:default;">
-      <div class="dash-glow"></div>
-      <div class="dc-top">
-        <div class="dc-icon">📊</div>
-        <span class="dc-wip-tag">🚧 Coming Soon</span>
-      </div>
-      <div class="dc-title">Lead Metrics</div>
-      <div class="dc-desc">Pipeline health, lead source quality, conversion rates &amp; funnel
-        drop-off analysis. Currently in development.</div>
-      <div class="dc-tags">
-        <span class="dc-tag">Pipeline</span>
-        <span class="dc-tag">Funnel</span>
-        <span class="dc-tag">Conversion</span>
-      </div>
-      <span class="dc-cta" style="opacity:.3;">In Development</span>
-    </a>
 
   </div>
 
-  <!-- FOOTER -->
-  <div class="hub-footer">
-    Designed by Amit Ray &nbsp;·&nbsp; amitray@lawsikho.com &nbsp;·&nbsp; Internal Use Only
+  <!-- ════ DASHBOARD CARDS ════ -->
+  <div class="dashboards-section">
+
+    <div class="section-head">
+      <div class="section-line"></div>
+      <span class="section-lbl">Dashboards</span>
+      <div class="section-line"></div>
+    </div>
+
+    <div class="cards-grid">
+
+      <!-- Card 1: Calling -->
+      <a class="dcard dcard-call" href="https://dashboard-lawsikho-call.streamlit.app/" target="_blank">
+        <div class="dcard-glow"></div>
+        <div class="dcard-header">
+          <div class="dcard-icon">🔔</div>
+        </div>
+        <div class="dcard-title">Calling Metrics</div>
+        <div class="dcard-desc">
+          Full CDR analysis across Ozonetel, Acefone &amp; Manual calls.
+          Agent-level performance, break tracking, productive hours &amp; team leaderboards.
+        </div>
+        <div class="dcard-tags">
+          <span class="dtag">Ozonetel</span>
+          <span class="dtag">Acefone</span>
+          <span class="dtag">Manual</span>
+          <span class="dtag">CDR</span>
+        </div>
+        <span class="dcard-cta">Open Dashboard &nbsp;→</span>
+      </a>
+
+      <!-- Card 2: Revenue -->
+      <a class="dcard dcard-rev" href="https://dashboard-lawsikho-revenue.streamlit.app/" target="_blank">
+        <div class="dcard-glow"></div>
+        <div class="dcard-header">
+          <div class="dcard-icon">💰</div>
+        </div>
+        <div class="dcard-title">Revenue Metrics</div>
+        <div class="dcard-desc">
+          Enrollment revenue, target achievement &amp; caller-level breakdown.
+          Course performance, source mix &amp; team leaderboards.
+        </div>
+        <div class="dcard-tags">
+          <span class="dtag">Enrollments</span>
+          <span class="dtag">Targets</span>
+          <span class="dtag">Courses</span>
+          <span class="dtag">Teams</span>
+        </div>
+        <span class="dcard-cta">Open Dashboard &nbsp;→</span>
+      </a>
+
+      <!-- Card 3: Leads (WIP) -->
+      <a class="dcard dcard-lead wip" href="#" style="pointer-events:none;">
+        <div class="dcard-glow"></div>
+        <div class="dcard-header">
+          <div class="dcard-icon">📊</div>
+          <span class="dcard-wip-badge">🚧 Coming Soon</span>
+        </div>
+        <div class="dcard-title">Lead Metrics</div>
+        <div class="dcard-desc">
+          Pipeline health, lead source quality, conversion rates &amp; funnel
+          drop-off analysis. Currently under development.
+        </div>
+        <div class="dcard-tags">
+          <span class="dtag">Pipeline</span>
+          <span class="dtag">Funnel</span>
+          <span class="dtag">Conversion</span>
+        </div>
+        <span class="dcard-cta" style="opacity:.3;">In Development</span>
+      </a>
+
+    </div>
+  </div>
+
+  <!-- ════ FOOTER ════ -->
+  <div class="site-footer">
+    <div class="footer-top">
+      For Internal Use of Sales and Operations Team Only
+      <span class="footer-dot"></span>
+      All Rights Reserved
+    </div>
+    <div class="footer-bottom">
+      Developed and Designed by Amit Ray
+      <span class="footer-dot"></span>
+      amitray@lawsikho.com
+    </div>
   </div>
 
 </div>
-
 </body>
 </html>
 """
 
-# ── Inject dynamic values via simple string replace — zero risk of {} conflicts ──
-html = html.replace("LAWSIKHO_LOGO_PLACEHOLDER", LAWSIKHO_LOGO)
-html = html.replace("SA_LOGO_PLACEHOLDER",       SKILLARBITRAGE_LOGO)
-html = html.replace("CALL_TIME_PLACEHOLDER",     call_time)
-html = html.replace("CALL_CNT_PLACEHOLDER",      call_cnt)
-html = html.replace("REV_TIME_PLACEHOLDER",      rev_time)
-html = html.replace("REV_CNT_PLACEHOLDER",       rev_cnt)
+html = html.replace("LAWSIKHO_LOGO_PH", LAWSIKHO_LOGO)
+html = html.replace("SA_LOGO_PH",       SKILLARBITRAGE_LOGO)
+html = html.replace("CALL_TIME_PH",     call_time)
+html = html.replace("CALL_CNT_PH",      call_cnt)
+html = html.replace("REV_TIME_PH",      rev_time)
+html = html.replace("REV_CNT_PH",       rev_cnt)
 
-# ── Render — bypasses Streamlit markdown parser entirely ──
-components.html(html, height=920, scrolling=False)
+components.html(html, height=1080, scrolling=True)
