@@ -457,33 +457,64 @@ def fetch_revenue_data(start_date, end_date):
 # TARGET RESOLUTION — DEDUP SAFE
 # ─────────────────────────────────────────────
 
+def _col(df, name):
+    """Case-insensitive, whitespace-tolerant column finder."""
+    name_clean = name.strip().lower()
+    match = next((c for c in df.columns if c.strip().lower() == name_clean), None)
+    if match is None:
+        raise KeyError(f"Column '{name}' not found in sheet. Available: {list(df.columns)}")
+    return match
+
 def resolve_targets(df_meta, start_date, end_date):
-    """
-    For each caller, sum their Target across the months that overlap
-    with the selected date range. Deduplicated to ONE record per
-    (Caller Name, Month) before summing — prevents double counting.
-    """
-    months_needed = get_months_in_range(start_date, end_date)
-    relevant      = df_meta[df_meta['Month'].isin(months_needed)].copy()
+    months_needed  = get_months_in_range(start_date, end_date)
+    caller_col     = _col(df_meta, 'Caller Name')
+    target_col     = _col(df_meta, 'Target')
+    month_col      = _col(df_meta, 'Month')
 
-    # One row per (Caller Name, Month) — take first occurrence
-    dedup = relevant.drop_duplicates(subset=['Caller Name', 'Month'])
+    relevant = df_meta[df_meta[month_col].isin(months_needed)].copy()
+    if relevant.empty:
+        return {}
 
-    # Sum target across months per caller
+    dedup = relevant.drop_duplicates(subset=[caller_col, month_col])
     target_map = (
-        dedup.groupby('Caller Name')['Target']
+        dedup.groupby(caller_col)[target_col]
         .sum()
         .to_dict()
     )
     return target_map
 
 def resolve_designations(df_meta, start_date, end_date):
-    """Pick the most recent designation for each caller within range months."""
-    months_needed = get_months_in_range(start_date, end_date)
-    relevant      = df_meta[df_meta['Month'].isin(months_needed)].copy()
-    relevant      = relevant.sort_values('Month', ascending=False)
-    dedup         = relevant.drop_duplicates(subset=['Caller Name'], keep='first')
-    return dedup.set_index('Caller Name')[['Academic Counselor/TL/ATL', 'Team Name', 'Vertical', 'Analyst']].to_dict('index')
+    months_needed  = get_months_in_range(start_date, end_date)
+    caller_col     = _col(df_meta, 'Caller Name')
+    month_col      = _col(df_meta, 'Month')
+
+    # Safe fetch for optional columns
+    def safe_col(name):
+        try: return _col(df_meta, name)
+        except KeyError: return None
+
+    desig_col   = safe_col('Academic Counselor/TL/ATL')
+    team_col    = safe_col('Team Name')
+    vert_col    = safe_col('Vertical')
+    analyst_col = safe_col('Analyst')
+
+    relevant = df_meta[df_meta[month_col].isin(months_needed)].copy()
+    if relevant.empty:
+        return {}
+
+    relevant = relevant.sort_values(month_col, ascending=False)
+    dedup    = relevant.drop_duplicates(subset=[caller_col], keep='first')
+    dedup    = dedup.set_index(caller_col)
+
+    result = {}
+    for caller in dedup.index:
+        result[caller] = {
+            'Academic Counselor/TL/ATL': dedup.at[caller, desig_col]   if desig_col   else '—',
+            'Team Name':                 dedup.at[caller, team_col]     if team_col    else '—',
+            'Vertical':                  dedup.at[caller, vert_col]     if vert_col    else '—',
+            'Analyst':                   dedup.at[caller, analyst_col]  if analyst_col else '—',
+        }
+    return result
 
 
 # ─────────────────────────────────────────────
