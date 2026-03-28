@@ -571,7 +571,7 @@ body::before {
     </div>
 
     <!-- Tagline below logos -->
-    <div class="hero-tagline">India Learning &nbsp;📚&nbsp; India Earning</div>
+    <div class="hero-tagline">India Learning &nbsp;📖&nbsp; India Earning</div>
 
     <!-- Eyebrow pill -->
     <div class="hero-eyebrow">
