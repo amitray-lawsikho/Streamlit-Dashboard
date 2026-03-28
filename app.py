@@ -185,6 +185,7 @@ footer { visibility: hidden; }
     box-shadow: var(--shadow-sm);
     position: relative;
     overflow: hidden;
+    text-align: center;
 }
 .metric-card::before {
     content: "";
