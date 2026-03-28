@@ -705,9 +705,9 @@ body::before {
           Currently under development.
         </div>
         <div class="dcard-tags">
-          <span class="dtag">Pipeline</span>
-          <span class="dtag">Funnel</span>
-          <span class="dtag">Conversion</span>
+          <span class="dtag">Fresh</span>
+          <span class="dtag">Breached</span>
+          <span class="dtag">Less Dialled</span>
         </div>
         <span class="dcard-cta" style="opacity:.3;">In Development</span>
       </a>
