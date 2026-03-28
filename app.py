@@ -125,14 +125,13 @@ footer { visibility: hidden; }
 .cw-title {
     font-size: 1.65rem;
     font-weight: 700;
-    color: var(--text-primary, #111827);  /* ✅ Black in light, white in dark */
+    color: #FFFFFF;
     letter-spacing: .5px;
     margin: 0 0 .25rem;
 }
-
 .cw-subtitle {
     font-size: .82rem;
-    color: var(--text-muted, #6B7280);    /* ✅ Muted in both themes */
+    color: rgba(255,255,255,.6);
     font-weight: 400;
     margin: 0;
     font-family: 'DM Mono', monospace;
