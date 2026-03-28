@@ -680,12 +680,14 @@ selected_month_date = month_options[selected_month_label]
 if selected_month_date is not None:
     # Auto-set full month range
     start_date = selected_month_date
-    # Last day of that month
     next_month = (selected_month_date.replace(day=28) + timedelta(days=4)).replace(day=1)
     end_date   = next_month - timedelta(days=1)
-    st.sidebar.date_input(
-        "📅 Date Range", value=(start_date, end_date),
-        min_value=min_d, max_value=max_d, format="DD-MM-YYYY", disabled=True
+    st.sidebar.markdown(
+        f"<div style='font-size:.75rem;color:var(--text-muted,#6B7280);padding:.2rem 0 .5rem;'>"
+        f"📅 <b>Date Range</b><br>"
+        f"<span style='font-family:monospace;'>{start_date.strftime('%d-%m-%Y')} → {end_date.strftime('%d-%m-%Y')}</span>"
+        f"</div>",
+        unsafe_allow_html=True
     )
 else:
     selected_dates = st.sidebar.date_input(
