@@ -239,12 +239,12 @@ body::before {
 }
 
 .hero-sub {
-    font-size: .95rem;
+    font-size: 1.15rem;
     font-weight: 300;
     color: rgba(255,255,255,.42);
     letter-spacing: .3px;
     margin-bottom: 3rem;
-    max-width: 480px;
+    max-width: 580px;
 }
 
 /* ── Thin rule ── */
@@ -290,17 +290,27 @@ body::before {
     background: rgba(255,255,255,.04);
     border: 1px solid rgba(255,255,255,.08);
     border-radius: 16px;
-    padding: .9rem 1.3rem;
-    min-width: 220px;
+    padding: .9rem 1.4rem;
+    min-width: 260px;
     flex: 1;
-    max-width: 300px;
+    max-width: 340px;
     backdrop-filter: blur(12px);
     transition: all .2s;
 }
 .stat-card:hover {
+    transform: translateY(-2px);
+}
+.stat-card.sc-call:hover {
     border-color: rgba(249,115,22,.22);
     background: rgba(249,115,22,.04);
-    transform: translateY(-2px);
+}
+.stat-card.sc-rev:hover {
+    border-color: rgba(52,211,153,.22);
+    background: rgba(52,211,153,.04);
+}
+.stat-card.sc-lead:hover {
+    border-color: rgba(139,92,246,.22);
+    background: rgba(139,92,246,.04);
 }
 .stat-icon-wrap {
     width: 38px; height: 38px;
@@ -322,7 +332,8 @@ body::before {
     font-family: 'Fira Code', monospace;
     font-size: .8rem; font-weight: 500;
     color: rgba(255,255,255,.82);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap;
+    overflow: visible;
 }
 .stat-sub {
     font-family: 'Fira Code', monospace;
@@ -599,7 +610,7 @@ body::before {
   <!-- ════ STAT CARDS ════ -->
   <div class="stats-row">
 
-    <div class="stat-card">
+    <div class="stat-card sc-call">
       <div class="stat-icon-wrap si-call">🔔</div>
       <div class="stat-info">
         <span class="stat-lbl">Calling Data</span>
@@ -609,7 +620,7 @@ body::before {
       <span class="pill-live">● Live</span>
     </div>
 
-    <div class="stat-card">
+    <div class="stat-card sc-rev">
       <div class="stat-icon-wrap si-rev">💰</div>
       <div class="stat-info">
         <span class="stat-lbl">Revenue Data</span>
