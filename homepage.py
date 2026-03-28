@@ -654,7 +654,7 @@ body::before {
     <div class="cards-grid">
 
       <!-- Card 1: Calling -->
-      <a class="dcard dcard-call" href="https://dashboard-lawsikho-call.streamlit.app/" target="_blank">
+      <a class="dcard dcard-call" href="#" onclick="window.top.location.href='https://dashboard-lawsikho-call.streamlit.app/'; return false;">
         <div class="dcard-glow"></div>
         <div class="dcard-header">
           <div class="dcard-icon">🔔</div>
@@ -674,7 +674,7 @@ body::before {
       </a>
 
       <!-- Card 2: Revenue -->
-      <a class="dcard dcard-rev" href="https://dashboard-lawsikho-revenue.streamlit.app/" target="_blank">
+      <a class="dcard dcard-rev" href="#" onclick="window.top.location.href='https://dashboard-lawsikho-revenue.streamlit.app/'; return false;">
         <div class="dcard-glow"></div>
         <div class="dcard-header">
           <div class="dcard-icon">💰</div>
