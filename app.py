@@ -826,7 +826,7 @@ with tab1:
                     top_calls = report_df.sort_values('TOTAL CALLS', ascending=False).iloc[0]
                     with top_cols[1]:
                         st.markdown(f"""
-                        <div class="metric-card" style="border-top: 3px solid var(--silver);">
+                        <div class="metric-card" style="border-top: 3px solid #F97316;">
                             <div class="metric-label">✆ HIGHEST CALLS</div>
                             <div class="metric-value" style="font-size:1.1rem;">{top_calls['CALLER']}</div>
                             <div class="metric-delta">{top_calls['TOTAL CALLS']} Total Calls</div>
@@ -1081,7 +1081,7 @@ with tab3:
                             with cols_ins[i % 2]:
                                 st.markdown(f"""
                                 <div class="insight-card {ins['type']}">
-                                    <div style='display:flex;align-items:center;gap:.4rem;'>
+                                    <div style='display:flex;align-items:center;justify-content:center;gap:.4rem;'>
                                         <span class="insight-icon">{ins['icon']}</span>
                                         <span class="insight-title">{ins['title']}</span>
                                     </div>
