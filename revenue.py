@@ -385,7 +385,7 @@ def resolve_targets(df_meta, start_date, end_date):
         return {}
 
     dedup = relevant.drop_duplicates(subset=[caller_col, month_col])
-     dedup[target_col] = pd.to_numeric(
+    dedup[target_col] = pd.to_numeric(
         dedup[target_col].astype(str).str.replace(',', '', regex=False),
         errors='coerce'
     ).fillna(0)
