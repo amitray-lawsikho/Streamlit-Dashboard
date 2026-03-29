@@ -341,8 +341,16 @@ def fetch_call_data(start_date, end_date):
         df['call_endtime'] = pd.to_datetime(df['call_datetime'], utc=True).dt.tz_convert('Asia/Kolkata')
         df['call_duration'] = pd.to_numeric(df['call_duration'], errors='coerce').fillna(0)
         df['call_starttime'] = df['call_endtime'] - pd.to_timedelta(df['call_duration'], unit='s')
+
+        ozo_mask = df['source'] == 'Ozonetel'
+        df.loc[ozo_mask, 'call_starttime'] = df.loc[ozo_mask, 'call_endtime']
+        df.loc[ozo_mask, 'call_endtime']   = (
+            df.loc[ozo_mask, 'call_starttime']
+            + pd.to_timedelta(df.loc[ozo_mask, 'call_duration'], unit='s')
+        )
+
         df['call_starttime_clean'] = df['call_starttime'].dt.tz_localize(None)
-        df['call_endtime_clean'] = df['call_endtime'].dt.tz_localize(None)
+        df['call_endtime_clean']   = df['call_endtime'].dt.tz_localize(None)
     return df
 
 
