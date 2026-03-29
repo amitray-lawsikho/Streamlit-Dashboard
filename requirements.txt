@@ -6,4 +6,4 @@ google-auth
 pytz
 db-dtypes
 numpy
-zipfile
+Pillow
