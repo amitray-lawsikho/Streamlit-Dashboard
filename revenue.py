@@ -944,9 +944,7 @@ with tab1:
                     both_display_cols = [
                         'DESIGNATION', 'CALLER NAME', 'TEAM', 'VERTICAL',
                         'TARGET (₹)', 'ENROLLMENTS',
-                        'ENROLLMENT REV', 'BALANCE REV',
-                        'COMMUNITY COLLECTION', 'BOOTCAMP COLLECTION',
-                        'CALLING REVENUE', 'COLLECTION REVENUE',
+                        'CALLING REVENUE', 'COMMUNITY COLLECTION', 'BOOTCAMP COLLECTION',
                         'TOTAL REVENUE', 'ACHIEVEMENT %'
                     ]
 
