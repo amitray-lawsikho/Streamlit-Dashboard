@@ -250,6 +250,16 @@ def get_months_in_range(start_date, end_date):
         cur = (cur.replace(day=28) + timedelta(days=4)).replace(day=1)
     return months
 
+def count_working_days(start_date, end_date):
+    """Count Mon–Fri days between start_date and end_date inclusive."""
+    count = 0
+    cur   = start_date
+    while cur <= end_date:
+        if cur.weekday() < 5:   # 0=Mon … 4=Fri
+            count += 1
+        cur += timedelta(days=1)
+    return count
+
 
 # ─────────────────────────────────────────────
 # DATA FETCHING
@@ -437,16 +447,24 @@ def classify_and_process(df, df_meta, start_date, end_date):
         collection_rev = boot_coll + comm_coll
         total_rev      = calling_rev + collection_rev
 
+        # Till Day Target — prorate by working days in selected range vs 20 days/month
+        months_count   = max(len(get_months_in_range(start_date, end_date)), 1)
+        working_days   = count_working_days(start_date, end_date)
+        till_day_ratio = min(working_days / (20 * months_count), 1.0)
+        till_day_target = round(target * till_day_ratio)
+
         is_changemakers = team.lower() == 'changemakers'
         has_calling     = calling_rev > 0
         has_collection  = collection_rev > 0
 
         row = {
+            row = {
             'DESIGNATION'         : info.get('Academic Counselor/TL/ATL', '—'),
             'CALLER NAME'         : caller,
             'TEAM'                : team,
             'VERTICAL'            : info.get('Vertical', '—'),
-            'TARGET (₹)'          : target,
+            'TOTAL TARGET (₹)'    : target,
+            'TILL DAY TARGET (₹)' : till_day_target,
             'ENROLLMENTS'         : enrollments,
             'ENROLLMENT REV'      : enr_rev,
             'BALANCE REV'         : bal_rev,
@@ -585,7 +603,7 @@ def render_perf_table(df, display_cols, total_overrides, sort_col, table_key):
     # Format currency cols
     for col in ['ENROLLMENT REV', 'BALANCE REV', 'COMMUNITY COLLECTION',
                 'BOOTCAMP COLLECTION', 'CALLING REVENUE', 'COLLECTION REVENUE',
-                'TOTAL REVENUE', 'TARGET (₹)']:
+                'TOTAL REVENUE', 'TOTAL TARGET (₹)', 'TILL DAY TARGET (₹)']:
         if col in d.columns:
             d[col] = d[col].apply(fmt_inr)
 
@@ -938,19 +956,20 @@ with tab1:
 
                     calling_display_cols = [
                         'DESIGNATION', 'CALLER NAME', 'TEAM', 'VERTICAL',
-                        'TARGET (₹)', 'ENROLLMENTS',
+                        'TOTAL TARGET (₹)', 'TILL DAY TARGET (₹)', 'ENROLLMENTS',
                         'ENROLLMENT REV', 'BALANCE REV',
                         'CALLING REVENUE', 'ACHIEVEMENT %'
                     ]
 
                     if not calling_df.empty:
                         calling_totals = {
-                            'TARGET (₹)'     : fmt_inr(calling_df['raw_target'].sum()),
-                            'ENROLLMENTS'    : int(calling_df['raw_enrollments'].sum()),
-                            'ENROLLMENT REV' : fmt_inr(calling_df['ENROLLMENT REV'].sum()),
-                            'BALANCE REV'    : fmt_inr(calling_df['BALANCE REV'].sum()),
-                            'CALLING REVENUE': fmt_inr(calling_df['CALLING REVENUE'].sum()),
-                            'ACHIEVEMENT %'  : f"{round(calling_df['CALLING REVENUE'].sum() / calling_df['raw_target'].sum() * 100, 1) if calling_df['raw_target'].sum() > 0 else 0}%",
+                            'TOTAL TARGET (₹)'    : fmt_inr(calling_df['raw_target'].sum()),
+                            'TILL DAY TARGET (₹)' : fmt_inr(calling_df['TILL DAY TARGET (₹)'].sum()),
+                            'ENROLLMENTS'         : int(calling_df['raw_enrollments'].sum()),
+                            'ENROLLMENT REV'      : fmt_inr(calling_df['ENROLLMENT REV'].sum()),
+                            'BALANCE REV'         : fmt_inr(calling_df['BALANCE REV'].sum()),
+                            'CALLING REVENUE'     : fmt_inr(calling_df['CALLING REVENUE'].sum()),
+                            'ACHIEVEMENT %'       : f"{round(calling_df['CALLING REVENUE'].sum() / calling_df['raw_target'].sum() * 100, 1) if calling_df['raw_target'].sum() > 0 else 0}%",
                         }
                     else:
                         calling_totals = {}
@@ -976,7 +995,7 @@ with tab1:
 
                     collection_display_cols = [
                         'DESIGNATION', 'CALLER NAME', 'TEAM', 'VERTICAL',
-                        'ENROLLMENTS',
+                        'TOTAL TARGET (₹)', 'TILL DAY TARGET (₹)', 'ENROLLMENTS',
                         'ENROLLMENT REV', 'BALANCE REV',
                         'COMMUNITY COLLECTION', 'BOOTCAMP COLLECTION',
                         'COLLECTION REVENUE'
@@ -984,6 +1003,8 @@ with tab1:
 
                     if not collection_df.empty:
                         collection_totals = {
+                            'TOTAL TARGET (₹)'    : fmt_inr(collection_df['raw_target'].sum()),
+                            'TILL DAY TARGET (₹)' : fmt_inr(collection_df['TILL DAY TARGET (₹)'].sum()),
                             'ENROLLMENTS'         : int(collection_df['raw_enrollments'].sum()),
                             'ENROLLMENT REV'      : fmt_inr(collection_df['ENROLLMENT REV'].sum()),
                             'BALANCE REV'         : fmt_inr(collection_df['BALANCE REV'].sum()),
@@ -1015,24 +1036,16 @@ with tab1:
 
                     both_display_cols = [
                         'DESIGNATION', 'CALLER NAME', 'TEAM', 'VERTICAL',
-                        'TARGET (₹)', 'ENROLLMENTS',
+                        'TOTAL TARGET (₹)', 'TILL DAY TARGET (₹)', 'ENROLLMENTS',
                         'CALLING REVENUE', 'COMMUNITY COLLECTION', 'BOOTCAMP COLLECTION',
                         'TOTAL REVENUE', 'ACHIEVEMENT %'
                     ]
 
                     if not both_df.empty:
                         both_totals = {
-                            'TARGET (₹)'          : fmt_inr(both_df['raw_target'].sum()),
+                            'TOTAL TARGET (₹)'    : fmt_inr(both_df['raw_target'].sum()),
+                            'TILL DAY TARGET (₹)' : fmt_inr(both_df['TILL DAY TARGET (₹)'].sum()),
                             'ENROLLMENTS'         : int(both_df['raw_enrollments'].sum()),
-                            'ENROLLMENT REV'      : fmt_inr(both_df['ENROLLMENT REV'].sum()),
-                            'BALANCE REV'         : fmt_inr(both_df['BALANCE REV'].sum()),
-                            'COMMUNITY COLLECTION': fmt_inr(both_df['COMMUNITY COLLECTION'].sum()),
-                            'BOOTCAMP COLLECTION' : fmt_inr(both_df['BOOTCAMP COLLECTION'].sum()),
-                            'CALLING REVENUE'     : fmt_inr(both_df['CALLING REVENUE'].sum()),
-                            'COLLECTION REVENUE'  : fmt_inr(both_df['COLLECTION REVENUE'].sum()),
-                            'TOTAL REVENUE'       : fmt_inr(both_df['raw_revenue'].sum()),
-                            'ACHIEVEMENT %'       : f"{round(both_df['raw_revenue'].sum() / both_df['raw_target'].sum() * 100, 1) if both_df['raw_target'].sum() > 0 else 0}%",
-                        }
                     else:
                         both_totals = {}
 
