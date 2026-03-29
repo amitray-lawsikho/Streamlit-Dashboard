@@ -1289,27 +1289,6 @@ with tab2:
                     st.divider()
 
                     # ══════════════════════════════════════════════
-                    # CALLER LEADERBOARD (Top 15)
-                    # ══════════════════════════════════════════════
-                    section_header("👤 CALLER LEADERBOARD — Top 15")
-                    cl = all_agents_ins.sort_values('raw_revenue', ascending=False).head(15).copy()
-                    cl['TOTAL TARGET (₹)']     = cl['raw_target'].apply(fmt_inr)
-                    cl['TILL DAY TARGET (₹)']  = cl['TILL DAY TARGET (₹)'].apply(fmt_inr)
-                    cl['REVENUE ACHIEVED (₹)'] = cl['raw_revenue'].apply(fmt_inr)
-                    cl['ACHIEVEMENT %']        = cl['ACHIEVEMENT %'].apply(lambda x: f"{x}%")
-                    cl_medals = (["🥇", "🥈", "🥉"] + [""] * len(cl))[:len(cl)]
-                    cl.insert(0, '🏅', cl_medals)
-                    cl_cols = ['🏅', 'CALLER NAME', 'TEAM', 'ENROLLMENTS',
-                               'TOTAL TARGET (₹)', 'TILL DAY TARGET (₹)',
-                               'REVENUE ACHIEVED (₹)', 'ACHIEVEMENT %']
-                    st.dataframe(
-                        cl[[c for c in cl_cols if c in cl.columns]].reset_index(drop=True),
-                        use_container_width=True, hide_index=True
-                    )
-
-                    st.divider()
-
-                    # ══════════════════════════════════════════════
                     # TABLE A — CALLER TEAM LEADERBOARD
                     # ══════════════════════════════════════════════
                     section_header("📞 CALLER REVENUE TEAM PERFORMANCE TABLE")
