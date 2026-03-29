@@ -7,4 +7,3 @@ pytz
 db-dtypes
 numpy
 zipfile
-matplotlib
