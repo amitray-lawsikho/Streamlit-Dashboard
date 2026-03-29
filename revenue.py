@@ -887,11 +887,18 @@ with tab1:
                         calling_df, calling_display_cols,
                         calling_totals, 'raw_calling_rev', 'calling'
                     )
+                    if not calling_df.empty:
+                        st.download_button(
+                            label="📥 Download Caller Revenue CSV",
+                            data=calling_df[calling_display_cols].to_csv(index=False).encode('utf-8'),
+                            file_name=f"Caller_Revenue_{display_start}_to_{display_end}.csv",
+                            mime='text/csv', key='dl_calling'
+                        )
 
                     st.divider()
 
                     # ══════════════════════════════════════════════
-                    # TABLE 2 — COLLECTION CALLER REVENUE PERFORMANCE
+                    # TABLE 2
                     # ══════════════════════════════════════════════
                     section_header("🏦 COLLECTION CALLER REVENUE PERFORMANCE TABLE")
 
@@ -919,11 +926,18 @@ with tab1:
                         collection_df, collection_display_cols,
                         collection_totals, 'raw_collection_rev', 'collection'
                     )
+                    if not collection_df.empty:
+                        st.download_button(
+                            label="📥 Download Collection Revenue CSV",
+                            data=collection_df[collection_display_cols].to_csv(index=False).encode('utf-8'),
+                            file_name=f"Collection_Revenue_{display_start}_to_{display_end}.csv",
+                            mime='text/csv', key='dl_collection'
+                        )
 
                     st.divider()
 
                     # ══════════════════════════════════════════════════════════
-                    # TABLE 3 — CALLING + COLLECTION CALLER REVENUE PERFORMANCE
+                    # TABLE 3
                     # ══════════════════════════════════════════════════════════
                     section_header("📞🏦 CALLING + COLLECTION CALLER REVENUE PERFORMANCE TABLE")
 
@@ -956,6 +970,13 @@ with tab1:
                         both_df, both_display_cols,
                         both_totals, 'raw_revenue', 'both'
                     )
+                    if not both_df.empty:
+                        st.download_button(
+                            label="📥 Download Calling+Collection Revenue CSV",
+                            data=both_df[both_display_cols].to_csv(index=False).encode('utf-8'),
+                            file_name=f"Both_Revenue_{display_start}_to_{display_end}.csv",
+                            mime='text/csv', key='dl_both'
+                        )
 
     else:
         st.markdown("""
