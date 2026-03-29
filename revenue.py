@@ -932,7 +932,7 @@ with tab1:
                             </div>""", unsafe_allow_html=True)
 
                     # ── SUMMARY KPI CARDS ──
-                    section_header("REVENUE SUMMARY METRICS")
+                    section_header("💵 REVENUE SUMMARY METRICS")
 
                     kpis = [
                         ("Total Revenue (EXCL. Services)",                   fmt_inr(metrics['total_rev']),      "💰"),
