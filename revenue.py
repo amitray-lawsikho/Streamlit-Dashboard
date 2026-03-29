@@ -809,10 +809,8 @@ with tab1:
 
                     # Most Enrollments — from all agent types combined
                     with top_cols[1]:
-                        all_agents = pd.concat(
-                            [d for d in [calling_df, collection_df, both_df] if not d.empty],
-                            ignore_index=True
-                        )
+                        _agent_list = [d for d in [calling_df, collection_df, both_df] if not d.empty]
+                        all_agents = pd.concat(_agent_list, ignore_index=True) if _agent_list else pd.DataFrame()
                         if not all_agents.empty and all_agents['raw_enrollments'].max() > 0:
                             top_enr = all_agents.sort_values('raw_enrollments', ascending=False).iloc[0]
                             st.markdown(f"""
@@ -829,10 +827,8 @@ with tab1:
 
                     # Top Revenue Collection Caller — from collection_df
                     with top_cols[2]:
-                        coll_combined = pd.concat(
-                            [d for d in [collection_df] if not d.empty],
-                            ignore_index=True
-                        )
+                        _coll_list = [d for d in [collection_df] if not d.empty]
+                        coll_combined = pd.concat(_coll_list, ignore_index=True) if _coll_list else pd.DataFrame()
                         if not coll_combined.empty:
                             top_coll = coll_combined.sort_values('raw_collection_rev', ascending=False).iloc[0]
                             st.markdown(f"""
@@ -1025,10 +1021,8 @@ with tab2:
                     df_ins, df_team_mapping, start_date, end_date
                 )
 
-                all_agents_ins = pd.concat(
-                    [d for d in [calling_ins, collection_ins, both_ins] if not d.empty],
-                    ignore_index=True
-                )
+                _ins_list = [d for d in [calling_ins, collection_ins, both_ins] if not d.empty]
+                all_agents_ins = pd.concat(_ins_list, ignore_index=True) if _ins_list else pd.DataFrame()
 
                 if all_agents_ins.empty:
                     st.error("Not enough data for insights.")
