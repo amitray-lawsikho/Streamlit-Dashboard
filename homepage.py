@@ -754,4 +754,4 @@ html = html.replace("CALL_CNT_PH",      call_cnt)
 html = html.replace("REV_TIME_PH",      rev_time)
 html = html.replace("REV_CNT_PH",       rev_cnt)
 
-components.html(html, height=1080, scrolling=True)
+components.html(html, height=900, scrolling=True)
