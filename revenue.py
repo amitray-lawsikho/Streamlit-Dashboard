@@ -953,7 +953,7 @@ with tab1:
                         ("Caller Enrollments",            enr_metrics['caller_enr'],    "📞"),
                         ("Direct Enrollments",            enr_metrics['direct_enr'],    "🎯"),
                         ("Bootcamp-Direct Enrollments",   enr_metrics['bootcamp_enr'],  "🎓"),
-                        ("Community Direct Enrollments",  enr_metrics['community_enr'], "🌐"),
+                        ("Community-Direct Enrollments",  enr_metrics['community_enr'], "🌐"),
                     ]
 
                     enr_cols = st.columns(len(enr_kpis))
