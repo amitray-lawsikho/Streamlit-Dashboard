@@ -19,11 +19,11 @@ header[data-testid="stHeader"] { display: none !important; }
 [data-testid="collapsedControl"] { display: none !important; }
 [data-testid="stSidebarCollapsedControl"] { display: none !important; }
 [data-testid="stAppViewContainer"],
-[data-testid="stMain"], .main { background: #0B1120 !important; }
+[data-testid="stMain"], .main { background: #0B1120 !important; overflow: hidden !important; }
 section[data-testid="stMain"] > div:first-child { padding-top: 0 !important; }
-[data-testid="stMainViewContainer"] { padding-top: 0 !important; }
-.block-container { padding: 0 !important; max-width: 100% !important; }
-iframe { display: block; }
+[data-testid="stMainViewContainer"] { padding-top: 0 !important; overflow: hidden !important; }
+.block-container { padding: 0 !important; max-width: 100% !important; overflow: hidden !important; }
+iframe { display: block; width: 100%; border: none; }
 </style>
 """, unsafe_allow_html=True)
 
