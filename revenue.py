@@ -497,7 +497,10 @@ def classify_and_process(df, df_meta, start_date, end_date):
 def compute_summary_metrics(df):
     excl_mask = df['Caller_name'].str.strip().str.lower().isin(EXCLUDE_CALLERS)
 
-    calling_rev    = df[~excl_mask & (df['is_new_enrollment'] | df['is_balance_payment'])]['Fee_paid'].sum()
+    calling_rev    = (
+        df[df['is_new_enrollment']]['Fee_paid'].sum() +
+        df[df['is_balance_payment']]['Fee_paid'].sum()
+    )
     collection_rev = df[df['is_bootcamp_collection']]['Fee_paid'].sum()
     community_rev  = (df[df['is_community_collection']]['Fee_paid'].sum() +
                       df[df['is_other_revenue'] & df['source_has_community']]['Fee_paid'].sum())
