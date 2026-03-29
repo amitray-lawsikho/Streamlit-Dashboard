@@ -501,7 +501,10 @@ def compute_summary_metrics(df):
     collection_rev = df[df['is_bootcamp_collection']]['Fee_paid'].sum()
     community_rev  = (df[df['is_community_collection']]['Fee_paid'].sum() +
                       df[df['is_other_revenue'] & df['source_has_community']]['Fee_paid'].sum())
-    direct_rev     = df[df['is_other_revenue'] & ~df['source_has_community']]['Fee_paid'].sum()
+    direct_rev     = df[
+        (df['Caller_name'].str.strip().str.lower() == 'direct') &
+        (~df['source_has_community'])
+    ]['Fee_paid'].sum()
     dna_rev        = df[df['is_empty_enrollment']]['Fee_paid'].sum()
     bootcamp_direct_rev = df[
         (df['is_new_enrollment']) &
