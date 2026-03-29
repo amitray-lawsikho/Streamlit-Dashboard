@@ -853,7 +853,7 @@ with tab1:
                         ("Bootcamp-Collection Revenue",              fmt_inr(metrics['collection_rev']), "🏦"),
                         ("Community Revenue (Direct + Collection)",               fmt_inr(metrics['community_rev']),  "🌐"),
                         ("Direct/Other Revenue (INCL. Funnel)",                  fmt_inr(metrics['direct_rev']),     "🎯"),
-                        ("Details Not Available/ Updated Yet",           fmt_inr(metrics['dna_rev']),        "❓"),
+                        ("Details Not Available/ Not Updated Yet",           fmt_inr(metrics['dna_rev']),        "❓"),
                     ]
 
                     cols = st.columns(len(kpis))
