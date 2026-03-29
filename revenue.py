@@ -525,6 +525,44 @@ def compute_summary_metrics(df):
         'dna_rev'            : dna_rev,
     }
 
+# ─────────────────────────────────────────────
+# ENROLLMENT SUMMARY COMPUTATION
+# ─────────────────────────────────────────────
+
+def compute_enrollment_metrics(df):
+    caller_lower = df['Caller_name'].str.strip().str.lower()
+
+    direct_enr    = int(df[
+        df['is_new_enrollment'] &
+        (caller_lower == 'direct') &
+        (~df['source_has_community'])
+    ].shape[0])
+
+    bootcamp_enr  = int(df[
+        df['is_new_enrollment'] &
+        (caller_lower == 'bootcamp - direct')
+    ].shape[0])
+
+    caller_enr    = int(df[
+        df['is_new_enrollment'] &
+        (~caller_lower.isin(['direct', 'bootcamp - direct']))
+    ].shape[0])
+
+    community_enr = int(df[
+        df['is_new_enrollment'] &
+        (caller_lower == 'direct') &
+        df['source_has_community']
+    ].shape[0])
+
+    total_enr = direct_enr + bootcamp_enr + caller_enr + community_enr
+
+    return {
+        'total_enr'    : total_enr,
+        'direct_enr'   : direct_enr,
+        'bootcamp_enr' : bootcamp_enr,
+        'caller_enr'   : caller_enr,
+        'community_enr': community_enr,
+    }
 
 # ─────────────────────────────────────────────
 # TABLE RENDERING HELPER
@@ -858,6 +896,32 @@ with tab1:
 
                     cols = st.columns(len(kpis))
                     for col, (label, val, icon) in zip(cols, kpis):
+                        with col:
+                            st.markdown(f"""
+                            <div class="metric-card">
+                                <div class="metric-label">{icon} {label}</div>
+                                <div class="metric-value">{val}</div>
+                            </div>""", unsafe_allow_html=True)
+
+                    st.divider()
+
+                    # ══════════════════════════════════════
+                    # ENROLLMENT SUMMARY METRICS
+                    # ══════════════════════════════════════
+                    section_header("🎓 ENROLLMENT SUMMARY METRICS")
+
+                    enr_metrics = compute_enrollment_metrics(df)
+
+                    enr_kpis = [
+                        ("Total Enrollments",             enr_metrics['total_enr'],     "🎯"),
+                        ("Caller Enrollments",            enr_metrics['caller_enr'],    "📞"),
+                        ("Direct Enrollments",            enr_metrics['direct_enr'],    "🎯"),
+                        ("Bootcamp-Direct Enrollments",   enr_metrics['bootcamp_enr'],  "🎓"),
+                        ("Community Direct Enrollments",  enr_metrics['community_enr'], "🌐"),
+                    ]
+
+                    enr_cols = st.columns(len(enr_kpis))
+                    for col, (label, val, icon) in zip(enr_cols, enr_kpis):
                         with col:
                             st.markdown(f"""
                             <div class="metric-card">
