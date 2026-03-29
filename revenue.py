@@ -546,8 +546,7 @@ def compute_summary_metrics(df):
             df['is_new_enrollment'] &
             df['source_has_community'] &
             (df['Caller_name'].str.strip().str.lower() == 'direct')
-        ]['Fee_paid'].sum()
-    )
+        ]['Fee_paid'].sum())
     direct_rev     = df[
         (df['Caller_name'].str.strip().str.lower() == 'direct') &
         (~df['source_has_community'])
