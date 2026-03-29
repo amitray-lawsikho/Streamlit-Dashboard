@@ -743,48 +743,52 @@ def compute_revenue_insights(df, calling_df, collection_df, both_df, start_date,
                              f"Team: {worst['TEAM']}. Needs immediate attention.")
                 })
 
-    # ── 6. Callers with target but zero revenue ──
-    if not all_agents.empty:
-        _with_target  = all_agents[all_agents['raw_target'] > 0]
-        _zero_rev     = _with_target[_with_target['raw_revenue'] == 0]
-        _zero_count   = len(_zero_rev)
+     # ── 6. Callers with target but zero revenue (calling agents only) ──
+    _calling_only_list = [d for d in [calling_df, both_df] if not d.empty]
+    _calling_only = pd.concat(_calling_only_list, ignore_index=True) if _calling_only_list else pd.DataFrame()
+
+    if not _calling_only.empty:
+        _with_target   = _calling_only[_calling_only['raw_target'] > 0]
+        _zero_rev      = _with_target[_with_target['raw_calling_rev'] == 0]
+        _zero_count    = len(_zero_rev)
         _total_callers = len(_with_target)
+
         if _zero_count > 0:
             _zero_names = ', '.join(_zero_rev['CALLER NAME'].head(3).tolist())
             _more       = f" and {_zero_count - 3} more" if _zero_count > 3 else ""
             insights.append({
                 "type": "bad", "icon": "🚨",
                 "title": f"{_zero_count} of {_total_callers} Callers Have Zero Revenue in {month_label}",
-                "body": (f"{_zero_names}{_more} have an assigned target but no revenue recorded "
-                         f"in the selected period. Immediate follow-up recommended to understand "
-                         f"pipeline status and unblock closures.")
+                "body": (f"{_zero_names}{_more} have an assigned target but no enrollment "
+                         f"or balance revenue recorded in the selected period. "
+                         f"Immediate follow-up recommended to unblock closures.")
             })
         else:
-            _below_50 = _with_target[_with_target['ACHIEVEMENT %'] < 50]
+            _below_50  = _with_target[_with_target['raw_calling_rev'] / _with_target['raw_target'] * 100 < 50]
             _b50_count = len(_below_50)
             if _b50_count > 0:
                 _top_team = (
-                    all_agents.groupby('TEAM')['raw_revenue']
+                    _calling_only.groupby('TEAM')['raw_calling_rev']
                     .sum().sort_values(ascending=False).index[0]
                 )
                 insights.append({
                     "type": "warn", "icon": "📊",
                     "title": f"{_b50_count} Caller(s) Below 50% Achievement in {month_label}",
                     "body": (f"All callers have some revenue but {_b50_count} are below 50% of their "
-                             f"target. Best performing team so far is {_top_team}. "
+                             f"calling target. Best performing team is {_top_team}. "
                              f"Focus support on underperforming callers to improve month-end numbers.")
                 })
             else:
                 _top_team = (
-                    all_agents.groupby('TEAM')['raw_revenue']
+                    _calling_only.groupby('TEAM')['raw_calling_rev']
                     .sum().sort_values(ascending=False).index[0]
                 )
-                _top_team_rev = all_agents.groupby('TEAM')['raw_revenue'].sum().max()
+                _top_team_rev = _calling_only.groupby('TEAM')['raw_calling_rev'].sum().max()
                 insights.append({
                     "type": "good", "icon": "🌟",
                     "title": f"Strong Month — All Callers On Track in {month_label}",
-                    "body": (f"Every caller with a target has recorded revenue in the selected period. "
-                             f"Leading team is {_top_team} with {fmt_inr(_top_team_rev)} in total revenue. "
+                    "body": (f"Every caller with a target has recorded enrollment revenue in the selected period. "
+                             f"Leading team is {_top_team} with {fmt_inr(_top_team_rev)} in calling revenue. "
                              f"Keep monitoring till-day targets to sustain momentum through month-end.")
                 })
 
