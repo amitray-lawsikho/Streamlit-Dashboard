@@ -214,6 +214,22 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
 
 .achieve-bar-wrap { background: var(--bg-muted, #DCFCE7); border-radius: 999px; height: 6px; margin-top: .4rem; overflow: hidden; }
 .achieve-bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #10B981, #34D399); transition: width .6s ease; }
+/* ── Download Buttons — match Generate Revenue Report style ── */
+.stDownloadButton > button {
+    width: 100% !important;
+    background: linear-gradient(135deg, #059669, #065f46) !important;
+    color: #fff !important;
+    border: none !important;
+    border-radius: var(--radius-sm) !important;
+    font-family: 'DM Sans', sans-serif !important;
+    font-weight: 600 !important;
+    font-size: .82rem !important;
+    transition: var(--transition) !important;
+}
+.stDownloadButton > button:hover {
+    opacity: .88 !important;
+    transform: translateY(-1px) !important;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -853,7 +869,6 @@ search_query      = st.sidebar.text_input("👤 Search Caller Name")
 st.sidebar.markdown("<div style='margin:.5rem 0'></div>", unsafe_allow_html=True)
 gen_report   = st.sidebar.button("💰 Generate Revenue Report")
 st.sidebar.markdown("<div style='margin:.3rem 0'></div>", unsafe_allow_html=True)
-gen_insights = st.sidebar.button("🧠 Generate Insights")
 
 st.sidebar.divider()
 st.sidebar.markdown("""
@@ -1219,7 +1234,7 @@ with tab1:
 # ══════════════════════════════════════════════
 
 with tab2:
-    if gen_insights:
+    if gen_report:
         with st.spinner("Analysing revenue patterns…"):
             df_raw = fetch_revenue_data(start_date, end_date)
             if df_raw.empty:
@@ -1420,5 +1435,5 @@ with tab2:
         st.markdown("""
         <div style='text-align:center;padding:6rem 1rem;opacity:.6;'>
             <div style='font-size:4rem;margin-bottom:1rem;'>🧠</div>
-            <div style='font-size:.95rem;font-weight:600;'>Click <b>Generate Insights</b> in the sidebar</div>
+            <div style='font-size:.95rem;font-weight:600;'>Click <b>Generate Revenue Report</b> to load insights</div>
         </div>""", unsafe_allow_html=True)
