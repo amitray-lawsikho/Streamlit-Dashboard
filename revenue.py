@@ -553,7 +553,7 @@ def compute_summary_metrics(df):
     direct_rev = df[
         (df['Caller_name'].str.strip().str.lower() == 'direct') &
         (~df['source_has_community']) &
-        df['is_other_revenue']
+        (df['is_other_revenue'] | df['is_new_enrollment'] | df['is_balance_payment'])
     ]['Fee_paid'].sum()
 
     dna_rev = df[df['is_empty_enrollment']]['Fee_paid'].sum()
