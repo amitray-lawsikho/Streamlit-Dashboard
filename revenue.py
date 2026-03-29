@@ -1031,18 +1031,25 @@ with tab1:
                     ]
 
                     if not both_df.empty:
+                        _both_target     = both_df['raw_target'].sum()
+                        _both_till       = both_df['TILL DAY TARGET (₹)'].sum()
+                        _both_enr        = int(both_df['raw_enrollments'].sum())
+                        _both_comm       = both_df['COMMUNITY COLLECTION'].sum()
+                        _both_boot       = both_df['BOOTCAMP COLLECTION'].sum()
+                        _both_calling    = both_df['CALLING REVENUE'].sum()
+                        _both_collection = both_df['COLLECTION REVENUE'].sum()
+                        _both_total      = both_df['raw_revenue'].sum()
+                        _both_ach        = round(_both_total / _both_target * 100, 1) if _both_target > 0 else 0
                         both_totals = {
-                            'TOTAL TARGET (₹)'    : fmt_inr(both_df['raw_target'].sum()),
-                            'TILL DAY TARGET (₹)' : fmt_inr(both_df['TILL DAY TARGET (₹)'].sum()),
-                            'ENROLLMENTS'         : int(both_df['raw_enrollments'].sum()),
-                            'ENROLLMENT REV'      : fmt_inr(both_df['ENROLLMENT REV'].sum()),
-                            'BALANCE REV'         : fmt_inr(both_df['BALANCE REV'].sum()),
-                            'COMMUNITY COLLECTION': fmt_inr(both_df['COMMUNITY COLLECTION'].sum()),
-                            'BOOTCAMP COLLECTION' : fmt_inr(both_df['BOOTCAMP COLLECTION'].sum()),
-                            'CALLING REVENUE'     : fmt_inr(both_df['CALLING REVENUE'].sum()),
-                            'COLLECTION REVENUE'  : fmt_inr(both_df['COLLECTION REVENUE'].sum()),
-                            'TOTAL REVENUE'       : fmt_inr(both_df['raw_revenue'].sum()),
-                            'ACHIEVEMENT %'       : f"{round(both_df['raw_revenue'].sum() / both_df['raw_target'].sum() * 100, 1) if both_df['raw_target'].sum() > 0 else 0}%",
+                            'TOTAL TARGET (₹)'    : fmt_inr(_both_target),
+                            'TILL DAY TARGET (₹)' : fmt_inr(_both_till),
+                            'ENROLLMENTS'         : _both_enr,
+                            'COMMUNITY COLLECTION': fmt_inr(_both_comm),
+                            'BOOTCAMP COLLECTION' : fmt_inr(_both_boot),
+                            'CALLING REVENUE'     : fmt_inr(_both_calling),
+                            'COLLECTION REVENUE'  : fmt_inr(_both_collection),
+                            'TOTAL REVENUE'       : fmt_inr(_both_total),
+                            'ACHIEVEMENT %'       : f"{_both_ach}%",
                         }
                     else:
                         both_totals = {}
