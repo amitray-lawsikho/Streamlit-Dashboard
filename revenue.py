@@ -367,7 +367,20 @@ def resolve_targets(df_meta, start_date, end_date):
         st.warning(f"⚠️ Target column not found. Sheet columns: `{list(df_meta.columns)}`")
         return {}
 
-    relevant = df_meta[df_meta[month_col].isin(months_needed)].copy()
+    months_ym = {(m.year, m.month) for m in months_needed}
+
+    def _ym(val):
+        try:
+            if pd.isna(val):
+                return None
+            d = pd.to_datetime(val, dayfirst=True, errors='coerce')
+            if pd.isna(d):
+                return None
+            return (d.year, d.month)
+        except:
+            return None
+
+    relevant = df_meta[df_meta[month_col].apply(_ym).isin(months_ym)].copy()
     if relevant.empty:
         return {}
 
@@ -389,7 +402,20 @@ def resolve_designations(df_meta, start_date, end_date):
     vert_col    = safe_col('Vertical')
     analyst_col = safe_col('Analyst')
 
-    relevant = df_meta[df_meta[month_col].isin(months_needed)].copy()
+    months_ym = {(m.year, m.month) for m in months_needed}
+
+    def _ym(val):
+        try:
+            if pd.isna(val):
+                return None
+            d = pd.to_datetime(val, dayfirst=True, errors='coerce')
+            if pd.isna(d):
+                return None
+            return (d.year, d.month)
+        except:
+            return None
+
+    relevant = df_meta[df_meta[month_col].apply(_ym).isin(months_ym)].copy()
     if relevant.empty:
         return {}
 
