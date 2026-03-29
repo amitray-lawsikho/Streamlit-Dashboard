@@ -665,75 +665,102 @@ def render_perf_table(df, display_cols, total_overrides, sort_col, table_key):
 # INSIGHTS
 # ─────────────────────────────────────────────
 
-def compute_revenue_insights(df, calling_df, collection_df, both_df):
+def compute_revenue_insights(df, calling_df, collection_df, both_df, start_date, end_date):
     insights = []
     if df.empty:
         return insights
 
-    # Combine all agent DFs for cross-cutting insights
-    all_agents = pd.concat(
-        [d for d in [calling_df, collection_df, both_df] if not d.empty],
-        ignore_index=True
-    )
+    month_label = start_date.strftime("%B %Y")
 
-    # 1. Top Revenue Achiever (overall)
-    if not all_agents.empty:
-        top = all_agents.sort_values('raw_revenue', ascending=False).iloc[0]
+    _all_list = [d for d in [calling_df, collection_df, both_df] if not d.empty]
+    all_agents = pd.concat(_all_list, ignore_index=True) if _all_list else pd.DataFrame()
+
+    # ── 1. Top Calling Revenue Achiever ──
+    _calling_pool_list = [d for d in [calling_df, both_df] if not d.empty]
+    _calling_pool = pd.concat(_calling_pool_list, ignore_index=True) if _calling_pool_list else pd.DataFrame()
+    if not _calling_pool.empty:
+        top_c = _calling_pool.sort_values('raw_calling_rev', ascending=False).iloc[0]
         insights.append({
             "type": "good", "icon": "🏆",
-            "title": f"Top Revenue Achiever: {top['CALLER NAME']}",
-            "body": f"Brought in {fmt_inr(top['raw_revenue'])} with {top['ENROLLMENTS']} new enrollment(s) — highest contribution in the selected period."
+            "title": f"Top Calling Revenue — {top_c['CALLER NAME']}",
+            "body": (f"Achieved {fmt_inr(top_c['raw_calling_rev'])} in calling revenue with "
+                     f"{top_c['ENROLLMENTS']} new enrollment(s) in {month_label}. "
+                     f"Target achievement: {top_c['ACHIEVEMENT %']}%.")
         })
 
-    # 2. Best team by target achievement
-    if not all_agents.empty:
-        team_ach = (
-            all_agents[all_agents['raw_target'] > 0]
-            .groupby('TEAM')
-            .apply(lambda g: round(g['raw_revenue'].sum() / g['raw_target'].sum() * 100, 1))
-        )
-        if not team_ach.empty:
-            best_team = team_ach.idxmax()
-            insights.append({
-                "type": "good" if team_ach[best_team] >= 80 else "warn", "icon": "🎯",
-                "title": f"Best Target Achievement: {best_team}",
-                "body": f"{best_team} achieved {team_ach[best_team]}% of their combined target — highest among all teams."
-            })
-            if len(team_ach) > 1:
-                worst_team = team_ach.idxmin()
-                if team_ach[worst_team] < 60:
-                    insights.append({
-                        "type": "bad", "icon": "⚠️",
-                        "title": f"Focus Required: {worst_team}",
-                        "body": f"Only {team_ach[worst_team]}% of target achieved by {worst_team}. Review pipeline activity and caller support."
-                    })
-
-    # 3. Avg discount
-    avg_fee   = df['Fee_paid'].mean()
-    avg_price = df['Course_Price'].mean()
-    if avg_price > 0:
-        discount_pct = round((1 - avg_fee / avg_price) * 100, 1)
-        mood = "warn" if discount_pct > 20 else "good"
+    # ── 2. Top Collection Revenue Achiever ──
+    _coll_pool_list = [d for d in [collection_df, both_df] if not d.empty]
+    _coll_pool = pd.concat(_coll_pool_list, ignore_index=True) if _coll_pool_list else pd.DataFrame()
+    if not _coll_pool.empty:
+        top_col = _coll_pool.sort_values('raw_collection_rev', ascending=False).iloc[0]
         insights.append({
-            "type": mood, "icon": "💸",
-            "title": f"Avg Discount Offered: {discount_pct}%",
-            "body": (f"Average fee collected is {fmt_inr(avg_fee)} vs avg course price of {fmt_inr(avg_price)}. "
-                     f"{'High discount — may indicate negotiation pressure.' if discount_pct > 20 else 'Healthy fee realisation.'}")
+            "type": "good", "icon": "🏦",
+            "title": f"Top Collection Revenue — {top_col['CALLER NAME']}",
+            "body": (f"Collected {fmt_inr(top_col['raw_collection_rev'])} in {month_label} "
+                     f"across community and bootcamp collections. "
+                     f"Team: {top_col['TEAM']}.")
         })
 
-    # 4. Source mix
-    if 'Source' in df.columns:
-        src_rev = df.groupby('Source')['Fee_paid'].sum().sort_values(ascending=False)
-        if len(src_rev) >= 2:
+    # ── 3. Most Enrollments ──
+    if not all_agents.empty and all_agents['raw_enrollments'].max() > 0:
+        top_enr = all_agents.sort_values('raw_enrollments', ascending=False).iloc[0]
+        insights.append({
+            "type": "good", "icon": "🎓",
+            "title": f"Most Enrollments — {top_enr['CALLER NAME']}",
+            "body": (f"Closed {top_enr['raw_enrollments']} new enrollment(s) in {month_label}, "
+                     f"highest among all callers. "
+                     f"Calling revenue generated: {fmt_inr(top_enr['raw_calling_rev'])}.")
+        })
+
+    # ── 4. Best Target Achievement ──
+    if not all_agents.empty:
+        _with_target = all_agents[all_agents['raw_target'] > 0]
+        if not _with_target.empty:
+            top_ach = _with_target.sort_values('ACHIEVEMENT %', ascending=False).iloc[0]
             insights.append({
-                "type": "info", "icon": "🔗",
-                "title": f"Top Lead Source: {src_rev.index[0]}",
-                "body": (f"{src_rev.index[0]} contributed {fmt_inr(src_rev.iloc[0])} "
-                         f"({round(src_rev.iloc[0]/src_rev.sum()*100,1)}% of total). "
-                         f"Second: {src_rev.index[1]} at {fmt_inr(src_rev.iloc[1])}.")
+                "type": "good" if top_ach['ACHIEVEMENT %'] >= 80 else "warn", "icon": "🎯",
+                "title": f"Best Target Achievement — {top_ach['CALLER NAME']}",
+                "body": (f"Achieved {top_ach['ACHIEVEMENT %']}% of their "
+                         f"{fmt_inr(top_ach['raw_target'])} target in {month_label}. "
+                         f"Revenue: {fmt_inr(top_ach['raw_revenue'])}. Team: {top_ach['TEAM']}.")
             })
 
-    return insights
+    # ── 5. Focus Required — worst target achievement ──
+    if not all_agents.empty:
+        _with_target = all_agents[
+            (all_agents['raw_target'] > 0) &
+            (all_agents['raw_revenue'] > 0)
+        ]
+        if len(_with_target) > 1:
+            worst = _with_target.sort_values('ACHIEVEMENT %').iloc[0]
+            if worst['ACHIEVEMENT %'] < 60:
+                insights.append({
+                    "type": "bad", "icon": "⚠️",
+                    "title": f"Focus Required — {worst['CALLER NAME']}",
+                    "body": (f"Only {worst['ACHIEVEMENT %']}% of "
+                             f"{fmt_inr(worst['raw_target'])} target achieved in {month_label}. "
+                             f"Revenue so far: {fmt_inr(worst['raw_revenue'])}. "
+                             f"Team: {worst['TEAM']}. Needs immediate attention.")
+                })
+
+    # ── 6. Overall Till Day Target Achievement ──
+    if not all_agents.empty:
+        _total_till   = all_agents['TILL DAY TARGET (₹)'].sum()
+        _total_rev    = all_agents['raw_revenue'].sum()
+        _total_target = all_agents['raw_target'].sum()
+        if _total_till > 0:
+            till_ach = round(_total_rev / _total_till * 100, 1)
+            mood = "good" if till_ach >= 90 else "warn" if till_ach >= 60 else "bad"
+            insights.append({
+                "type": mood, "icon": "📈",
+                "title": f"Overall Till-Day Achievement — {till_ach}%",
+                "body": (f"As of the selected period in {month_label}, total revenue of "
+                         f"{fmt_inr(_total_rev)} was collected against a till-day target of "
+                         f"{fmt_inr(_total_till)} (monthly target: {fmt_inr(_total_target)}). "
+                         f"{'On track.' if till_ach >= 90 else 'Needs a push to meet month-end target.' if till_ach >= 60 else 'Significantly behind — escalation recommended.'}")
+            })
+
+    return insights[:6]
 
 
 # ─────────────────────────────────────────────
@@ -1188,11 +1215,14 @@ with tab2:
                 all_agents_ins = pd.concat(_ins_list, ignore_index=True) if _ins_list else pd.DataFrame()
 
                 if all_agents_ins.empty:
-                    st.error("Not enough data for insights.")
+                    st.warning("Not enough data for insights with current filters.")
                 else:
-                    # ── INSIGHTS ──
+                    # ── 6 INSIGHTS ──
                     section_header("🧠 REVENUE INSIGHTS")
-                    insights = compute_revenue_insights(df_ins, calling_ins, collection_ins, both_ins)
+                    insights = compute_revenue_insights(
+                        df_ins, calling_ins, collection_ins, both_ins,
+                        start_date, end_date
+                    )
 
                     if insights:
                         cols_ins = st.columns(2)
@@ -1207,49 +1237,152 @@ with tab2:
                                     <div class="insight-body">{ins['body']}</div>
                                 </div>""", unsafe_allow_html=True)
                     else:
-                        st.info("Not enough variation in the data to generate insights.")
+                        st.info("Not enough variation in data to generate insights.")
 
                     st.divider()
 
-                    # ── TEAM LEADERBOARD ──
-                    section_header("🏅 TEAM REVENUE LEADERBOARD")
-                    lb = (
-                        all_agents_ins.groupby('TEAM')
-                        .agg(
-                            Callers=('CALLER NAME', 'count'),
-                            Enrollments=('raw_enrollments', 'sum'),
-                            Revenue=('raw_revenue', 'sum'),
-                            Target=('raw_target', 'sum'),
-                        )
-                        .reset_index()
-                        .sort_values('Revenue', ascending=False)
-                    )
-                    lb['Achievement %'] = lb.apply(
-                        lambda r: f"{round(r['Revenue']/r['Target']*100,1)}%" if r['Target'] > 0 else "—", axis=1
-                    )
-                    lb['Revenue'] = lb['Revenue'].apply(fmt_inr)
-                    lb['Target']  = lb['Target'].apply(fmt_inr)
-                    medals = (["🥇", "🥈", "🥉"] + [""] * len(lb))[:len(lb)]
-                    lb.insert(0, "🏅", medals)
-                    lb.columns = ['🏅', 'Team', 'Callers', 'Enrollments', 'Revenue', 'Target', 'Achievement %']
-                    st.dataframe(lb.reset_index(drop=True), use_container_width=True, hide_index=True)
-
-                    st.divider()
-
-                    # ── CALLER LEADERBOARD ──
-                    section_header("👤 CALLER LEADERBOARD (Top 15)")
+                    # ══════════════════════════════════════════════
+                    # CALLER LEADERBOARD (Top 15)
+                    # ══════════════════════════════════════════════
+                    section_header("👤 CALLER LEADERBOARD — Top 15")
                     cl = all_agents_ins.sort_values('raw_revenue', ascending=False).head(15).copy()
-                    cl['TARGET (₹)']          = cl['raw_target'].apply(fmt_inr)
+                    cl['TOTAL TARGET (₹)']     = cl['raw_target'].apply(fmt_inr)
+                    cl['TILL DAY TARGET (₹)']  = cl['TILL DAY TARGET (₹)'].apply(fmt_inr)
                     cl['REVENUE ACHIEVED (₹)'] = cl['raw_revenue'].apply(fmt_inr)
                     cl['ACHIEVEMENT %']        = cl['ACHIEVEMENT %'].apply(lambda x: f"{x}%")
                     cl_medals = (["🥇", "🥈", "🥉"] + [""] * len(cl))[:len(cl)]
                     cl.insert(0, '🏅', cl_medals)
-                    caller_cols = ['🏅', 'CALLER NAME', 'TEAM', 'ENROLLMENTS',
-                                   'TARGET (₹)', 'REVENUE ACHIEVED (₹)', 'ACHIEVEMENT %']
+                    cl_cols = ['🏅', 'CALLER NAME', 'TEAM', 'ENROLLMENTS',
+                               'TOTAL TARGET (₹)', 'TILL DAY TARGET (₹)',
+                               'REVENUE ACHIEVED (₹)', 'ACHIEVEMENT %']
                     st.dataframe(
-                        cl[[c for c in caller_cols if c in cl.columns]].reset_index(drop=True),
+                        cl[[c for c in cl_cols if c in cl.columns]].reset_index(drop=True),
                         use_container_width=True, hide_index=True
                     )
+
+                    st.divider()
+
+                    # ══════════════════════════════════════════════
+                    # TABLE A — CALLER TEAM LEADERBOARD
+                    # ══════════════════════════════════════════════
+                    section_header("📞 CALLER REVENUE TEAM PERFORMANCE TABLE")
+
+                    if not calling_ins.empty:
+                        lb_calling = (
+                            calling_ins.groupby('TEAM')
+                            .agg(
+                                Callers   = ('CALLER NAME',       'count'),
+                                Enrollments=('raw_enrollments',   'sum'),
+                                Target    = ('raw_target',        'sum'),
+                                Till_Day  = ('TILL DAY TARGET (₹)','sum'),
+                                Enr_Rev   = ('ENROLLMENT REV',    'sum'),
+                                Bal_Rev   = ('BALANCE REV',       'sum'),
+                                Revenue   = ('raw_calling_rev',   'sum'),
+                            )
+                            .reset_index()
+                            .sort_values('Revenue', ascending=False)
+                        )
+                        lb_calling['Achievement %'] = lb_calling.apply(
+                            lambda r: f"{round(r['Revenue']/r['Target']*100,1)}%" if r['Target'] > 0 else "—", axis=1
+                        )
+                        lb_calling['Target']   = lb_calling['Target'].apply(fmt_inr)
+                        lb_calling['Till_Day'] = lb_calling['Till_Day'].apply(fmt_inr)
+                        lb_calling['Enr_Rev']  = lb_calling['Enr_Rev'].apply(fmt_inr)
+                        lb_calling['Bal_Rev']  = lb_calling['Bal_Rev'].apply(fmt_inr)
+                        lb_calling['Revenue']  = lb_calling['Revenue'].apply(fmt_inr)
+                        medals = (["🥇", "🥈", "🥉"] + [""] * len(lb_calling))[:len(lb_calling)]
+                        lb_calling.insert(0, "🏅", medals)
+                        lb_calling.columns = ['🏅', 'Team', 'Callers', 'Enrollments',
+                                              'Total Target', 'Till Day Target',
+                                              'Enrollment Rev', 'Balance Rev',
+                                              'Calling Revenue', 'Achievement %']
+                        st.dataframe(lb_calling.reset_index(drop=True), use_container_width=True, hide_index=True)
+                    else:
+                        st.info("No calling agent data available.")
+
+                    st.divider()
+
+                    # ══════════════════════════════════════════════
+                    # TABLE B — COLLECTION TEAM LEADERBOARD
+                    # ══════════════════════════════════════════════
+                    section_header("🏦 COLLECTION CALLER TEAM REVENUE PERFORMANCE TABLE")
+
+                    if not collection_ins.empty:
+                        lb_coll = (
+                            collection_ins.groupby('TEAM')
+                            .agg(
+                                Callers     = ('CALLER NAME',          'count'),
+                                Enrollments = ('raw_enrollments',      'sum'),
+                                Target      = ('raw_target',           'sum'),
+                                Till_Day    = ('TILL DAY TARGET (₹)',  'sum'),
+                                Calling_Rev = ('CALLING REVENUE',      'sum'),
+                                Comm_Coll   = ('COMMUNITY COLLECTION', 'sum'),
+                                Boot_Coll   = ('BOOTCAMP COLLECTION',  'sum'),
+                                Revenue     = ('raw_collection_rev',   'sum'),
+                            )
+                            .reset_index()
+                            .sort_values('Revenue', ascending=False)
+                        )
+                        lb_coll['Achievement %'] = lb_coll.apply(
+                            lambda r: f"{round(r['Revenue']/r['Target']*100,1)}%" if r['Target'] > 0 else "—", axis=1
+                        )
+                        lb_coll['Target']      = lb_coll['Target'].apply(fmt_inr)
+                        lb_coll['Till_Day']    = lb_coll['Till_Day'].apply(fmt_inr)
+                        lb_coll['Calling_Rev'] = lb_coll['Calling_Rev'].apply(fmt_inr)
+                        lb_coll['Comm_Coll']   = lb_coll['Comm_Coll'].apply(fmt_inr)
+                        lb_coll['Boot_Coll']   = lb_coll['Boot_Coll'].apply(fmt_inr)
+                        lb_coll['Revenue']     = lb_coll['Revenue'].apply(fmt_inr)
+                        medals = (["🥇", "🥈", "🥉"] + [""] * len(lb_coll))[:len(lb_coll)]
+                        lb_coll.insert(0, "🏅", medals)
+                        lb_coll.columns = ['🏅', 'Team', 'Callers', 'Enrollments',
+                                           'Total Target', 'Till Day Target',
+                                           'Calling Revenue', 'Community Collection',
+                                           'Bootcamp Collection', 'Collection Revenue', 'Achievement %']
+                        st.dataframe(lb_coll.reset_index(drop=True), use_container_width=True, hide_index=True)
+                    else:
+                        st.info("No collection agent data available.")
+
+                    st.divider()
+
+                    # ══════════════════════════════════════════════
+                    # TABLE C — BOTH TEAM LEADERBOARD
+                    # ══════════════════════════════════════════════
+                    section_header("📞🏦 CALLING + COLLECTION CALLER TEAM REVENUE PERFORMANCE TABLE")
+
+                    if not both_ins.empty:
+                        lb_both = (
+                            both_ins.groupby('TEAM')
+                            .agg(
+                                Callers     = ('CALLER NAME',          'count'),
+                                Enrollments = ('raw_enrollments',      'sum'),
+                                Target      = ('raw_target',           'sum'),
+                                Till_Day    = ('TILL DAY TARGET (₹)',  'sum'),
+                                Calling_Rev = ('CALLING REVENUE',      'sum'),
+                                Comm_Coll   = ('COMMUNITY COLLECTION', 'sum'),
+                                Boot_Coll   = ('BOOTCAMP COLLECTION',  'sum'),
+                                Total_Rev   = ('raw_revenue',          'sum'),
+                            )
+                            .reset_index()
+                            .sort_values('Total_Rev', ascending=False)
+                        )
+                        lb_both['Achievement %'] = lb_both.apply(
+                            lambda r: f"{round(r['Total_Rev']/r['Target']*100,1)}%" if r['Target'] > 0 else "—", axis=1
+                        )
+                        lb_both['Target']      = lb_both['Target'].apply(fmt_inr)
+                        lb_both['Till_Day']    = lb_both['Till_Day'].apply(fmt_inr)
+                        lb_both['Calling_Rev'] = lb_both['Calling_Rev'].apply(fmt_inr)
+                        lb_both['Comm_Coll']   = lb_both['Comm_Coll'].apply(fmt_inr)
+                        lb_both['Boot_Coll']   = lb_both['Boot_Coll'].apply(fmt_inr)
+                        lb_both['Total_Rev']   = lb_both['Total_Rev'].apply(fmt_inr)
+                        medals = (["🥇", "🥈", "🥉"] + [""] * len(lb_both))[:len(lb_both)]
+                        lb_both.insert(0, "🏅", medals)
+                        lb_both.columns = ['🏅', 'Team', 'Callers', 'Enrollments',
+                                           'Total Target', 'Till Day Target',
+                                           'Calling Revenue', 'Community Collection',
+                                           'Bootcamp Collection', 'Total Revenue', 'Achievement %']
+                        st.dataframe(lb_both.reset_index(drop=True), use_container_width=True, hide_index=True)
+                    else:
+                        st.info("No calling+collection agent data available.")
 
     else:
         st.markdown("""
