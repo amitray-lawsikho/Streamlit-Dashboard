@@ -841,7 +841,7 @@ with tab1:
 
                     kpis = [
                         ("Total Revenue",                   fmt_inr(metrics['total_rev']),      "💰"),
-                        ("Calling Revenue (Incl. Funnel)",  fmt_inr(metrics['calling_rev']),    "📞"),
+                        ("Calling Revenue",                  fmt_inr(metrics['calling_rev']),    "📞"),
                         ("Collection Revenue",              fmt_inr(metrics['collection_rev']), "🏦"),
                         ("Community Revenue",               fmt_inr(metrics['community_rev']),  "🌐"),
                         ("Direct Revenue",                  fmt_inr(metrics['direct_rev']),     "🎯"),
