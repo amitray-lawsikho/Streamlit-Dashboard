@@ -7,8 +7,6 @@ import os
 import pytz
 import numpy as np
 import io
-import zipfile
-from PIL import Image, ImageDraw, ImageFont
 
 # --- 1. Cloud Credentials Setup ---
 if "gcp_service_account" in st.secrets:
@@ -33,7 +31,6 @@ st.set_page_config(
     page_icon="🔔"
 )
 
-# --- PROFESSIONAL WARM THEME (Yellow · Orange · Red) ---
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
@@ -92,7 +89,6 @@ st.markdown("""
 }
 
 html, body, [class*="css"] { font-family: 'DM Sans', sans-serif !important; }
-
 footer { visibility: hidden; }
 [data-testid="stStatusWidget"], .stStatusWidget { display: none !important; }
 [data-testid="stMainViewContainer"] { padding-top: 1.5rem; }
@@ -126,7 +122,6 @@ footer { visibility: hidden; }
     50%       { opacity: .5; transform: scale(1.4); }
 }
 
-.metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: .75rem; margin: .5rem 0 1rem; }
 .metric-card {
     background: var(--metric-bg, #fff);
     border: 1px solid var(--border, rgba(249,115,22,.12));
@@ -197,13 +192,7 @@ div[data-testid="stDataFrame"] thead tr th {
     width: 100%; font-family: 'DM Sans', sans-serif !important;
     font-weight: 600 !important; font-size: .82rem !important;
     border-radius: var(--radius-sm); transition: var(--transition);
-}
-[data-testid="stSidebar"] .stButton>button:first-child {
     background: linear-gradient(135deg, #EA580C, #DC2626) !important;
-    color: #fff !important; border: none !important;
-}
-[data-testid="stSidebar"] .stButton>button:last-child {
-    background: linear-gradient(135deg, #B45309, #EA580C) !important;
     color: #fff !important; border: none !important;
 }
 
@@ -218,13 +207,6 @@ div[data-testid="stDataFrame"] thead tr th {
 .stDownloadButton>button:hover { opacity: .88; transform: translateY(-1px); }
 
 hr { border-color: var(--border, rgba(249,115,22,.12)) !important; margin: 1.2rem 0 !important; }
-.js-plotly-plot { border-radius: var(--radius-md); overflow: hidden; }
-
-.kpi-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 20px; font-size: .7rem; font-weight: 600; font-family: 'DM Mono', monospace; }
-.kpi-pill.green  { background: rgba(234,179,8,.15);   color: #CA8A04; }
-.kpi-pill.amber  { background: rgba(251,191,36,.15);  color: #D97706; }
-.kpi-pill.red    { background: rgba(239,68,68,.15);   color: #DC2626; }
-.kpi-pill.blue   { background: rgba(249,115,22,.15);  color: #EA580C; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -232,6 +214,10 @@ hr { border-color: var(--border, rgba(249,115,22,.12)) !important; margin: 1.2re
 # ─────────────────────────────────────────────
 # GLOBAL HELPER FUNCTIONS
 # ─────────────────────────────────────────────
+
+def he(val):
+    """HTML-escape a value and convert newlines to <br>."""
+    return str(val).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('\n', '<br>')
 
 def style_total(row):
     if row["CALLER"] == "TOTAL":
@@ -372,7 +358,6 @@ def process_metrics_logic(df_filtered):
             total_ans  += ans
             total_miss += miss
             total_calls += len(day_group)
-
             total_above_3min  += len(day_group[day_group['call_duration'] >= 180])
             total_mid_calls   += len(day_group[(day_group['call_duration'] >= 900) & (day_group['call_duration'] < 1200)])
             total_long_calls  += len(day_group[day_group['call_duration'] >= 1200])
@@ -469,11 +454,9 @@ def compute_team_insights(df_merged, report_df):
     if len(team_dur) >= 1:
         top_team = team_dur.index[0]
         top_val  = format_dur_hm(team_dur.iloc[0])
-        insights.append({
-            "type": "good", "icon": "🏆",
+        insights.append({"type": "good", "icon": "🏆",
             "title": f"Top Team by Avg Call Duration: {top_team}",
-            "body": f"Averaging {top_val} of qualifying call duration per agent — highest across all teams."
-        })
+            "body": f"Averaging {top_val} of qualifying call duration per agent — highest across all teams."})
 
     exclude_teams = ['Others', 'CD - Community Manager', 'CD - Community', 'Criminal - Community Manager',
                      'Criminal - Community', 'ID - Community Manager', 'ID - Community',
@@ -482,53 +465,43 @@ def compute_team_insights(df_merged, report_df):
     manual_df = df_merged[(df_merged['source'] == 'Manual') & (~df_merged['Team Name'].isin(exclude_teams))]
     if not manual_df.empty:
         man_counts = manual_df.groupby('Team Name').agg(
-            total_manual=('source', 'count'),
-            unique_agents=('call_owner', 'nunique')
+            total_manual=('source', 'count'), unique_agents=('call_owner', 'nunique')
         ).sort_values('total_manual', ascending=False)
         if not man_counts.empty:
             top_man_team = man_counts.index[0]
-            insights.append({
-                "type": "bad", "icon": "⚠️",
+            insights.append({"type": "bad", "icon": "⚠️",
                 "title": f"Focus Required: {top_man_team} (Highest manual calls)",
-                "body": f"Total {int(man_counts.iloc[0]['total_manual'])} Manual Calls are getting dialled by {int(man_counts.iloc[0]['unique_agents'])} agents."
-            })
+                "body": f"Total {int(man_counts.iloc[0]['total_manual'])} Manual Calls are getting dialled by {int(man_counts.iloc[0]['unique_agents'])} agents."})
 
     df_merged['_ans'] = df_merged['status'].str.lower() == 'answered'
     pur = df_merged.groupby('Team Name')['_ans'].mean().mul(100).round(1)
     best_pur  = pur.idxmax()
     worst_pur = pur.idxmin()
     if best_pur != worst_pur:
-        insights.append({
-            "type": "info", "icon": "🔔",
+        insights.append({"type": "info", "icon": "🔔",
             "title": f"Pick-Up Ratio Spread: {best_pur} vs {worst_pur}",
             "body": (f"{best_pur} leads at {pur[best_pur]}% answer rate. "
                      f"{worst_pur} trails at {pur[worst_pur]}%. "
-                     f"Gap of {round(pur[best_pur]-pur[worst_pur],1)} pp — review missed-call handling in {worst_pur}.")
-        })
+                     f"Gap of {round(pur[best_pur]-pur[worst_pur],1)} pp — review missed-call handling in {worst_pur}.")})
 
     long_rate = report_df.groupby("TEAM").apply(
         lambda g: g["20+ MIN CALLS"].sum() / g["TOTAL CALLS"].sum() * 100
-        if g["TOTAL CALLS"].sum() > 0 else 0
-    ).round(2)
+        if g["TOTAL CALLS"].sum() > 0 else 0).round(2)
     if not long_rate.empty:
         best_long = long_rate.idxmax()
-        insights.append({
-            "type": "good", "icon": "💬",
+        insights.append({"type": "good", "icon": "💬",
             "title": f"Highest Deep-Engagement Rate: {best_long}",
             "body": (f"{long_rate[best_long]}% of calls in {best_long} exceed 20 minutes — "
-                     f"a strong signal of qualified prospect conversations. Replicate best practices across other teams.")
-        })
+                     f"a strong signal of qualified prospect conversations. Replicate best practices across other teams.")})
 
     break_df = report_df[~report_df["TEAM"].isin(exclude_teams)]
     remarks_series = break_df["REMARKS"].str.contains("Excessive Breaks", na=False)
     if remarks_series.sum() > 0:
         b_teams = break_df.loc[remarks_series, "TEAM"].value_counts().idxmax()
         b_count = remarks_series.sum()
-        insights.append({
-            "type": "warn", "icon": "⏸️",
+        insights.append({"type": "warn", "icon": "⏸️",
             "title": f"Break Discipline Alert — {b_teams}",
-            "body": f"{b_count} agent(s) flagged for excessive breaks (>2 breaks ≥15 min/day). Heaviest cluster in {b_teams}."
-        })
+            "body": f"{b_count} agent(s) flagged for excessive breaks (>2 breaks ≥15 min/day). Heaviest cluster in {b_teams}."})
 
     prod_df = report_df[~report_df["TEAM"].isin(exclude_teams)]
     if not prod_df.empty:
@@ -536,422 +509,313 @@ def compute_team_insights(df_merged, report_df):
         if not team_avg_prod.empty:
             worst_prod_team = team_avg_prod.index[0]
             agent_count = len(prod_df[prod_df["TEAM"] == worst_prod_team])
-            insights.append({
-                "type": "bad", "icon": "⏱️",
+            insights.append({"type": "bad", "icon": "⏱️",
                 "title": f"Focus Required: Lowest Productive Hours: {worst_prod_team}",
-                "body": f"{agent_count} agents on {worst_prod_team} team have the least average productive hours as compared to other teams."
-            })
+                "body": f"{agent_count} agents on {worst_prod_team} team have the least average productive hours as compared to other teams."})
 
     return insights
+
+
 # ─────────────────────────────────────────────
-# HTML SNAPSHOT GENERATOR
+# FULL TABBED HTML REPORT GENERATOR
 # ─────────────────────────────────────────────
 
-def generate_html_report(team_data_list, display_start, display_end):
-    cols = [
-        "CALLER", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %",
-        "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS"
-    ]
+def generate_full_html_report(df, report_df, total_duration_agg,
+                               team_data_list, insights, lb_df,
+                               display_start, display_end):
+
     now_str = datetime.now().strftime("%d %b %Y, %I:%M %p")
 
-    html = f"""<!DOCTYPE html>
+    # ── KPIs ──
+    ans_t   = len(df[df['status'].str.lower() == 'answered'])
+    pur_val = f"{round(ans_t / len(df) * 100)}%" if len(df) > 0 else "0%"
+    kpis = [
+        ("📲 Total Calls",    str(len(df))),
+        ("🔵 Acefone",        str(len(df[df['source'] == 'Acefone']))),
+        ("🟠 Ozonetel",       str(len(df[df['source'] == 'Ozonetel']))),
+        ("✏️ Manual",         str(len(df[df['source'] == 'Manual']))),
+        ("👤 Unique Leads",   str(df['unique_lead_id'].nunique())),
+        ("✅ Pick-Up Ratio",  pur_val),
+        ("🎙️ Active Callers", str(len(report_df))),
+        ("⏱ Avg Prod Hrs",   format_dur_hm(report_df["raw_prod_sec"].mean())),
+    ]
+    kpi_html = "".join(f"""
+        <div class="kpi-card">
+            <div class="kpi-label">{label}</div>
+            <div class="kpi-value">{val}</div>
+        </div>""" for label, val in kpis)
+
+    # ── Top 3 ──
+    top_dur   = report_df.sort_values('raw_dur_sec', ascending=False).iloc[0]
+    top_calls = report_df.sort_values('TOTAL CALLS',  ascending=False).iloc[0]
+    top_long  = report_df.sort_values('20+ MIN CALLS', ascending=False).iloc[0]
+    top3_html = f"""
+    <div class="top3-grid">
+        <div class="top3-card gold">
+            <div class="top3-label">🥇 TOP PERFORMER</div>
+            <div class="top3-name">{he(top_dur['CALLER'])}</div>
+            <div class="top3-sub">{he(top_dur['CALL DURATION > 3 MINS'])} Duration</div>
+        </div>
+        <div class="top3-card orange">
+            <div class="top3-label">✆ HIGHEST CALLS</div>
+            <div class="top3-name">{he(top_calls['CALLER'])}</div>
+            <div class="top3-sub">{he(top_calls['TOTAL CALLS'])} Total Calls</div>
+        </div>
+        <div class="top3-card bronze">
+            <div class="top3-label">🗣️ DEEP ENGAGEMENT</div>
+            <div class="top3-name">{he(top_long['CALLER'])}</div>
+            <div class="top3-sub">{he(top_long['20+ MIN CALLS'])} Long Calls</div>
+        </div>
+    </div>"""
+
+    # ── Dynamic agent table ──
+    dyn_cols = ["Rank", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS",
+                "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS",
+                "20+ MIN CALLS", "CALL DURATION > 3 MINS", "PRODUCTIVE HOURS", "REMARKS"]
+    total_row_dyn = {
+        "Rank": "", "CALLER": "TOTAL", "TEAM": "—",
+        "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
+        "CALL STATUS": "—", "PICK UP RATIO %": "—",
+        "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
+        "CALLS 15-20 MINS": int(report_df["CALLS 15-20 MINS"].sum()),
+        "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
+        "CALL DURATION > 3 MINS": format_dur_hm(total_duration_agg),
+        "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod_sec"].sum()),
+        "REMARKS": "—"
+    }
+    dyn_thead = "".join(f"<th>{c}</th>" for c in dyn_cols)
+    dyn_tbody = ""
+    for _, row in report_df.iterrows():
+        dyn_tbody += "<tr>" + "".join(f"<td>{he(row.get(c, '—'))}</td>" for c in dyn_cols) + "</tr>\n"
+    dyn_tbody += "<tr class='total-row'>" + "".join(f"<td>{he(total_row_dyn.get(c, '—'))}</td>" for c in dyn_cols) + "</tr>\n"
+    dyn_table = f"""
+    <div class="table-wrap">
+      <table><thead><tr>{dyn_thead}</tr></thead><tbody>{dyn_tbody}</tbody></table>
+    </div>"""
+
+    # ── Duration report tables ──
+    dur_cols = ["CALLER", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %",
+                "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS"]
+    dur_html = ""
+    for team_name, t_df, t_dur in team_data_list:
+        total_row_dur = {
+            "CALLER": "TOTAL",
+            "TOTAL CALLS": int(t_df["TOTAL CALLS"].sum()),
+            "CALL STATUS": "—", "PICK UP RATIO %": "—",
+            "CALLS > 3 MINS": int(t_df["CALLS > 3 MINS"].sum()),
+            "CALLS 15-20 MINS": int(t_df["CALLS 15-20 MINS"].sum()),
+            "20+ MIN CALLS": int(t_df["20+ MIN CALLS"].sum()),
+            "CALL DURATION > 3 MINS": format_dur_hm(t_dur)
+        }
+        dur_thead = "".join(f"<th>{c}</th>" for c in dur_cols)
+        dur_tbody = ""
+        for _, row in t_df.iterrows():
+            dur_tbody += "<tr>" + "".join(f"<td>{he(row.get(c, '—'))}</td>" for c in dur_cols) + "</tr>\n"
+        dur_tbody += "<tr class='total-row'>" + "".join(f"<td>{he(total_row_dur.get(c, '—'))}</td>" for c in dur_cols) + "</tr>\n"
+        dur_html += f"""
+        <div class="team-section">
+          <div class="team-header">DURATION REPORT — {he(team_name.upper())} &nbsp;·&nbsp; {display_start} to {display_end}</div>
+          <div class="table-wrap">
+            <table><thead><tr>{dur_thead}</tr></thead><tbody>{dur_tbody}</tbody></table>
+          </div>
+        </div>"""
+
+    # ── Insights cards ──
+    ins_html = '<div class="insights-grid">'
+    for ins in insights:
+        ins_html += f"""
+        <div class="insight-card {ins['type']}">
+            <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.4rem;">
+                <span style="font-size:1.1rem">{ins['icon']}</span>
+                <span class="ins-title">{he(ins['title'])}</span>
+            </div>
+            <div class="ins-body">{he(ins['body'])}</div>
+        </div>"""
+    ins_html += '</div>'
+
+    # ── Leaderboard ──
+    lb_cols  = list(lb_df.columns)
+    lb_thead = "".join(f"<th>{c}</th>" for c in lb_cols)
+    lb_tbody = ""
+    for _, row in lb_df.iterrows():
+        lb_tbody += "<tr>" + "".join(f"<td>{he(row.get(c, ''))}</td>" for c in lb_cols) + "</tr>\n"
+    lb_table = f"""
+    <div class="table-wrap">
+      <table><thead><tr>{lb_thead}</tr></thead><tbody>{lb_tbody}</tbody></table>
+    </div>"""
+
+    # ── Assemble HTML ──
+    return f"""<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Duration Report — {display_start} to {display_end}</title>
+<title>Calling Metrics — {display_start} to {display_end}</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap');
-  *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
-  body {{
-    font-family: 'DM Sans', sans-serif;
-    background: #0F0A05;
-    color: #FEF3E8;
-    padding: 2.5rem;
-    min-height: 100vh;
-  }}
-  .page-header {{
-    background: linear-gradient(135deg, #1c0700 0%, #7c2d12 50%, #431407 100%);
-    border-radius: 16px;
-    padding: 1.6rem 2rem;
-    margin-bottom: 2.5rem;
-    box-shadow: 0 8px 32px rgba(0,0,0,.4);
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 1rem;
-  }}
-  .page-title {{ font-size: 1.65rem; font-weight: 700; color: #FFFFFF; letter-spacing: .4px; }}
-  .page-subtitle {{ font-size: .82rem; color: rgba(255,255,255,.55); font-family: 'DM Mono', monospace; margin-top: .3rem; }}
-  .page-meta {{ font-size: .72rem; color: rgba(255,255,255,.45); font-family: 'DM Mono', monospace; text-align: right; line-height: 1.7; }}
-  .team-section {{ margin-bottom: 3rem; }}
-  .team-header {{
-    text-align: center;
-    font-size: .9rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: #F97316;
-    margin: 0 0 .9rem;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: .75rem;
-  }}
-  .team-header::before, .team-header::after {{
-    content: "";
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, #F97316);
-    opacity: .4;
-  }}
-  .team-header::after {{ background: linear-gradient(90deg, #F97316, transparent); }}
-  table {{
-    width: 100%;
-    border-collapse: collapse;
-    font-size: .8rem;
-    border-radius: 10px;
-    overflow: hidden;
-    box-shadow: 0 2px 12px rgba(0,0,0,.25);
-  }}
-  thead tr th {{
-    background: linear-gradient(135deg, #431407, #7c1d1d);
-    color: #fff;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .7px;
-    padding: 11px 14px;
-    text-align: center;
-    font-size: .7rem;
-    white-space: nowrap;
-  }}
-  tbody tr td {{
-    padding: 9px 14px;
-    text-align: center;
-    border-bottom: 1px solid rgba(249,115,22,.08);
-    color: #FEF3E8;
-    background: #1A1006;
-    font-family: 'DM Mono', monospace;
-    font-size: .78rem;
-  }}
-  tbody tr:nth-child(even) td {{ background: #231508; }}
-  tbody tr.total-row td {{
-    font-weight: 700;
-    background: #374151 !important;
-    color: #FFFFFF;
-    border-top: 2px solid rgba(249,115,22,.3);
-    font-size: .82rem;
-  }}
-  .divider {{
-    border: none;
-    border-top: 1px solid rgba(249,115,22,.12);
-    margin: 2rem 0;
-  }}
-  .footer {{
-    text-align: center;
-    margin-top: 3.5rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid rgba(249,115,22,.12);
-    font-size: .72rem;
-    color: rgba(255,255,255,.3);
-    font-family: 'DM Mono', monospace;
-    line-height: 1.8;
-  }}
-  @media print {{
-    body {{ background: #fff; color: #111; padding: 1rem; }}
-    .page-header {{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
-    table {{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
-    .team-section {{ page-break-inside: avoid; }}
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+  *,*::before,*::after{{box-sizing:border-box;margin:0;padding:0;}}
+  body{{font-family:'DM Sans',sans-serif;background:#0F0A05;color:#FEF3E8;min-height:100vh;}}
+
+  .page-header{{background:linear-gradient(135deg,#1c0700 0%,#7c2d12 50%,#431407 100%);
+    padding:1.8rem 2.5rem;display:flex;justify-content:space-between;align-items:flex-start;
+    flex-wrap:wrap;gap:1rem;border-bottom:3px solid #F97316;}}
+  .page-title{{font-size:1.9rem;font-weight:700;color:#fff;letter-spacing:.5px;}}
+  .page-subtitle{{font-size:.85rem;color:rgba(255,255,255,.55);font-family:'DM Mono',monospace;margin-top:.3rem;}}
+  .page-meta{{font-size:.75rem;color:rgba(255,255,255,.4);font-family:'DM Mono',monospace;text-align:right;line-height:1.9;}}
+
+  .tab-nav{{display:flex;background:#1A1006;border-bottom:2px solid rgba(249,115,22,.2);
+    padding:0 2rem;position:sticky;top:0;z-index:100;}}
+  .tab-btn{{background:none;border:none;border-bottom:3px solid transparent;padding:.9rem 1.6rem;
+    font-family:'DM Sans',sans-serif;font-size:.88rem;font-weight:600;color:rgba(254,243,232,.45);
+    cursor:pointer;transition:all .2s;margin-bottom:-2px;letter-spacing:.3px;}}
+  .tab-btn:hover{{color:#F97316;}}
+  .tab-btn.active{{color:#F97316;border-bottom-color:#F97316;background:rgba(249,115,22,.06);}}
+
+  .tab-content{{display:none;padding:2rem 2.5rem;}}
+  .tab-content.active{{display:block;}}
+
+  .sec-hdr{{display:flex;align-items:center;gap:.6rem;margin:1.8rem 0 1rem;}}
+  .sec-line{{flex:1;height:1px;background:linear-gradient(90deg,#F97316,transparent);opacity:.3;}}
+  .sec-title{{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;color:#F97316;white-space:nowrap;}}
+
+  .kpi-grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.8rem;margin-bottom:1.5rem;}}
+  .kpi-card{{background:#1A1006;border:1px solid rgba(249,115,22,.15);border-radius:12px;
+    padding:1rem 1.1rem;text-align:center;border-top:3px solid #F97316;}}
+  .kpi-label{{font-size:.7rem;font-weight:600;text-transform:uppercase;letter-spacing:.7px;color:#9CA3AF;margin-bottom:.4rem;}}
+  .kpi-value{{font-size:1.6rem;font-weight:700;color:#FEF3E8;font-family:'DM Mono',monospace;line-height:1;}}
+
+  .top3-grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1.5rem;}}
+  .top3-card{{background:#1A1006;border:1px solid rgba(249,115,22,.15);border-radius:12px;padding:1.3rem;text-align:center;}}
+  .top3-card.gold{{border-top:3px solid #F59E0B;}}
+  .top3-card.orange{{border-top:3px solid #F97316;}}
+  .top3-card.bronze{{border-top:3px solid #CD7F32;}}
+  .top3-label{{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:#9CA3AF;margin-bottom:.5rem;}}
+  .top3-name{{font-size:1.15rem;font-weight:700;color:#FEF3E8;margin-bottom:.35rem;}}
+  .top3-sub{{font-size:.8rem;color:#F97316;font-weight:500;}}
+
+  .table-wrap{{overflow-x:auto;border-radius:10px;margin-bottom:1.2rem;
+    box-shadow:0 2px 12px rgba(0,0,0,.3);}}
+  table{{width:100%;border-collapse:collapse;font-size:.82rem;min-width:600px;}}
+  thead tr th{{background:linear-gradient(135deg,#431407,#7c1d1d);color:#fff;font-weight:700;
+    text-transform:uppercase;letter-spacing:.6px;padding:12px 15px;text-align:center;
+    font-size:.71rem;white-space:nowrap;border-right:1px solid rgba(249,115,22,.15);}}
+  thead tr th:last-child{{border-right:none;}}
+  tbody tr td{{padding:10px 15px;text-align:center;border-bottom:1px solid rgba(249,115,22,.07);
+    color:#FEF3E8;background:#1A1006;border-right:1px solid rgba(249,115,22,.05);
+    font-family:'DM Mono',monospace;font-size:.8rem;}}
+  tbody tr td:last-child{{border-right:none;}}
+  tbody tr:nth-child(even) td{{background:#231508;}}
+  tbody tr.total-row td{{font-weight:700;background:#374151 !important;color:#fff;
+    border-top:2px solid rgba(249,115,22,.35);font-size:.84rem;}}
+
+  .team-section{{margin-bottom:2.5rem;}}
+  .team-header{{text-align:center;font-size:.92rem;font-weight:700;text-transform:uppercase;
+    letter-spacing:1px;color:#F97316;margin-bottom:.9rem;display:flex;align-items:center;
+    justify-content:center;gap:.75rem;}}
+  .team-header::before,.team-header::after{{content:"";flex:1;height:1px;
+    background:linear-gradient(90deg,transparent,#F97316);opacity:.35;}}
+  .team-header::after{{background:linear-gradient(90deg,#F97316,transparent);}}
+
+  .insights-grid{{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem;margin-bottom:1.5rem;}}
+  .insight-card{{background:#1A1006;border:1px solid rgba(249,115,22,.15);border-radius:12px;padding:1.1rem 1.2rem;}}
+  .insight-card.good{{border-left:4px solid #EAB308;}}
+  .insight-card.warn{{border-left:4px solid #FBBF24;}}
+  .insight-card.bad{{border-left:4px solid #EF4444;}}
+  .insight-card.info{{border-left:4px solid #F97316;}}
+  .ins-title{{font-size:.84rem;font-weight:700;color:#FEF3E8;}}
+  .ins-body{{font-size:.78rem;color:#9CA3AF;line-height:1.6;margin-top:.3rem;}}
+
+  .page-footer{{text-align:center;padding:2rem;border-top:1px solid rgba(249,115,22,.12);
+    font-size:.72rem;color:rgba(255,255,255,.25);font-family:'DM Mono',monospace;line-height:1.9;margin-top:2rem;}}
+
+  @media(max-width:768px){{
+    .top3-grid{{grid-template-columns:1fr;}}
+    .insights-grid{{grid-template-columns:1fr;}}
+    .page-header,.tab-content{{padding:1.2rem 1rem;}}
+    .tab-btn{{padding:.7rem .8rem;font-size:.78rem;}}
   }}
 </style>
 </head>
 <body>
+
 <div class="page-header">
   <div>
-    <div class="page-title">🔔 CALLING METRICS — DURATION REPORT</div>
+    <div class="page-title">🔔 CALLING METRICS</div>
     <div class="page-subtitle">LAWSIKHO &amp; SKILL ARBITRAGE &nbsp;·&nbsp; {display_start} to {display_end}</div>
   </div>
   <div class="page-meta">
     Generated: {now_str}<br>
-    Teams: {len(team_data_list)}
+    Agents: {len(report_df)} &nbsp;·&nbsp; Teams: {len(team_data_list)}
   </div>
 </div>
-"""
 
-    for idx, (team_name, report_df, team_dur_agg_sec) in enumerate(team_data_list):
-        if idx > 0:
-            html += '<hr class="divider">\n'
+<div class="tab-nav">
+  <button class="tab-btn active" onclick="showTab('dynamic',this)">🚀 Dynamic Dashboard</button>
+  <button class="tab-btn" onclick="showTab('duration',this)">📅 Duration Report</button>
+  <button class="tab-btn" onclick="showTab('insights',this)">🧠 Insights</button>
+</div>
 
-        total_row_data = {
-            "CALLER": "TOTAL",
-            "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
-            "CALL STATUS": "—",
-            "PICK UP RATIO %": "—",
-            "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
-            "CALLS 15-20 MINS": int(report_df["CALLS 15-20 MINS"].sum()),
-            "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
-            "CALL DURATION > 3 MINS": format_dur_hm(team_dur_agg_sec)
-        }
+<!-- TAB 1: DYNAMIC DASHBOARD -->
+<div id="tab-dynamic" class="tab-content active">
+  <div class="sec-hdr">
+    <div class="sec-line"></div>
+    <span class="sec-title">🏆 TOP 3 PERFORMANCE HIGHLIGHTS</span>
+    <div class="sec-line" style="background:linear-gradient(90deg,transparent,#F97316)"></div>
+  </div>
+  {top3_html}
+  <div class="sec-hdr">
+    <div class="sec-line"></div>
+    <span class="sec-title">SUMMARY METRICS</span>
+    <div class="sec-line" style="background:linear-gradient(90deg,transparent,#F97316)"></div>
+  </div>
+  <div class="kpi-grid">{kpi_html}</div>
+  <div class="sec-hdr">
+    <div class="sec-line"></div>
+    <span class="sec-title">AGENT PERFORMANCE TABLE</span>
+    <div class="sec-line" style="background:linear-gradient(90deg,transparent,#F97316)"></div>
+  </div>
+  {dyn_table}
+</div>
 
-        html += f"""<div class="team-section">
-  <div class="team-header">DURATION REPORT — {team_name.upper()} &nbsp;({display_start} to {display_end})</div>
-  <table>
-    <thead>
-      <tr>{"".join(f"<th>{c}</th>" for c in cols)}</tr>
-    </thead>
-    <tbody>
-"""
-        for _, row in report_df.iterrows():
-            html += "      <tr>" + "".join(
-                f"<td>{row.get(c, '—')}</td>" for c in cols
-            ) + "</tr>\n"
+<!-- TAB 2: DURATION REPORT -->
+<div id="tab-duration" class="tab-content">
+  {dur_html}
+</div>
 
-        html += "      <tr class='total-row'>" + "".join(
-            f"<td>{total_row_data.get(c, '—')}</td>" for c in cols
-        ) + "</tr>\n"
-        html += "    </tbody>\n  </table>\n</div>\n"
+<!-- TAB 3: INSIGHTS -->
+<div id="tab-insights" class="tab-content">
+  <div class="sec-hdr">
+    <div class="sec-line"></div>
+    <span class="sec-title">🧠 TEAM INSIGHTS</span>
+    <div class="sec-line" style="background:linear-gradient(90deg,transparent,#F97316)"></div>
+  </div>
+  {ins_html}
+  <div class="sec-hdr" style="margin-top:2rem">
+    <div class="sec-line"></div>
+    <span class="sec-title">🏅 TEAM LEADERBOARD</span>
+    <div class="sec-line" style="background:linear-gradient(90deg,transparent,#F97316)"></div>
+  </div>
+  {lb_table}
+</div>
 
-    html += f"""<div class="footer">
+<div class="page-footer">
   Generated by Calling Metrics Dashboard &nbsp;·&nbsp;
   Designed by <strong>AMIT RAY</strong> &nbsp;·&nbsp;
-  <a href="mailto:amitray@lawsikho.com" style="color:#F97316;text-decoration:none;">amitray@lawsikho.com</a>
+  amitray@lawsikho.com
 </div>
+
+<script>
+  function showTab(id, btn) {{
+    document.querySelectorAll('.tab-content').forEach(function(t){{t.classList.remove('active');}});
+    document.querySelectorAll('.tab-btn').forEach(function(b){{b.classList.remove('active');}});
+    document.getElementById('tab-'+id).classList.add('active');
+    btn.classList.add('active');
+  }}
+</script>
 </body>
 </html>"""
 
-    return html
 
-# ─────────────────────────────────────────────
-# JPG IMAGE GENERATOR (Pillow — no extra deps)
-# ─────────────────────────────────────────────
-
-def _hex(h):
-    h = h.lstrip('#')
-    return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
-
-def _try_font(size, bold=False):
-    """Best available font — falls back to PIL default gracefully."""
-    candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf" if bold else
-        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
-        "/usr/share/fonts/truetype/liberation/LiberationMono-Bold.ttf" if bold else
-        "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
-        "/System/Library/Fonts/Supplemental/Courier New Bold.ttf" if bold else
-        "/System/Library/Fonts/Supplemental/Courier New.ttf",
-    ]
-    for path in candidates:
-        try:
-            return ImageFont.truetype(path, size)
-        except Exception:
-            pass
-    return ImageFont.load_default()
-
-def render_team_table_as_jpg(team_name, report_df, team_dur_agg_sec, display_start, display_end):
-
-    COLS = [
-        "CALLER", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %",
-        "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS"
-    ]
-
-    # ── Build rows ───────────────────────────────────────────
-    data_rows = []
-    for _, row in report_df.iterrows():
-        data_rows.append([str(row.get(c, '-')) for c in COLS])
-    data_rows.append([
-        "TOTAL",
-        str(int(report_df["TOTAL CALLS"].sum())),
-        "-", "-",
-        str(int(report_df["CALLS > 3 MINS"].sum())),
-        str(int(report_df["CALLS 15-20 MINS"].sum())),
-        str(int(report_df["20+ MIN CALLS"].sum())),
-        format_dur_hm(team_dur_agg_sec)
-    ])
-    n_rows = len(data_rows)
-
-    # ── Font loader — tries Sans first (more readable), then Mono ──
-    def load_font(size, bold=False):
-        paths = []
-        if bold:
-            paths = [
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-                "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-                "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
-                "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
-            ]
-        else:
-            paths = [
-                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-                "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
-                "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
-            ]
-        for p in paths:
-            try:
-                return ImageFont.truetype(p, size)
-            except Exception:
-                pass
-        # Last resort: load_default doesn't accept size in old Pillow
-        try:
-            return ImageFont.load_default(size=size)
-        except Exception:
-            return ImageFont.load_default()
-
-    # ── Layout constants (no scaling tricks — render at final size) ──
-    IMG_W       = 2560
-    PAD_X       = 48
-    HEADER_H    = 200
-    COL_HDR_H   = 64
-    ROW_H       = 58
-    FOOTER_H    = 60
-    PAD_BOT     = 32
-
-    IMG_H = HEADER_H + COL_HDR_H + ROW_H * n_rows + FOOTER_H + PAD_BOT
-
-    # ── Colours ──────────────────────────────────────────────
-    C_BG        = (15,  10,   5)
-    C_HDRBG     = (28,   7,   0)
-    C_COLHDR    = (67,  20,   7)
-    C_COLHDR2   = (100, 29,  10)
-    C_ODD       = (26,  16,   6)
-    C_EVEN      = (35,  21,   8)
-    C_TOTAL     = (55,  65,  81)
-    C_ACCENT    = (249, 115,  22)
-    C_WHITE     = (255, 255, 255)
-    C_CELL      = (254, 243, 232)
-    C_MUTED     = (180, 130,  80)
-    C_BORDER    = (60,  30,   5)
-
-    # ── Column widths — give CALLER more room ────────────────
-    # Weights: CALLER=2.2, others=1
-    weights     = [2.2, 1, 1.4, 1, 1, 1, 1, 1.4]
-    total_w     = IMG_W - 2 * PAD_X
-    unit        = total_w / sum(weights)
-    col_widths  = [int(w * unit) for w in weights]
-    # Fix any rounding drift
-    col_widths[-1] += total_w - sum(col_widths)
-
-    # ── Fonts ────────────────────────────────────────────────
-    fnt_brand   = load_font(22)
-    fnt_title   = load_font(40, bold=True)
-    fnt_date    = load_font(24)
-    fnt_colhdr  = load_font(20, bold=True)
-    fnt_cell    = load_font(22)
-    fnt_total   = load_font(22, bold=True)
-    fnt_footer  = load_font(18)
-
-    # ── Canvas ───────────────────────────────────────────────
-    img  = Image.new('RGB', (IMG_W, IMG_H), C_BG)
-    draw = ImageDraw.Draw(img)
-
-    # ── Header background ────────────────────────────────────
-    draw.rectangle([0, 0, IMG_W, HEADER_H], fill=C_HDRBG)
-
-    # Gradient-ish effect: slightly lighter strip in middle
-    for i in range(HEADER_H):
-        alpha = int(30 * (1 - abs(i - HEADER_H // 2) / (HEADER_H // 2)))
-        draw.line([(0, i), (IMG_W, i)],
-                  fill=(min(255, C_HDRBG[0] + alpha),
-                        min(255, C_HDRBG[1] + alpha // 4),
-                        C_HDRBG[2]))
-
-    # Orange accent bar at bottom of header
-    draw.rectangle([0, HEADER_H - 4, IMG_W, HEADER_H], fill=C_ACCENT)
-
-    # Brand line
-    draw.text((IMG_W // 2, 28),
-              "LAWSIKHO  &  SKILL ARBITRAGE  ·  CALLING METRICS",
-              font=fnt_brand, fill=C_MUTED, anchor="mt")
-
-    # Team title
-    draw.text((IMG_W // 2, 72),
-              f"DURATION REPORT  —  {team_name.upper()}",
-              font=fnt_title, fill=C_ACCENT, anchor="mt")
-
-    # Date range
-    draw.text((IMG_W // 2, 136),
-              f"{display_start}   to   {display_end}",
-              font=fnt_date, fill=(220, 180, 140), anchor="mt")
-
-    # ── Column header row ────────────────────────────────────
-    x_cursor = PAD_X
-    y0_ch    = HEADER_H
-    y1_ch    = HEADER_H + COL_HDR_H
-
-    for ci, (col, cw) in enumerate(zip(COLS, col_widths)):
-        x0 = x_cursor
-        x1 = x0 + cw
-        # Alternating shade for visual separation
-        bg = C_COLHDR if ci % 2 == 0 else C_COLHDR2
-        draw.rectangle([x0, y0_ch, x1, y1_ch], fill=bg)
-        # Column divider
-        if ci > 0:
-            draw.line([(x0, y0_ch), (x0, y1_ch)], fill=C_ACCENT, width=1)
-        # Text centred
-        draw.text((x0 + cw // 2, y0_ch + COL_HDR_H // 2),
-                  col, font=fnt_colhdr, fill=C_WHITE, anchor="mm")
-        x_cursor = x1
-
-    # Bottom border of column headers
-    draw.rectangle([PAD_X, y1_ch - 2, IMG_W - PAD_X, y1_ch], fill=C_ACCENT)
-
-    # ── Data rows ────────────────────────────────────────────
-    for ri, row_data in enumerate(data_rows):
-        is_total = (ri == n_rows - 1)
-        y0 = HEADER_H + COL_HDR_H + ri * ROW_H
-        y1 = y0 + ROW_H
-        x_cursor = PAD_X
-
-        for ci, (cell_val, cw) in enumerate(zip(row_data, col_widths)):
-            x0 = x_cursor
-            x1 = x0 + cw
-
-            if is_total:
-                draw.rectangle([x0, y0, x1, y1], fill=C_TOTAL)
-                fg  = C_WHITE
-                fnt = fnt_total
-            else:
-                draw.rectangle([x0, y0, x1, y1],
-                                fill=C_ODD if ri % 2 == 0 else C_EVEN)
-                fg  = C_CELL
-                fnt = fnt_cell
-
-            # Cell divider
-            if ci > 0:
-                draw.line([(x0, y0), (x0, y1)], fill=C_BORDER, width=1)
-
-            # Row bottom border
-            draw.line([(PAD_X, y1 - 1), (IMG_W - PAD_X, y1 - 1)],
-                      fill=C_BORDER, width=1)
-
-            # Cell text — truncate long names gracefully
-            txt = cell_val
-            while True:
-                bbox = draw.textbbox((0, 0), txt, font=fnt)
-                tw   = bbox[2] - bbox[0]
-                if tw <= cw - 16 or len(txt) <= 4:
-                    break
-                txt = txt[:-2] + "…"
-
-            draw.text((x0 + cw // 2, y0 + ROW_H // 2),
-                      txt, font=fnt, fill=fg, anchor="mm")
-            x_cursor = x1
-
-    # Orange bar below TOTAL row
-    total_y = HEADER_H + COL_HDR_H + n_rows * ROW_H
-    draw.rectangle([PAD_X, total_y, IMG_W - PAD_X, total_y + 3], fill=C_ACCENT)
-
-    # ── Footer ───────────────────────────────────────────────
-    footer_y = total_y + 18
-    draw.text((IMG_W // 2, footer_y),
-              f"Generated by Calling Metrics Dashboard  ·  Designed by AMIT RAY  ·  amitray@lawsikho.com",
-              font=fnt_footer, fill=(100, 70, 40), anchor="mt")
-
-    # ── Save ─────────────────────────────────────────────────
-    buf = io.BytesIO()
-    img.save(buf, format='JPEG', quality=95, optimize=True)
-    buf.seek(0)
-    return buf.getvalue()
 # ─────────────────────────────────────────────
 # SIDEBAR
 # ─────────────────────────────────────────────
@@ -978,18 +842,17 @@ selected_vertical = st.sidebar.multiselect("🧑‍💼 Filter by Vertical", opt
 selected_team     = st.sidebar.multiselect("🫂 Filter by Team",       options=teams)
 search_query      = st.sidebar.text_input("🙋 Search By Name")
 
-st.sidebar.markdown("<div style='margin:.5rem 0'></div>", unsafe_allow_html=True)
-gen_dynamic = st.sidebar.button("🚀 Generate Dynamic Report")
-st.sidebar.markdown("<div style='margin:.3rem 0'></div>", unsafe_allow_html=True)
-gen_static  = st.sidebar.button("📅 Generate Duration Report")
+st.sidebar.markdown("<div style='margin:.6rem 0'></div>", unsafe_allow_html=True)
+gen_report = st.sidebar.button("🚀 Generate Report")
 
-if 'duration_report_zip' in st.session_state:
+if 'ss_html' in st.session_state:
+    st.sidebar.markdown("<div style='margin:.3rem 0'></div>", unsafe_allow_html=True)
     st.sidebar.download_button(
-        label="📸 Download Duration Reports",
-        data=st.session_state['duration_report_zip'],
-        file_name=f"Duration_Reports_{start_date.strftime('%d-%m-%Y')}_to_{end_date.strftime('%d-%m-%Y')}.zip",
-        mime='application/zip',
-        key='dl_duration_zip_sidebar'
+        label="📥 Download Full Report (HTML)",
+        data=st.session_state['ss_html'].encode('utf-8'),
+        file_name=f"Calling_Metrics_{start_date.strftime('%d-%m-%Y')}_to_{end_date.strftime('%d-%m-%Y')}.html",
+        mime='text/html',
+        key='dl_full_html'
     )
 
 st.sidebar.divider()
@@ -1036,143 +899,207 @@ tab1, tab2, tab3 = st.tabs([
 ])
 
 
+# ─────────────────────────────────────────────
+# UNIFIED GENERATION BLOCK
+# ─────────────────────────────────────────────
+
+if gen_report:
+    with st.spinner("Generating full report across all tabs…"):
+        df_raw = fetch_call_data(start_date, end_date)
+        if df_raw.empty:
+            st.error("No data found for the selected period.")
+        else:
+            df_raw['merge_key'] = df_raw['call_owner'].str.strip().str.lower()
+            df = pd.merge(df_raw, df_team_mapping, on='merge_key', how='left')
+            df['call_owner'] = df['Caller Name'].fillna(df['call_owner'])
+            df = df[df['call_owner'].notna() & (df['call_owner'] != '')]
+
+            if selected_team:     df = df[df['Team Name'].isin(selected_team)]
+            if selected_vertical: df = df[df['Vertical'].isin(selected_vertical)]
+            if search_query:      df = df[df['call_owner'].str.contains(search_query, case=False, na=False)]
+
+            if df.empty:
+                st.error("No results match the selected filters.")
+            else:
+                # ── Dynamic dashboard data ──
+                report_df, total_duration_agg = process_metrics_logic(df)
+                report_df = report_df.sort_values(by="raw_dur_sec", ascending=False)
+                report_df['Rank'] = ""
+                if len(report_df) > 0: report_df.iloc[0, report_df.columns.get_loc('Rank')] = "🥇"
+                if len(report_df) > 1: report_df.iloc[1, report_df.columns.get_loc('Rank')] = "🥈"
+                if len(report_df) > 2: report_df.iloc[2, report_df.columns.get_loc('Rank')] = "🥉"
+
+                # ── Duration report data ──
+                tl_ad_mask = pd.Series(False, index=df.index)
+                for col in df_team_mapping.columns:
+                    if col in df.columns:
+                        clean_col = df[col].fillna('').astype(str).str.strip().str.upper()
+                        tl_ad_mask |= clean_col.isin(['TL', 'ATL', 'AD', 'TEAM LEAD', 'TEAM LEADER'])
+
+                team_data_list   = []
+                normal_team_data = df[~tl_ad_mask]
+                normal_teams     = sorted(normal_team_data['Team Name'].dropna().unique())
+
+                for team in normal_teams:
+                    team_df = normal_team_data[normal_team_data['Team Name'] == team]
+                    t_report, t_dur = process_metrics_logic(team_df)
+                    if t_dur > 0:
+                        t_report = t_report.sort_values(by="raw_dur_sec", ascending=False)
+                        team_data_list.append((team, t_report.copy(), t_dur))
+
+                tl_pool = df[tl_ad_mask]
+                if not tl_pool.empty:
+                    tl_report, _ = process_metrics_logic(tl_pool)
+                    active_tl = tl_report[tl_report['raw_dur_sec'] > 300].sort_values(by="raw_dur_sec", ascending=False)
+                    if not active_tl.empty:
+                        team_data_list.append(("TL's & ATL's", active_tl.copy(), active_tl["raw_dur_sec"].sum()))
+
+                # ── Insights + leaderboard ──
+                insights = compute_team_insights(df.copy(), report_df.copy())
+
+                lb_df = (
+                    report_df.groupby("TEAM")
+                    .agg(
+                        agents=("CALLER", "count"),
+                        total_calls=("TOTAL CALLS", "sum"),
+                        total_dur_h=("raw_dur_sec", lambda x: round(x.sum() / 3600, 1)),
+                        avg_dur_h=("raw_dur_sec", lambda x: round(x.mean() / 3600, 1)),
+                        avg_prod_h=("raw_prod_sec", lambda x: round(x.mean() / 3600, 1)),
+                        long_calls=("20+ MIN CALLS", "sum"),
+                    )
+                    .reset_index().sort_values("total_dur_h", ascending=False)
+                    .rename(columns={
+                        "TEAM": "Team", "agents": "Agents", "total_calls": "Total Calls",
+                        "total_dur_h": "Total Dur (h)", "avg_dur_h": "Avg Dur/Agent (h)",
+                        "avg_prod_h": "Avg Prod Hrs (h)", "long_calls": "20+ Min Calls"
+                    })
+                )
+                medals = ["🥇", "🥈", "🥉"] + [""] * max(0, len(lb_df) - 3)
+                lb_df.insert(0, "🏅", medals)
+                lb_df = lb_df.reset_index(drop=True)
+
+                # ── Store all in session state ──
+                st.session_state['ss_df']           = df.copy()
+                st.session_state['ss_report_df']    = report_df.copy()
+                st.session_state['ss_total_dur']    = total_duration_agg
+                st.session_state['ss_team_data']    = team_data_list
+                st.session_state['ss_tl_mask']      = tl_ad_mask.copy()
+                st.session_state['ss_insights']     = insights
+                st.session_state['ss_lb']           = lb_df.copy()
+                st.session_state['ss_html']         = generate_full_html_report(
+                    df, report_df, total_duration_agg,
+                    team_data_list, insights, lb_df,
+                    display_start, display_end
+                )
+                st.rerun()
+
+
 # ══════════════════════════════════════════════
 # TAB 1 — DYNAMIC DASHBOARD
 # ══════════════════════════════════════════════
 
 with tab1:
-    if gen_dynamic:
-        with st.spinner("Calculating metrics…"):
-            df_raw = fetch_call_data(start_date, end_date)
-            if df_raw.empty:
-                st.warning("No data found for the selected period.")
-            else:
-                df_raw['merge_key'] = df_raw['call_owner'].str.strip().str.lower()
-                df = pd.merge(df_raw, df_team_mapping, on='merge_key', how='left')
-                df['call_owner'] = df['Caller Name'].fillna(df['call_owner'])
-                df = df[df['call_owner'].notna() & (df['call_owner'] != '')]
+    if 'ss_df' in st.session_state:
+        df        = st.session_state['ss_df']
+        report_df = st.session_state['ss_report_df']
+        total_duration_agg = st.session_state['ss_total_dur']
 
-                if selected_team:     df = df[df['Team Name'].isin(selected_team)]
-                if selected_vertical: df = df[df['Vertical'].isin(selected_vertical)]
-                if search_query:      df = df[df['call_owner'].str.contains(search_query, case=False, na=False)]
+        section_header("🏆 TOP 3 PERFORMANCE HIGHLIGHTS")
+        top_cols = st.columns(3)
+        top_dur   = report_df.sort_values('raw_dur_sec',  ascending=False).iloc[0]
+        top_calls = report_df.sort_values('TOTAL CALLS',  ascending=False).iloc[0]
+        top_long  = report_df.sort_values('20+ MIN CALLS', ascending=False).iloc[0]
 
-                if df.empty:
-                    st.error("No results match the selected filters.")
-                else:
-                    report_df, total_duration_agg = process_metrics_logic(df)
-                    report_df = report_df.sort_values(by="raw_dur_sec", ascending=False)
-                    report_df['Rank'] = ""
-                    if len(report_df) > 0: report_df.iloc[0, report_df.columns.get_loc('Rank')] = "🥇"
-                    if len(report_df) > 1: report_df.iloc[1, report_df.columns.get_loc('Rank')] = "🥈"
-                    if len(report_df) > 2: report_df.iloc[2, report_df.columns.get_loc('Rank')] = "🥉"
+        with top_cols[0]:
+            st.markdown(f"""
+            <div class="metric-card" style="border-top:3px solid #F59E0B;">
+                <div class="metric-label">🥇 TOP PERFORMER</div>
+                <div class="metric-value" style="font-size:1.1rem;">{top_dur['CALLER']}</div>
+                <div class="metric-delta">{top_dur['CALL DURATION > 3 MINS']} Duration</div>
+            </div>""", unsafe_allow_html=True)
+        with top_cols[1]:
+            st.markdown(f"""
+            <div class="metric-card" style="border-top:3px solid #F97316;">
+                <div class="metric-label">✆ HIGHEST CALLS</div>
+                <div class="metric-value" style="font-size:1.1rem;">{top_calls['CALLER']}</div>
+                <div class="metric-delta">{top_calls['TOTAL CALLS']} Total Calls</div>
+            </div>""", unsafe_allow_html=True)
+        with top_cols[2]:
+            st.markdown(f"""
+            <div class="metric-card" style="border-top:3px solid #CD7F32;">
+                <div class="metric-label">🗣️ DEEP ENGAGEMENT</div>
+                <div class="metric-value" style="font-size:1.1rem;">{top_long['CALLER']}</div>
+                <div class="metric-delta">{top_long['20+ MIN CALLS']} Long Calls</div>
+            </div>""", unsafe_allow_html=True)
 
-                    # ── Store for Insights tab ──
-                    st.session_state['insights_df']     = df.copy()
-                    st.session_state['insights_report'] = report_df.copy()
-                    st.session_state['insights_source'] = "Dynamic Report"
+        section_header("SUMMARY METRICS")
+        ans_t   = len(df[df['status'].str.lower() == 'answered'])
+        pur_val = f"{round(ans_t / len(df) * 100)}%" if len(df) > 0 else "0%"
+        kpis = [
+            ("Total Calls",    len(df),                                         "📲"),
+            ("Acefone Calls",  len(df[df['source'] == 'Acefone']),              "🔵"),
+            ("Ozonetel Calls", len(df[df['source'] == 'Ozonetel']),             "🟠"),
+            ("Manual Calls",   len(df[df['source'] == 'Manual']),               "✏️"),
+            ("Unique Leads",   df['unique_lead_id'].nunique(),                  "👤"),
+            ("Pick-Up Ratio",  pur_val,                                         "✅"),
+            ("Active Callers", len(report_df),                                  "🎙️"),
+            ("Avg Prod Hrs",   format_dur_hm(report_df["raw_prod_sec"].mean()), "⏱"),
+        ]
+        cols = st.columns(len(kpis))
+        for col, (label, val, icon) in zip(cols, kpis):
+            with col:
+                st.markdown(f"""
+                <div class="metric-card">
+                    <div class="metric-label">{icon} {label}</div>
+                    <div class="metric-value">{val}</div>
+                </div>""", unsafe_allow_html=True)
 
-                    section_header("🏆 TOP 3 PERFORMANCE HIGHLIGHTS")
-                    top_cols = st.columns(3)
+        st.divider()
+        section_header("AGENT PERFORMANCE TABLE")
 
-                    top_dur = report_df.iloc[0]
-                    with top_cols[0]:
-                        st.markdown(f"""
-                        <div class="metric-card" style="border-top: 3px solid var(--gold);">
-                            <div class="metric-label">🥇 TOP PERFORMER</div>
-                            <div class="metric-value" style="font-size:1.1rem;">{top_dur['CALLER']}</div>
-                            <div class="metric-delta">{top_dur['CALL DURATION > 3 MINS']} Duration</div>
-                        </div>""", unsafe_allow_html=True)
+        display_cols = [
+            "Rank", "IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS",
+            "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS",
+            "20+ MIN CALLS", "CALL DURATION > 3 MINS",
+            "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)", "REMARKS"
+        ]
+        total_row = pd.DataFrame([{
+            "Rank": "", "IN/OUT TIME": "-", "CALLER": "TOTAL", "TEAM": "-",
+            "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
+            "CALL STATUS": "-", "PICK UP RATIO %": "-",
+            "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
+            "CALLS 15-20 MINS": int(report_df["CALLS 15-20 MINS"].sum()),
+            "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
+            "CALL DURATION > 3 MINS": format_dur_hm(total_duration_agg),
+            "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod_sec"].sum()),
+            "BREAKS (>=15 MINS)": "-", "REMARKS": "-"
+        }])
+        final_df = pd.concat([report_df, total_row], ignore_index=True)
+        st.dataframe(
+            final_df.style.apply(style_total, axis=1)
+                          .set_properties(**{'white-space': 'pre-wrap'}),
+            column_order=display_cols,
+            use_container_width=True, hide_index=True
+        )
 
-                    top_calls = report_df.sort_values('TOTAL CALLS', ascending=False).iloc[0]
-                    with top_cols[1]:
-                        st.markdown(f"""
-                        <div class="metric-card" style="border-top: 3px solid #F97316;">
-                            <div class="metric-label">✆ HIGHEST CALLS</div>
-                            <div class="metric-value" style="font-size:1.1rem;">{top_calls['CALLER']}</div>
-                            <div class="metric-delta">{top_calls['TOTAL CALLS']} Total Calls</div>
-                        </div>""", unsafe_allow_html=True)
-
-                    top_long = report_df.sort_values('20+ MIN CALLS', ascending=False).iloc[0]
-                    with top_cols[2]:
-                        st.markdown(f"""
-                        <div class="metric-card" style="border-top: 3px solid var(--bronze);">
-                            <div class="metric-label">🗣️ DEEP ENGAGEMENT</div>
-                            <div class="metric-value" style="font-size:1.1rem;">{top_long['CALLER']}</div>
-                            <div class="metric-delta">{top_long['20+ MIN CALLS']} Long Calls</div>
-                        </div>""", unsafe_allow_html=True)
-
-                    section_header("SUMMARY METRICS")
-                    ans_t = len(df[df['status'].str.lower() == 'answered'])
-                    pur_val = f"{round(ans_t / len(df) * 100)}%" if len(df) > 0 else "0%"
-                    kpis = [
-                        ("Total Calls",    len(df),                                         "📲"),
-                        ("Acefone Calls",  len(df[df['source'] == 'Acefone']),              "🔵"),
-                        ("Ozonetel Calls", len(df[df['source'] == 'Ozonetel']),             "🟠"),
-                        ("Manual Calls",   len(df[df['source'] == 'Manual']),               "✏️"),
-                        ("Unique Leads",   df['unique_lead_id'].nunique(),                  "👤"),
-                        ("Pick-Up Ratio",  pur_val,                                         "✅"),
-                        ("Active Callers", len(report_df),                                  "🎙️"),
-                        ("Avg Prod Hrs",   format_dur_hm(report_df["raw_prod_sec"].mean()), "⏱"),
-                    ]
-
-                    cols = st.columns(len(kpis))
-                    for col, (label, val, icon) in zip(cols, kpis):
-                        with col:
-                            st.markdown(f"""
-                            <div class="metric-card">
-                                <div class="metric-label">{icon} {label}</div>
-                                <div class="metric-value">{val}</div>
-                            </div>""", unsafe_allow_html=True)
-
-                    st.divider()
-                    section_header("AGENT PERFORMANCE TABLE")
-
-                    total_row = pd.DataFrame([{
-                        "Rank": "",
-                        "IN/OUT TIME": "-", "CALLER": "TOTAL", "TEAM": "-",
-                        "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
-                        "CALL STATUS": "-", "PICK UP RATIO %": "-",
-                        "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
-                        "CALLS 15-20 MINS": int(report_df["CALLS 15-20 MINS"].sum()),
-                        "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
-                        "CALL DURATION > 3 MINS": format_dur_hm(total_duration_agg),
-                        "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod_sec"].sum()),
-                        "BREAKS (>=15 MINS)": "-", "REMARKS": "-"
-                    }])
-
-                    display_cols = [
-                        "Rank", "IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS",
-                        "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS",
-                        "20+ MIN CALLS", "CALL DURATION > 3 MINS",
-                        "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)", "REMARKS"
-                    ]
-
-                    final_df = pd.concat([report_df, total_row], ignore_index=True)
-                    st.dataframe(
-                        final_df.style.apply(style_total, axis=1)
-                                      .set_properties(**{'white-space': 'pre-wrap'}),
-                        column_order=display_cols,
-                        use_container_width=True, hide_index=True
-                    )
-
-                    st.divider()
-                    target_cols = [
-                        "client_number", "call_datetime", "call_starttime_clean",
-                        "call_endtime_clean", "call_duration", "status", "direction",
-                        "service", "reason", "call_owner", "Call Date",
-                        "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"
-                    ]
-                    existing_cols = [c for c in target_cols if c in df.columns]
-                    st.download_button(
-                        label="📥 Download CDR",
-                        data=df[existing_cols].to_csv(index=False).encode('utf-8'),
-                        file_name="CDR_LOG.csv", mime='text/csv'
-                    )
+        st.divider()
+        target_cols = [
+            "client_number", "call_datetime", "call_starttime_clean",
+            "call_endtime_clean", "call_duration", "status", "direction",
+            "service", "reason", "call_owner", "Call Date",
+            "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"
+        ]
+        existing_cols = [c for c in target_cols if c in df.columns]
+        st.download_button(
+            label="📥 Download Full CDR",
+            data=df[existing_cols].to_csv(index=False).encode('utf-8'),
+            file_name="CDR_LOG.csv", mime='text/csv'
+        )
     else:
         st.markdown("""
         <div style='text-align:center;padding:6rem 1rem;opacity:.6;'>
             <div style='font-size:4rem;margin-bottom:1rem;'>🚀</div>
-            <div style='font-size:.9rem;font-weight:600;'>Select a date range and click <b>Generate Dynamic Report</b></div>
+            <div style='font-size:.9rem;font-weight:600;'>Select filters and click <b>Generate Report</b> in the sidebar</div>
         </div>""", unsafe_allow_html=True)
 
 
@@ -1181,192 +1108,114 @@ with tab1:
 # ══════════════════════════════════════════════
 
 with tab2:
-    if gen_static:
-        with st.spinner("Building static layouts…"):
-            df_raw = fetch_call_data(start_date, end_date)
-            if df_raw.empty:
-                st.warning("No data found.")
-            else:
-                df_raw['merge_key'] = df_raw['call_owner'].str.strip().str.lower()
-                df_static_master = pd.merge(df_raw, df_team_mapping, on='merge_key', how='left')
-                df_static_master['call_owner'] = df_static_master['Caller Name'].fillna(df_static_master['call_owner'])
+    if 'ss_team_data' in st.session_state:
+        df             = st.session_state['ss_df']
+        team_data_list = st.session_state['ss_team_data']
+        tl_ad_mask     = st.session_state['ss_tl_mask']
 
-                if selected_team:     df_static_master = df_static_master[df_static_master['Team Name'].isin(selected_team)]
-                if selected_vertical: df_static_master = df_static_master[df_static_master['Vertical'].isin(selected_vertical)]
-                if search_query:      df_static_master = df_static_master[df_static_master['call_owner'].str.contains(search_query, case=False, na=False)]
+        static_display_cols = [
+            "CALLER", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %",
+            "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS"
+        ]
 
-                if df_static_master.empty:
-                    st.error("No results match filters.")
-                else:
-                    tl_ad_mask = pd.Series(False, index=df_static_master.index)
-                    for col in df_team_mapping.columns:
-                        if col in df_static_master.columns:
-                            clean_col = df_static_master[col].fillna('').astype(str).str.strip().str.upper()
-                            tl_ad_mask |= clean_col.isin(['TL', 'ATL', 'AD', 'TEAM LEAD', 'TEAM LEADER'])
+        # Normal teams
+        for team_name, t_report_df, t_dur_agg in team_data_list:
+            if team_name == "TL's & ATL's":
+                continue
+            st.markdown(f"""
+            <div class="static-team-header">
+                DURATION REPORT — {team_name.upper()} &nbsp;({display_start} to {display_end})
+            </div>""", unsafe_allow_html=True)
+            total_row = pd.DataFrame([{
+                "CALLER": "TOTAL",
+                "TOTAL CALLS": int(t_report_df["TOTAL CALLS"].sum()),
+                "CALL STATUS": "-", "PICK UP RATIO %": "-",
+                "CALLS > 3 MINS": int(t_report_df["CALLS > 3 MINS"].sum()),
+                "CALLS 15-20 MINS": int(t_report_df["CALLS 15-20 MINS"].sum()),
+                "20+ MIN CALLS": int(t_report_df["20+ MIN CALLS"].sum()),
+                "CALL DURATION > 3 MINS": format_dur_hm(t_dur_agg)
+            }])
+            final_team_df = pd.concat([t_report_df[static_display_cols], total_row], ignore_index=True)
+            calc_h = (len(final_team_df) + 1) * 35 + 20
+            st.dataframe(
+                final_team_df.style.apply(style_static, axis=1)
+                                   .set_properties(**{'white-space': 'pre-wrap'}),
+                column_order=static_display_cols,
+                use_container_width=True, hide_index=True, height=calc_h
+            )
+            team_cdr = df[df['Team Name'] == team_name]
+            target_cols = [
+                "client_number", "call_datetime", "call_starttime_clean",
+                "call_endtime_clean", "call_duration", "status", "direction",
+                "service", "reason", "call_owner", "Call Date",
+                "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"
+            ]
+            existing_cols = [c for c in target_cols if c in team_cdr.columns]
+            st.download_button(
+                label=f"📥 Download CDR — {team_name}",
+                data=team_cdr[existing_cols].to_csv(index=False).encode('utf-8'),
+                file_name=f"CDR_{team_name}.csv", mime='text/csv',
+                key=f"dl_team_{team_name}"
+            )
+            st.divider()
 
-                    static_display_cols = [
-                        "CALLER", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %",
-                        "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS",
-                        "CALL DURATION > 3 MINS"
-                    ]
-
-                    normal_team_data = df_static_master[~tl_ad_mask]
-                    normal_teams     = sorted(normal_team_data['Team Name'].dropna().unique())
-                    team_data_list   = []   # ← collect for HTML snapshot
-
-                    for team in normal_teams:
-                        team_df = normal_team_data[normal_team_data['Team Name'] == team]
-                        report_df, team_dur_agg_sec = process_metrics_logic(team_df)
-                        if team_dur_agg_sec > 0:
-                            report_df = report_df.sort_values(by="raw_dur_sec", ascending=False)
-                            team_data_list.append((team, report_df.copy(), team_dur_agg_sec))  # ← snapshot
-                            st.markdown(f"""
-                            <div class="static-team-header">
-                                DURATION REPORT — {team.upper()} &nbsp;({display_start} to {display_end})
-                            </div>""", unsafe_allow_html=True)
-
-                            total_row = pd.DataFrame([{
-                                "CALLER": "TOTAL",
-                                "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
-                                "CALL STATUS": "-", "PICK UP RATIO %": "-",
-                                "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
-                                "CALLS 15-20 MINS": int(report_df["CALLS 15-20 MINS"].sum()),
-                                "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
-                                "CALL DURATION > 3 MINS": format_dur_hm(team_dur_agg_sec)
-                            }])
-                            final_team_df = pd.concat([report_df[static_display_cols], total_row], ignore_index=True)
-                            calc_h = (len(final_team_df) + 1) * 35 + 20
-                            st.dataframe(
-                                final_team_df.style.apply(style_static, axis=1)
-                                                   .set_properties(**{'white-space': 'pre-wrap'}),
-                                column_order=static_display_cols,
-                                use_container_width=True, hide_index=True, height=calc_h
-                            )
-
-                            target_cols = [
-                                "client_number", "call_datetime", "call_starttime_clean",
-                                "call_endtime_clean", "call_duration", "status", "direction",
-                                "service", "reason", "call_owner", "Call Date",
-                                "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"
-                            ]
-                            existing_cols = [c for c in target_cols if c in team_df.columns]
-                            st.download_button(
-                                label=f"📥 Download CDR — {team}",
-                                data=team_df[existing_cols].to_csv(index=False).encode('utf-8'),
-                                file_name=f"CDR_{team}.csv", mime='text/csv',
-                                key=f"dl_team_{team}"
-                            )
-                            st.divider()
-
-                    tl_ad_pool = df_static_master[tl_ad_mask]
-                    if not tl_ad_pool.empty:
-                        report_df_tl, tl_dur_agg_sec = process_metrics_logic(tl_ad_pool)
-                        active_tl = report_df_tl[report_df_tl['raw_dur_sec'] > 300].sort_values(by="raw_dur_sec", ascending=False)
-                        if not active_tl.empty:
-                            team_data_list.append(("TL's & ATL's", active_tl.copy(), active_tl["raw_dur_sec"].sum()))  # ← snapshot
-                            st.markdown(f"""
-                            <div class="static-team-header">
-                                TL'S DURATION REPORT &nbsp;({display_start} to {display_end})
-                            </div>""", unsafe_allow_html=True)
-                            total_row_tl = pd.DataFrame([{
-                                "CALLER": "TOTAL",
-                                "TOTAL CALLS": int(active_tl["TOTAL CALLS"].sum()),
-                                "CALL STATUS": "-", "PICK UP RATIO %": "-",
-                                "CALLS > 3 MINS": int(active_tl["CALLS > 3 MINS"].sum()),
-                                "CALLS 15-20 MINS": int(active_tl["CALLS 15-20 MINS"].sum()),
-                                "20+ MIN CALLS": int(active_tl["20+ MIN CALLS"].sum()),
-                                "CALL DURATION > 3 MINS": format_dur_hm(active_tl["raw_dur_sec"].sum())
-                            }])
-                            final_tl_df = pd.concat([active_tl[static_display_cols], total_row_tl], ignore_index=True)
-                            calc_h_tl = (len(final_tl_df) + 1) * 35 + 20
-                            st.dataframe(
-                                final_tl_df.style.apply(style_static, axis=1)
-                                                 .set_properties(**{'white-space': 'pre-wrap'}),
-                                column_order=static_display_cols,
-                                use_container_width=True, hide_index=True, height=calc_h_tl
-                            )
-                            valid_tls    = active_tl['CALLER'].unique()
-                            final_tl_cdr = tl_ad_pool[tl_ad_pool['call_owner'].isin(valid_tls)]
-                            target_cols  = [
-                                "client_number", "call_datetime", "call_starttime_clean",
-                                "call_endtime_clean", "call_duration", "status", "direction",
-                                "service", "reason", "call_owner", "Call Date",
-                                "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"
-                            ]
-                            existing_cols = [c for c in target_cols if c in final_tl_cdr.columns]
-                            st.download_button(
-                                label="📥 Download TL CDR",
-                                data=final_tl_cdr[existing_cols].to_csv(index=False).encode('utf-8'),
-                                file_name="CDR_TL_AD.csv", mime='text/csv',
-                                key="dl_tl_ad_final_last"
-                            )
-
-                    # ── Store full dataset for Insights tab ──
-                    report_all, _ = process_metrics_logic(
-                        df_static_master[df_static_master['call_owner'].notna() & (df_static_master['call_owner'] != '')]
-                    )
-                    st.session_state['insights_df']         = df_static_master.copy()
-                    st.session_state['insights_report']     = report_all.copy()
-                    st.session_state['insights_source']     = "Duration Report"
-                    st.session_state['duration_report_html'] = generate_html_report(
-                        team_data_list, display_start, display_end
-                    )
-                    st.session_state['duration_report_zip'] = generate_image_zip(
-                        team_data_list, display_start, display_end
-                    )
-
-                    # ── Inline download buttons (always visible after generation) ──
-                    st.divider()
-                    dl_col1, dl_col2 = st.columns(2)
-                    with dl_col1:
-                        st.download_button(
-                            label="📸 Download All Reports (JPG ZIP)",
-                            data=st.session_state['duration_report_zip'],
-                            file_name=f"Duration_Reports_{start_date.strftime('%d-%m-%Y')}_to_{end_date.strftime('%d-%m-%Y')}.zip",
-                            mime='application/zip',
-                            key='dl_zip_tab2',
-                            use_container_width=True
-                        )
-                    with dl_col2:
-                        st.download_button(
-                            label="🌐 Download All Reports (HTML)",
-                            data=st.session_state['duration_report_html'].encode('utf-8'),
-                            file_name=f"Duration_Reports_{start_date.strftime('%d-%m-%Y')}_to_{end_date.strftime('%d-%m-%Y')}.html",
-                            mime='text/html',
-                            key='dl_html_tab2',
-                            use_container_width=True
-                        )
-
+        # TL section
+        tl_entry = next((x for x in team_data_list if x[0] == "TL's & ATL's"), None)
+        if tl_entry:
+            _, active_tl, tl_dur = tl_entry
+            st.markdown(f"""
+            <div class="static-team-header">
+                TL'S DURATION REPORT &nbsp;({display_start} to {display_end})
+            </div>""", unsafe_allow_html=True)
+            total_row_tl = pd.DataFrame([{
+                "CALLER": "TOTAL",
+                "TOTAL CALLS": int(active_tl["TOTAL CALLS"].sum()),
+                "CALL STATUS": "-", "PICK UP RATIO %": "-",
+                "CALLS > 3 MINS": int(active_tl["CALLS > 3 MINS"].sum()),
+                "CALLS 15-20 MINS": int(active_tl["CALLS 15-20 MINS"].sum()),
+                "20+ MIN CALLS": int(active_tl["20+ MIN CALLS"].sum()),
+                "CALL DURATION > 3 MINS": format_dur_hm(tl_dur)
+            }])
+            final_tl_df = pd.concat([active_tl[static_display_cols], total_row_tl], ignore_index=True)
+            calc_h_tl = (len(final_tl_df) + 1) * 35 + 20
+            st.dataframe(
+                final_tl_df.style.apply(style_static, axis=1)
+                                 .set_properties(**{'white-space': 'pre-wrap'}),
+                column_order=static_display_cols,
+                use_container_width=True, hide_index=True, height=calc_h_tl
+            )
+            tl_cdr = df[tl_ad_mask & df['call_owner'].isin(active_tl['CALLER'].unique())]
+            target_cols = [
+                "client_number", "call_datetime", "call_starttime_clean",
+                "call_endtime_clean", "call_duration", "status", "direction",
+                "service", "reason", "call_owner", "Call Date",
+                "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"
+            ]
+            existing_cols = [c for c in target_cols if c in tl_cdr.columns]
+            st.download_button(
+                label="📥 Download TL CDR",
+                data=tl_cdr[existing_cols].to_csv(index=False).encode('utf-8'),
+                file_name="CDR_TL_AD.csv", mime='text/csv',
+                key="dl_tl_final"
+            )
     else:
         st.markdown("""
         <div style='text-align:center;padding:6rem 1rem;opacity:.6;'>
             <div style='font-size:4rem;margin-bottom:1rem;'>📅</div>
-            <div style='font-size:.9rem;font-weight:600;'>Click <b>Generate Duration Report</b> in the sidebar</div>
+            <div style='font-size:.9rem;font-weight:600;'>Click <b>Generate Report</b> in the sidebar</div>
         </div>""", unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════════════
-# TAB 3 — INSIGHTS (auto-populated from session state)
+# TAB 3 — INSIGHTS
 # ══════════════════════════════════════════════
 
 with tab3:
-    if 'insights_df' in st.session_state and 'insights_report' in st.session_state:
-        df_ins       = st.session_state['insights_df']
-        report_df_all = st.session_state['insights_report']
-        source_label  = st.session_state.get('insights_source', 'Report')
-
-        st.markdown(f"""
-        <div style='text-align:center;margin-bottom:1rem;'>
-            <span style='font-size:.75rem;font-weight:600;color:#F97316;
-                         background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.2);
-                         border-radius:20px;padding:4px 14px;font-family:DM Mono,monospace;'>
-                ⚡ AUTO-GENERATED FROM {source_label.upper()}
-            </span>
-        </div>""", unsafe_allow_html=True)
+    if 'ss_insights' in st.session_state:
+        insights = st.session_state['ss_insights']
+        lb_df    = st.session_state['ss_lb']
 
         section_header("🧠 GENERATED TEAM INSIGHTS")
-        insights = compute_team_insights(df_ins, report_df_all)
-
         if insights:
             cols_ins = st.columns(2)
             for i, ins in enumerate(insights):
@@ -1383,38 +1232,11 @@ with tab3:
             st.info("Not enough data to generate comparative insights.")
 
         st.divider()
-
-        if not selected_team and not search_query:
-            section_header("🏅 TEAM LEADERBOARD")
-            lb = (
-                report_df_all.groupby("TEAM")
-                .agg(
-                    agents=("CALLER", "count"),
-                    total_calls=("TOTAL CALLS", "sum"),
-                    total_dur_h=("raw_dur_sec", lambda x: round(x.sum() / 3600, 1)),
-                    avg_dur_h=("raw_dur_sec", lambda x: round(x.mean() / 3600, 1)),
-                    avg_prod_h=("raw_prod_sec", lambda x: round(x.mean() / 3600, 1)),
-                    long_calls=("20+ MIN CALLS", "sum"),
-                )
-                .reset_index().sort_values("total_dur_h", ascending=False)
-                .rename(columns={
-                    "TEAM": "Team", "agents": "Agents", "total_calls": "Total Calls",
-                    "total_dur_h": "Total Dur (h)", "avg_dur_h": "Avg Dur/Agent (h)",
-                    "avg_prod_h": "Avg Prod Hrs (h)", "long_calls": "20+ Min Calls"
-                })
-            )
-            medals = ["🥇", "🥈", "🥉"] + [""] * max(0, len(lb) - 3)
-            lb.insert(0, "🏅", medals)
-            lb = lb.reset_index(drop=True)
-            st.dataframe(lb, use_container_width=True, hide_index=True)
-
+        section_header("🏅 TEAM LEADERBOARD")
+        st.dataframe(lb_df, use_container_width=True, hide_index=True)
     else:
-        # Nothing generated yet
         st.markdown("""
         <div style='text-align:center;padding:6rem 1rem;opacity:.6;'>
             <div style='font-size:4rem;margin-bottom:1rem;'>🧠</div>
-            <div style='font-size:.9rem;font-weight:600;'>
-                Generate a <b>Dynamic Report</b> or <b>Duration Report</b> first —<br>
-                Insights will appear here automatically.
-            </div>
+            <div style='font-size:.9rem;font-weight:600;'>Click <b>Generate Report</b> in the sidebar</div>
         </div>""", unsafe_allow_html=True)
