@@ -412,22 +412,19 @@ def resolve_designations(df_meta, start_date, end_date):
 # ─────────────────────────────────────────────
 
 def classify_and_process(df, df_meta, start_date, end_date):
-    """
-    Returns (calling_df, collection_df, both_df) based on revenue type each caller has.
-
-    Calling Agent      → has Enrollment + Balance revenue only
-    Collection Agent   → from Changemakers OR has Community/Bootcamp collections only
-    Calling+Collection → has both calling revenue AND collection revenue (excl Changemakers)
-    """
     target_map       = resolve_targets(df_meta, start_date, end_date)
     desig_map        = resolve_designations(df_meta, start_date, end_date)
     target_map_norm  = {str(k).strip().lower(): v for k, v in target_map.items()}
     desig_map_norm   = {str(k).strip().lower(): v for k, v in desig_map.items()}
 
+    # Pre-compute working days ratio once for all callers
+    months_count    = max(len(get_months_in_range(start_date, end_date)), 1)
+    working_days    = count_working_days(start_date, end_date)
+    till_day_ratio  = min(working_days / (20 * months_count), 1.0)
+
     calling_rows, collection_rows, both_rows = [], [], []
 
     for caller, grp in df.groupby('Caller_name'):
-        # Skip non-agent entries
         if caller.strip().lower() in EXCLUDE_CALLERS:
             continue
 
@@ -436,7 +433,8 @@ def classify_and_process(df, df_meta, start_date, end_date):
         team       = str(info.get('Team Name', '—')).strip()
         target     = float(target_map_norm.get(caller_key, 0) or 0)
 
-        # Revenue components
+        till_day_target = round(target * till_day_ratio)
+
         enr_rev      = grp[grp['is_new_enrollment']]['Fee_paid'].sum()
         bal_rev      = grp[grp['is_balance_payment']]['Fee_paid'].sum()
         boot_coll    = grp[grp['is_bootcamp_collection']]['Fee_paid'].sum()
@@ -447,18 +445,11 @@ def classify_and_process(df, df_meta, start_date, end_date):
         collection_rev = boot_coll + comm_coll
         total_rev      = calling_rev + collection_rev
 
-        # Till Day Target — prorate by working days in selected range vs 20 days/month
-        months_count   = max(len(get_months_in_range(start_date, end_date)), 1)
-        working_days   = count_working_days(start_date, end_date)
-        till_day_ratio = min(working_days / (20 * months_count), 1.0)
-        till_day_target = round(target * till_day_ratio)
-
         is_changemakers = team.lower() == 'changemakers'
         has_calling     = calling_rev > 0
         has_collection  = collection_rev > 0
 
         row = {
-            row = {
             'DESIGNATION'         : info.get('Academic Counselor/TL/ATL', '—'),
             'CALLER NAME'         : caller,
             'TEAM'                : team,
@@ -481,7 +472,6 @@ def classify_and_process(df, df_meta, start_date, end_date):
         }
 
         if is_changemakers:
-            # Always Collection Agent regardless of other revenue
             row['ACHIEVEMENT %'] = round(collection_rev / target * 100, 1) if target > 0 else 0.0
             collection_rows.append(row)
         elif has_calling and has_collection:
@@ -491,7 +481,6 @@ def classify_and_process(df, df_meta, start_date, end_date):
             row['ACHIEVEMENT %'] = round(collection_rev / target * 100, 1) if target > 0 else 0.0
             collection_rows.append(row)
         else:
-            # Pure calling agent (or zero revenue — still bucket here)
             row['ACHIEVEMENT %'] = round(calling_rev / target * 100, 1) if target > 0 else 0.0
             calling_rows.append(row)
 
