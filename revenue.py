@@ -852,12 +852,12 @@ with tab1:
 
                     kpis = [
                         ("Total Revenue",                   fmt_inr(metrics['total_rev']),      "💰"),
-                        ("Calling Revenue",                  fmt_inr(metrics['calling_rev']),    "📞"),
-                        ("Bootcamp Direct Revenue",         fmt_inr(metrics['bootcamp_direct_rev']),     "🎓"),
-                        ("Collection Revenue",              fmt_inr(metrics['collection_rev']), "🏦"),
-                        ("Community Revenue",               fmt_inr(metrics['community_rev']),  "🌐"),
-                        ("Direct Revenue",                  fmt_inr(metrics['direct_rev']),     "🎯"),
-                        ("Details Not Available",           fmt_inr(metrics['dna_rev']),        "❓"),
+                        ("Calling Revenue (INCL Funnel)",                  fmt_inr(metrics['calling_rev']),    "📞"),
+                        ("Bootcamp-Direct Revenue",         fmt_inr(metrics['bootcamp_direct_rev']),     "🎓"),
+                        ("Bootcamp-Collection Revenue",              fmt_inr(metrics['collection_rev']), "🏦"),
+                        ("Community Revenue (Direct + Collection)",               fmt_inr(metrics['community_rev']),  "🌐"),
+                        ("Direct/Other Revenue (INCL Funnel)",                  fmt_inr(metrics['direct_rev']),     "🎯"),
+                        ("Details Not Available/ Updated Yet",           fmt_inr(metrics['dna_rev']),        "❓"),
                     ]
 
                     cols = st.columns(len(kpis))
