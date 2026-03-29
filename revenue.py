@@ -1035,9 +1035,17 @@ with tab1:
                             'TOTAL TARGET (₹)'    : fmt_inr(both_df['raw_target'].sum()),
                             'TILL DAY TARGET (₹)' : fmt_inr(both_df['TILL DAY TARGET (₹)'].sum()),
                             'ENROLLMENTS'         : int(both_df['raw_enrollments'].sum()),
+                            'ENROLLMENT REV'      : fmt_inr(both_df['ENROLLMENT REV'].sum()),
+                            'BALANCE REV'         : fmt_inr(both_df['BALANCE REV'].sum()),
+                            'COMMUNITY COLLECTION': fmt_inr(both_df['COMMUNITY COLLECTION'].sum()),
+                            'BOOTCAMP COLLECTION' : fmt_inr(both_df['BOOTCAMP COLLECTION'].sum()),
+                            'CALLING REVENUE'     : fmt_inr(both_df['CALLING REVENUE'].sum()),
+                            'COLLECTION REVENUE'  : fmt_inr(both_df['COLLECTION REVENUE'].sum()),
+                            'TOTAL REVENUE'       : fmt_inr(both_df['raw_revenue'].sum()),
+                            'ACHIEVEMENT %'       : f"{round(both_df['raw_revenue'].sum() / both_df['raw_target'].sum() * 100, 1) if both_df['raw_target'].sum() > 0 else 0}%",
+                        }
                     else:
                         both_totals = {}
-
                     render_perf_table(
                         both_df, both_display_cols,
                         both_totals, 'raw_revenue', 'both'
