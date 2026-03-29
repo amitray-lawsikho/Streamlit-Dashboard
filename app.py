@@ -926,7 +926,7 @@ gen_static  = st.sidebar.button("📅 Generate Duration Report")
 
 if 'duration_report_zip' in st.session_state:
     st.sidebar.download_button(
-        label="📸 Download Duration Reports (JPG)",
+        label="📸 Download Duration Reports",
         data=st.session_state['duration_report_zip'],
         file_name=f"Duration_Reports_{start_date.strftime('%d-%m-%Y')}_to_{end_date.strftime('%d-%m-%Y')}.zip",
         mime='application/zip',
