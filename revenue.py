@@ -503,15 +503,20 @@ def compute_summary_metrics(df):
                       df[df['is_other_revenue'] & df['source_has_community']]['Fee_paid'].sum())
     direct_rev     = df[df['is_other_revenue'] & ~df['source_has_community']]['Fee_paid'].sum()
     dna_rev        = df[df['is_empty_enrollment']]['Fee_paid'].sum()
+    bootcamp_direct_rev = df[
+        (df['is_new_enrollment']) &
+        (df['Caller_name'].str.strip().str.lower() == 'bootcamp - direct')
+    ]['Fee_paid'].sum()
     total_rev      = calling_rev + collection_rev + community_rev + direct_rev + dna_rev
 
     return {
-        'total_rev'     : total_rev,
-        'calling_rev'   : calling_rev,
-        'collection_rev': collection_rev,
-        'community_rev' : community_rev,
-        'direct_rev'    : direct_rev,
-        'dna_rev'       : dna_rev,
+        'total_rev'          : total_rev,
+        'calling_rev'        : calling_rev,
+        'bootcamp_direct_rev': bootcamp_direct_rev,
+        'collection_rev'     : collection_rev,
+        'community_rev'      : community_rev,
+        'direct_rev'         : direct_rev,
+        'dna_rev'            : dna_rev,
     }
 
 
@@ -785,7 +790,7 @@ with tab1:
                         if not calling_df.empty:
                             top_c = calling_df.iloc[0]
                             st.markdown(f"""
-                            <div class="metric-card" style="border-top:3px solid var(--gold);">
+                            <div class="metric-card" style="border-top:3px solid var(--accent-primary);">
                                 <div class="metric-label">🥇 TOP REVENUE — CALLER</div>
                                 <div class="metric-value" style="font-size:1.1rem;">{top_c['CALLER NAME']}</div>
                                 <div class="metric-delta">{fmt_inr(top_c['raw_calling_rev'])} Calling Revenue</div>
@@ -805,7 +810,7 @@ with tab1:
                         if not all_agents.empty and all_agents['raw_enrollments'].max() > 0:
                             top_enr = all_agents.sort_values('raw_enrollments', ascending=False).iloc[0]
                             st.markdown(f"""
-                            <div class="metric-card" style="border-top:3px solid var(--silver);">
+                            <div class="metric-card" style="border-top:3px solid var(--accent-primary);">
                                 <div class="metric-label">🎓 MOST ENROLLMENTS</div>
                                 <div class="metric-value" style="font-size:1.1rem;">{top_enr['CALLER NAME']}</div>
                                 <div class="metric-delta">{top_enr['raw_enrollments']} New Enrollments</div>
@@ -825,7 +830,7 @@ with tab1:
                         if not coll_combined.empty:
                             top_coll = coll_combined.sort_values('raw_collection_rev', ascending=False).iloc[0]
                             st.markdown(f"""
-                            <div class="metric-card" style="border-top:3px solid var(--bronze);">
+                            <div class="metric-card" style="border-top:3px solid var(--accent-primary);">
                                 <div class="metric-label">🥇 TOP REVENUE — COLLECTION</div>
                                 <div class="metric-value" style="font-size:1.1rem;">{top_coll['CALLER NAME']}</div>
                                 <div class="metric-delta">{fmt_inr(top_coll['raw_collection_rev'])} Collection Revenue</div>
@@ -842,6 +847,7 @@ with tab1:
                     kpis = [
                         ("Total Revenue",                   fmt_inr(metrics['total_rev']),      "💰"),
                         ("Calling Revenue",                  fmt_inr(metrics['calling_rev']),    "📞"),
+                        ("Bootcamp Direct Revenue",         fmt_inr(metrics['bootcamp_direct_rev']),     "🎓"),
                         ("Collection Revenue",              fmt_inr(metrics['collection_rev']), "🏦"),
                         ("Community Revenue",               fmt_inr(metrics['community_rev']),  "🌐"),
                         ("Direct Revenue",                  fmt_inr(metrics['direct_rev']),     "🎯"),
