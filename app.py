@@ -540,7 +540,6 @@ def compute_team_insights(df_merged, report_df):
             })
 
     return insights
-
 # ─────────────────────────────────────────────
 # HTML SNAPSHOT GENERATOR
 # ─────────────────────────────────────────────
@@ -719,6 +718,7 @@ def generate_html_report(team_data_list, display_start, display_end):
 </html>"""
 
     return html
+
 # ─────────────────────────────────────────────
 # SIDEBAR
 # ─────────────────────────────────────────────
@@ -754,7 +754,7 @@ if 'duration_report_html' in st.session_state:
     st.sidebar.download_button(
         label="📸 Download Duration Reports",
         data=st.session_state['duration_report_html'].encode('utf-8'),
-        file_name=f"Duration_Report_{display_start}_to_{display_end}.html",
+        file_name=f"Duration_Report_{start_date.strftime('%d-%m-%Y')}_to_{end_date.strftime('%d-%m-%Y')}.html",
         mime='text/html',
         key='dl_duration_html_sidebar'
     )
