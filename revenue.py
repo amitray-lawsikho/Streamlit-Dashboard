@@ -23,8 +23,11 @@ else:
     else:
         st.error("Credentials not found!")
 
-CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRT73ztvPNZSvIu5WLxo-3WQ76JMAnt4P9dITd4EAbjSvuDytfgvdfri1WPXotCjm_Etnb80_Q7S-wf/pub?gid=973926168&single=true&output=csv"
+CSV_URL      = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRT73ztvPNZSvIu5WLxo-3WQ76JMAnt4P9dITd4EAbjSvuDytfgvdfri1WPXotCjm_Etnb80_Q7S-wf/pub?gid=973926168&single=true&output=csv"
 REV_TABLE_ID = "studious-apex-488820-c3.crm_dashboard.revenue_sheet"
+
+# Callers that are not real agents
+EXCLUDE_CALLERS = {'direct', 'bootcamp - direct'}
 
 # ─────────────────────────────────────────────
 # 2. PAGE CONFIG
@@ -38,7 +41,7 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────────
-# 3. CSS — DISTINCT FROM CALLING METRICS
+# 3. CSS
 # ─────────────────────────────────────────────
 
 st.markdown("""
@@ -106,7 +109,6 @@ footer { visibility: hidden; }
 [data-testid="stMainViewContainer"] { padding-top: 1.5rem; }
 [data-testid="stSidebar"] { border-right: 1px solid var(--border, rgba(0,0,0,.08)); }
 
-/* ── Revenue Header — Emerald/Forest gradient ── */
 .rv-header {
     background: linear-gradient(135deg, #064e3b 0%, #065f46 45%, #1e3a5f 100%);
     border-radius: var(--radius-lg);
@@ -124,46 +126,24 @@ footer { visibility: hidden; }
     background: radial-gradient(circle, rgba(16,185,129,.2) 0%, transparent 70%);
     border-radius: 50%;
 }
-.rv-title {
-    font-size: 1.65rem;
-    font-weight: 700;
-    color: #FFFFFF;
-    letter-spacing: .5px;
-    margin: 0 0 .25rem;
-}
-.rv-subtitle {
-    font-size: .82rem;
-    color: rgba(255,255,255,.6);
-    font-weight: 400;
-    margin: 0;
-    font-family: 'DM Mono', monospace;
-}
+.rv-title   { font-size: 1.65rem; font-weight: 700; color: #FFFFFF; letter-spacing: .5px; margin: 0 0 .25rem; }
+.rv-subtitle{ font-size: .82rem; color: rgba(255,255,255,.6); font-weight: 400; margin: 0; font-family: 'DM Mono', monospace; }
 .rv-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: rgba(255,255,255,.12);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255,255,255,.18);
-    border-radius: 20px;
-    padding: 3px 10px;
-    font-size: .73rem;
-    color: rgba(255,255,255,.9);
-    font-family: 'DM Mono', monospace;
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(255,255,255,.12); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,.18); border-radius: 20px;
+    padding: 3px 10px; font-size: .73rem;
+    color: rgba(255,255,255,.9); font-family: 'DM Mono', monospace;
 }
 .rv-pulse {
-    width: 6px; height: 6px;
-    background: #34D399;
-    border-radius: 50%;
-    display: inline-block;
-    animation: pulse-ring 1.8s ease-in-out infinite;
+    width: 6px; height: 6px; background: #34D399; border-radius: 50%;
+    display: inline-block; animation: pulse-ring 1.8s ease-in-out infinite;
 }
 @keyframes pulse-ring {
     0%, 100% { opacity: 1; transform: scale(1); }
     50%       { opacity: .5; transform: scale(1.4); }
 }
 
-/* ── Metric Cards ── */
 .metric-card {
     background: var(--metric-bg, #fff);
     border: 1px solid var(--border, rgba(0,0,0,.08));
@@ -171,175 +151,69 @@ footer { visibility: hidden; }
     padding: .9rem 1rem;
     transition: var(--transition);
     box-shadow: var(--shadow-sm);
-    position: relative;
-    overflow: hidden;
-    text-align: center;
+    position: relative; overflow: hidden; text-align: center;
 }
 .metric-card::before {
-    content: "";
-    position: absolute;
-    top: 0; left: 0;
+    content: ""; position: absolute; top: 0; left: 0;
     width: 100%; height: 3px;
     background: linear-gradient(90deg, #10B981, #34D399);
-    opacity: 0;
-    transition: opacity .2s;
+    opacity: 0; transition: opacity .2s;
 }
 .metric-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
 .metric-card:hover::before { opacity: 1; }
-.metric-label {
-    font-size: .68rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: .8px;
-    color: var(--text-muted, #6B7280);
-    margin: 0 0 .3rem;
-}
-.metric-value {
-    font-size: 1.45rem;
-    font-weight: 700;
-    color: var(--text-primary, #111827);
-    line-height: 1;
-    font-family: 'DM Mono', monospace;
-}
-.metric-delta {
-    font-size: .7rem;
-    color: #10B981;
-    margin-top: .2rem;
-    font-weight: 500;
-}
+.metric-label  { font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .8px; color: var(--text-muted, #6B7280); margin: 0 0 .3rem; }
+.metric-value  { font-size: 1.45rem; font-weight: 700; color: var(--text-primary, #111827); line-height: 1; font-family: 'DM Mono', monospace; }
+.metric-delta  { font-size: .7rem; color: #10B981; margin-top: .2rem; font-weight: 500; }
 
-/* ── Section Headers ── */
-.section-header {
-    display: flex;
-    align-items: center;
-    gap: .6rem;
-    margin: 1.5rem 0 .8rem;
-}
-.section-header-line {
-    flex: 1;
-    height: 1px;
-    background: linear-gradient(90deg, #10B981, transparent);
-    opacity: .35;
-}
-.section-title {
-    font-size: .78rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 1.2px;
-    color: #10B981;
-    white-space: nowrap;
-    text-align: center;
-}
+.section-header { display: flex; align-items: center; gap: .6rem; margin: 1.5rem 0 .8rem; }
+.section-header-line { flex: 1; height: 1px; background: linear-gradient(90deg, #10B981, transparent); opacity: .35; }
+.section-title { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: #10B981; white-space: nowrap; text-align: center; }
 
-/* ── Insight Cards ── */
-.insight-card {
-    background: var(--metric-bg, #fff);
-    border: 1px solid var(--border, rgba(0,0,0,.08));
-    border-radius: var(--radius-md);
-    padding: 1rem 1.1rem;
-    margin-bottom: .6rem;
-    box-shadow: var(--shadow-sm);
-    transition: var(--transition);
-}
+.insight-card { background: var(--metric-bg, #fff); border: 1px solid var(--border, rgba(0,0,0,.08)); border-radius: var(--radius-md); padding: 1rem 1.1rem; margin-bottom: .6rem; box-shadow: var(--shadow-sm); transition: var(--transition); }
 .insight-card:hover { box-shadow: var(--shadow-md); }
 .insight-card.good { border-left: 3px solid #10B981; }
 .insight-card.warn { border-left: 3px solid #FBBF24; }
 .insight-card.bad  { border-left: 3px solid #F87171; }
 .insight-card.info { border-left: 3px solid #60A5FA; }
-.insight-icon { font-size: 1.1rem; }
-.insight-title {
-    font-size: .82rem;
-    font-weight: 700;
-    color: var(--text-primary, #111827);
-    margin: .2rem 0;
-}
-.insight-body {
-    font-size: .76rem;
-    color: var(--text-muted, #6B7280);
-    line-height: 1.5;
-}
+.insight-icon  { font-size: 1.1rem; }
+.insight-title { font-size: .82rem; font-weight: 700; color: var(--text-primary, #111827); margin: .2rem 0; }
+.insight-body  { font-size: .76rem; color: var(--text-muted, #6B7280); line-height: 1.5; }
 
-/* ── Tab Styling ── */
-[data-testid="stTabs"] [role="tablist"] {
-    gap: .3rem;
-    border-bottom: 1px solid var(--border, rgba(0,0,0,.08));
-}
+[data-testid="stTabs"] [role="tablist"] { gap: .3rem; border-bottom: 1px solid var(--border, rgba(0,0,0,.08)); }
 [data-testid="stTabs"] button[role="tab"] {
-    font-family: 'DM Sans', sans-serif !important;
-    font-size: .82rem !important;
-    font-weight: 600 !important;
-    letter-spacing: .3px;
+    font-family: 'DM Sans', sans-serif !important; font-size: .82rem !important;
+    font-weight: 600 !important; letter-spacing: .3px;
     border-radius: var(--radius-sm) var(--radius-sm) 0 0;
-    padding: .55rem 1.1rem !important;
-    transition: var(--transition);
+    padding: .55rem 1.1rem !important; transition: var(--transition);
 }
 
-/* ── Dataframe Header ── */
 div[data-testid="stDataFrame"] thead tr th {
     background: linear-gradient(135deg, #064e3b, #065f46) !important;
-    color: #fff !important;
-    font-family: 'DM Sans', sans-serif !important;
-    font-size: .72rem !important;
-    font-weight: 700 !important;
-    letter-spacing: .6px;
-    text-transform: uppercase;
-    white-space: normal !important;
-    word-wrap: break-word !important;
-    text-align: center !important;
-    vertical-align: middle !important;
-    min-width: 100px !important;
-    padding: 10px !important;
+    color: #fff !important; font-family: 'DM Sans', sans-serif !important;
+    font-size: .72rem !important; font-weight: 700 !important; letter-spacing: .6px;
+    text-transform: uppercase; white-space: normal !important; word-wrap: break-word !important;
+    text-align: center !important; vertical-align: middle !important;
+    min-width: 100px !important; padding: 10px !important;
 }
 
-/* ── Sidebar Buttons ── */
 [data-testid="stSidebar"] .stButton>button {
-    width: 100%;
-    font-family: 'DM Sans', sans-serif !important;
-    font-weight: 600 !important;
-    font-size: .82rem !important;
-    border-radius: var(--radius-sm);
-    transition: var(--transition);
+    width: 100%; font-family: 'DM Sans', sans-serif !important;
+    font-weight: 600 !important; font-size: .82rem !important;
+    border-radius: var(--radius-sm); transition: var(--transition);
 }
 [data-testid="stSidebar"] .stButton>button:first-child {
     background: linear-gradient(135deg, #059669, #065f46) !important;
-    color: #fff !important;
-    border: none !important;
+    color: #fff !important; border: none !important;
 }
 [data-testid="stSidebar"] .stButton>button:last-child {
     background: linear-gradient(135deg, #0F766E, #064e3b) !important;
-    color: #fff !important;
-    border: none !important;
+    color: #fff !important; border: none !important;
 }
-
-/* ── Download Button ── */
-.stDownloadButton>button {
-    background: linear-gradient(135deg, #064e3b, #065f46) !important;
-    color: #fff !important;
-    border: none !important;
-    border-radius: var(--radius-sm) !important;
-    font-family: 'DM Sans', sans-serif !important;
-    font-size: .78rem !important;
-    font-weight: 600 !important;
-    transition: var(--transition) !important;
-}
-.stDownloadButton>button:hover { opacity: .88; transform: translateY(-1px); }
 
 hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !important; }
 
-/* ── Achievement Bar ── */
-.achieve-bar-wrap {
-    background: var(--bg-muted, #DCFCE7);
-    border-radius: 999px;
-    height: 6px;
-    margin-top: .4rem;
-    overflow: hidden;
-}
-.achieve-bar-fill {
-    height: 100%;
-    border-radius: 999px;
-    background: linear-gradient(90deg, #10B981, #34D399);
-    transition: width .6s ease;
-}
+.achieve-bar-wrap { background: var(--bg-muted, #DCFCE7); border-radius: 999px; height: 6px; margin-top: .4rem; overflow: hidden; }
+.achieve-bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #10B981, #34D399); transition: width .6s ease; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -349,15 +223,10 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
 # ─────────────────────────────────────────────
 
 def fmt_inr(value):
-    """Format number as Indian currency shorthand."""
-    if pd.isna(value) or value == 0:
-        return "₹0"
-    if value >= 1_00_00_000:
-        return f"₹{value/1_00_00_000:.1f}Cr"
-    if value >= 1_00_000:
-        return f"₹{value/1_00_000:.1f}L"
-    if value >= 1_000:
-        return f"₹{value/1_000:.1f}K"
+    if pd.isna(value) or value == 0: return "₹0"
+    if value >= 1_00_00_000: return f"₹{value/1_00_00_000:.1f}Cr"
+    if value >= 1_00_000:    return f"₹{value/1_00_000:.1f}L"
+    if value >= 1_000:       return f"₹{value/1_000:.1f}K"
     return f"₹{int(value)}"
 
 def section_header(label):
@@ -374,10 +243,8 @@ def style_total_rev(row):
     return [''] * len(row)
 
 def get_months_in_range(start_date, end_date):
-    """Return list of first-of-month dates covering the date range."""
-    months = []
-    cur = date(start_date.year, start_date.month, 1)
-    end_month = date(end_date.year, end_date.month, 1)
+    months, cur = [], date(start_date.year, start_date.month, 1)
+    end_month   = date(end_date.year, end_date.month, 1)
     while cur <= end_month:
         months.append(cur)
         cur = (cur.replace(day=28) + timedelta(days=4)).replace(day=1)
@@ -393,7 +260,6 @@ def get_metadata():
     df_meta = pd.read_csv(CSV_URL)
     df_meta.columns = df_meta.columns.str.strip().str.replace('\xa0', '', regex=False)
 
-    # Rename Month column safely — find it by partial match in case of spacing issues
     month_col = next((c for c in df_meta.columns if c.strip().lower() == 'month'), None)
     if month_col and month_col != 'Month':
         df_meta.rename(columns={month_col: 'Month'}, inplace=True)
@@ -401,15 +267,11 @@ def get_metadata():
     if 'Month' in df_meta.columns:
         df_meta['Month'] = pd.to_datetime(df_meta['Month'], dayfirst=True, errors='coerce').dt.date
     else:
-        df_meta['Month'] = None  # Graceful fallback — targets won't resolve but app won't crash
+        df_meta['Month'] = None
 
-    # Unique filter options (across all months — distinct names/teams/verticals)
     teams     = sorted(df_meta['Team Name'].dropna().unique()) if 'Team Name' in df_meta.columns else []
     verticals = sorted(df_meta['Vertical'].dropna().unique())  if 'Vertical'  in df_meta.columns else []
-
-    # merge_key for joining to revenue
     df_meta['merge_key'] = df_meta['Caller Name'].str.strip().str.lower()
-
     return teams, verticals, df_meta
 
 @st.cache_data(ttl=120, show_spinner=False)
@@ -445,32 +307,44 @@ def fetch_revenue_data(start_date, end_date):
     """
     df = client.query(query).to_dataframe()
     if not df.empty:
-        df['Caller_name'] = df['Caller_name'].astype(str).str.strip()
-        df['merge_key']   = df['Caller_name'].str.lower()
-        df['Fee_paid']    = pd.to_numeric(df['Fee_paid'], errors='coerce').fillna(0)
+        df['Caller_name']  = df['Caller_name'].astype(str).str.strip()
+        df['merge_key']    = df['Caller_name'].str.lower()
+        df['Fee_paid']     = pd.to_numeric(df['Fee_paid'],     errors='coerce').fillna(0)
         df['Course_Price'] = pd.to_numeric(df['Course_Price'], errors='coerce').fillna(0)
-        df['is_new'] = df['Enrollment'].astype(str).str.strip().str.lower().str.contains('new enrollment', na=False)
+
+        enr       = df['Enrollment'].astype(str).str.strip()
+        enr_lower = enr.str.lower()
+        src_lower = df['Source'].astype(str).str.lower()
+
+        df['is_new_enrollment']       = enr_lower == 'new enrollment'
+        df['is_balance_payment']      = enr_lower == 'new enrollment - balance payment'
+        df['is_bootcamp_collection']  = enr_lower == 'bootcamp collections - balance payments'
+        df['is_community_collection'] = enr_lower == 'community collections - balance payments'
+        df['is_other_revenue']        = enr_lower == 'other revenue'
+        df['is_empty_enrollment']     = enr == ''
+        df['source_has_community']    = src_lower.str.contains('community', na=False)
+
+        # Legacy compat
+        df['is_new'] = df['is_new_enrollment']
     return df
 
 
 # ─────────────────────────────────────────────
-# TARGET RESOLUTION — DEDUP SAFE
+# TARGET / DESIGNATION RESOLUTION
 # ─────────────────────────────────────────────
 
 def _col(df, name):
-    """Case-insensitive, whitespace-tolerant column finder."""
     name_clean = name.strip().lower()
     match = next((c for c in df.columns if c.strip().lower() == name_clean), None)
     if match is None:
-        raise KeyError(f"Column '{name}' not found in sheet. Available: {list(df.columns)}")
+        raise KeyError(f"Column '{name}' not found. Available: {list(df.columns)}")
     return match
 
 def resolve_targets(df_meta, start_date, end_date):
-    months_needed  = get_months_in_range(start_date, end_date)
-    caller_col     = _col(df_meta, 'Caller Name')
-    month_col      = _col(df_meta, 'Month')
+    months_needed = get_months_in_range(start_date, end_date)
+    caller_col    = _col(df_meta, 'Caller Name')
+    month_col     = _col(df_meta, 'Month')
 
-    # Try common variations of the Target column name
     target_col = None
     for candidate in ['Target', 'target', 'TARGET', 'Monthly Target', 'Monthly target', 'Sales Target']:
         try:
@@ -480,8 +354,7 @@ def resolve_targets(df_meta, start_date, end_date):
             continue
 
     if target_col is None:
-        # Last resort — show available columns in error for debugging
-        st.warning(f"⚠️ Target column not found. Sheet columns are: `{list(df_meta.columns)}`")
+        st.warning(f"⚠️ Target column not found. Sheet columns: `{list(df_meta.columns)}`")
         return {}
 
     relevant = df_meta[df_meta[month_col].isin(months_needed)].copy()
@@ -490,22 +363,16 @@ def resolve_targets(df_meta, start_date, end_date):
 
     dedup = relevant.drop_duplicates(subset=[caller_col, month_col])
     dedup[target_col] = pd.to_numeric(dedup[target_col], errors='coerce').fillna(0)
-    target_map = (
-        dedup.groupby(caller_col)[target_col]
-        .sum()
-        .to_dict()
-    )
-    return target_map
+    return dedup.groupby(caller_col)[target_col].sum().to_dict()
 
 def resolve_designations(df_meta, start_date, end_date):
-    months_needed  = get_months_in_range(start_date, end_date)
-    caller_col     = _col(df_meta, 'Caller Name')
-    month_col      = _col(df_meta, 'Month')
+    months_needed = get_months_in_range(start_date, end_date)
+    caller_col    = _col(df_meta, 'Caller Name')
+    month_col     = _col(df_meta, 'Month')
 
-    # Safe fetch for optional columns
     def safe_col(name):
-        try: return _col(df_meta, name)
-        except KeyError: return None
+        try:    return _col(df_meta, name)
+        except: return None
 
     desig_col   = safe_col('Academic Counselor/TL/ATL')
     team_col    = safe_col('Team Name')
@@ -517,8 +384,7 @@ def resolve_designations(df_meta, start_date, end_date):
         return {}
 
     relevant = relevant.sort_values(month_col, ascending=False)
-    dedup    = relevant.drop_duplicates(subset=[caller_col], keep='first')
-    dedup    = dedup.set_index(caller_col)
+    dedup    = relevant.drop_duplicates(subset=[caller_col], keep='first').set_index(caller_col)
 
     result = {}
     for caller in dedup.index:
@@ -532,111 +398,220 @@ def resolve_designations(df_meta, start_date, end_date):
 
 
 # ─────────────────────────────────────────────
-# METRICS PROCESSING
+# CALLER CLASSIFICATION + METRICS PROCESSING
 # ─────────────────────────────────────────────
 
-def process_revenue_metrics(df, df_meta, start_date, end_date):
-    target_map  = resolve_targets(df_meta, start_date, end_date)
-    desig_map   = resolve_designations(df_meta, start_date, end_date)
+def classify_and_process(df, df_meta, start_date, end_date):
+    """
+    Returns (calling_df, collection_df, both_df) based on revenue type each caller has.
 
-    # Normalize once outside the loop
-    target_map_norm = {str(k).strip().lower(): v for k, v in target_map.items()}
-    desig_map_norm  = {str(k).strip().lower(): v for k, v in desig_map.items()}
+    Calling Agent      → has Enrollment + Balance revenue only
+    Collection Agent   → from Changemakers OR has Community/Bootcamp collections only
+    Calling+Collection → has both calling revenue AND collection revenue (excl Changemakers)
+    """
+    target_map       = resolve_targets(df_meta, start_date, end_date)
+    desig_map        = resolve_designations(df_meta, start_date, end_date)
+    target_map_norm  = {str(k).strip().lower(): v for k, v in target_map.items()}
+    desig_map_norm   = {str(k).strip().lower(): v for k, v in desig_map.items()}
 
-    rows = []
+    calling_rows, collection_rows, both_rows = [], [], []
+
     for caller, grp in df.groupby('Caller_name'):
-        revenue     = grp['Fee_paid'].sum()
-        enrollments = int(grp['is_new'].sum())
-        caller_key  = caller.strip().lower()
-        target      = float(target_map_norm.get(caller_key, 0) or 0)
-        info        = desig_map_norm.get(caller_key, {})
+        # Skip non-agent entries
+        if caller.strip().lower() in EXCLUDE_CALLERS:
+            continue
 
-        rows.append({
-            "DESIGNATION":        info.get('Academic Counselor/TL/ATL', '—'),
-            "CALLER NAME":        caller,
-            "TEAM":               info.get('Team Name', '—'),
-            "VERTICAL":           info.get('Vertical', '—'),
-            "TARGET (₹)":         target,
-            "ENROLLMENTS":        enrollments,
-            "REVENUE ACHIEVED (₹)": revenue,
-            "ACHIEVEMENT %":      round((revenue / target * 100), 1) if target > 0 else 0.0,
-            "raw_revenue":        revenue,
-            "raw_target":         target,
-            "raw_enrollments":    enrollments,
-        })
+        caller_key = caller.strip().lower()
+        info       = desig_map_norm.get(caller_key, {})
+        team       = str(info.get('Team Name', '—')).strip()
+        target     = float(target_map_norm.get(caller_key, 0) or 0)
 
-    return pd.DataFrame(rows)
+        # Revenue components
+        enr_rev      = grp[grp['is_new_enrollment']]['Fee_paid'].sum()
+        bal_rev      = grp[grp['is_balance_payment']]['Fee_paid'].sum()
+        boot_coll    = grp[grp['is_bootcamp_collection']]['Fee_paid'].sum()
+        comm_coll    = grp[grp['is_community_collection']]['Fee_paid'].sum()
+        enrollments  = int(grp['is_new_enrollment'].sum())
+
+        calling_rev    = enr_rev + bal_rev
+        collection_rev = boot_coll + comm_coll
+        total_rev      = calling_rev + collection_rev
+
+        is_changemakers = team.lower() == 'changemakers'
+        has_calling     = calling_rev > 0
+        has_collection  = collection_rev > 0
+
+        row = {
+            'DESIGNATION'         : info.get('Academic Counselor/TL/ATL', '—'),
+            'CALLER NAME'         : caller,
+            'TEAM'                : team,
+            'VERTICAL'            : info.get('Vertical', '—'),
+            'TARGET (₹)'          : target,
+            'ENROLLMENTS'         : enrollments,
+            'ENROLLMENT REV'      : enr_rev,
+            'BALANCE REV'         : bal_rev,
+            'COMMUNITY COLLECTION': comm_coll,
+            'BOOTCAMP COLLECTION' : boot_coll,
+            'CALLING REVENUE'     : calling_rev,
+            'COLLECTION REVENUE'  : collection_rev,
+            'TOTAL REVENUE'       : total_rev,
+            'raw_revenue'         : total_rev,
+            'raw_target'          : target,
+            'raw_enrollments'     : enrollments,
+            'raw_calling_rev'     : calling_rev,
+            'raw_collection_rev'  : collection_rev,
+        }
+
+        if is_changemakers:
+            # Always Collection Agent regardless of other revenue
+            row['ACHIEVEMENT %'] = round(collection_rev / target * 100, 1) if target > 0 else 0.0
+            collection_rows.append(row)
+        elif has_calling and has_collection:
+            row['ACHIEVEMENT %'] = round(total_rev / target * 100, 1) if target > 0 else 0.0
+            both_rows.append(row)
+        elif has_collection:
+            row['ACHIEVEMENT %'] = round(collection_rev / target * 100, 1) if target > 0 else 0.0
+            collection_rows.append(row)
+        else:
+            # Pure calling agent (or zero revenue — still bucket here)
+            row['ACHIEVEMENT %'] = round(calling_rev / target * 100, 1) if target > 0 else 0.0
+            calling_rows.append(row)
+
+    def _to_df(rows, sort_col):
+        if not rows:
+            return pd.DataFrame()
+        d = pd.DataFrame(rows).sort_values(sort_col, ascending=False).reset_index(drop=True)
+        return d
+
+    calling_df    = _to_df(calling_rows,    'raw_calling_rev')
+    collection_df = _to_df(collection_rows, 'raw_collection_rev')
+    both_df       = _to_df(both_rows,       'raw_revenue')
+
+    return calling_df, collection_df, both_df
 
 
 # ─────────────────────────────────────────────
-# INSIGHTS — DATA DRIVEN, NO AI
+# SUMMARY METRICS COMPUTATION
 # ─────────────────────────────────────────────
 
-def compute_revenue_insights(df, report_df, df_meta, start_date, end_date):
+def compute_summary_metrics(df):
+    excl_mask = df['Caller_name'].str.strip().str.lower().isin(EXCLUDE_CALLERS)
+
+    calling_rev    = df[~excl_mask & (df['is_new_enrollment'] | df['is_balance_payment'])]['Fee_paid'].sum()
+    collection_rev = df[df['is_bootcamp_collection']]['Fee_paid'].sum()
+    community_rev  = (df[df['is_community_collection']]['Fee_paid'].sum() +
+                      df[df['is_other_revenue'] & df['source_has_community']]['Fee_paid'].sum())
+    direct_rev     = df[df['is_other_revenue'] & ~df['source_has_community']]['Fee_paid'].sum()
+    dna_rev        = df[df['is_empty_enrollment']]['Fee_paid'].sum()
+    total_rev      = calling_rev + collection_rev + community_rev + direct_rev + dna_rev
+
+    return {
+        'total_rev'     : total_rev,
+        'calling_rev'   : calling_rev,
+        'collection_rev': collection_rev,
+        'community_rev' : community_rev,
+        'direct_rev'    : direct_rev,
+        'dna_rev'       : dna_rev,
+    }
+
+
+# ─────────────────────────────────────────────
+# TABLE RENDERING HELPER
+# ─────────────────────────────────────────────
+
+def render_perf_table(df, display_cols, total_overrides, sort_col, table_key):
+    """Renders a styled performance table with medals and a TOTAL row."""
+    if df.empty:
+        st.info("No data available for this category in the selected period.")
+        return
+
+    d = df.copy().reset_index(drop=True)
+
+    # Medals
+    d.insert(0, 'Rank', '')
+    for i, medal in enumerate(['🥇', '🥈', '🥉']):
+        if i < len(d):
+            d.at[i, 'Rank'] = medal
+
+    # Format currency cols
+    for col in ['ENROLLMENT REV', 'BALANCE REV', 'COMMUNITY COLLECTION',
+                'BOOTCAMP COLLECTION', 'CALLING REVENUE', 'COLLECTION REVENUE',
+                'TOTAL REVENUE', 'TARGET (₹)']:
+        if col in d.columns:
+            d[col] = d[col].apply(fmt_inr)
+
+    if 'ACHIEVEMENT %' in d.columns:
+        d['ACHIEVEMENT %'] = d['ACHIEVEMENT %'].apply(lambda x: f"{x}%")
+
+    # Build total row
+    total_dict = {c: '—' for c in ['Rank'] + display_cols}
+    total_dict['Rank']        = ''
+    total_dict['CALLER NAME'] = 'TOTAL'
+    for k, v in total_overrides.items():
+        total_dict[k] = v
+
+    all_cols   = ['Rank'] + [c for c in display_cols if c in d.columns]
+    total_row  = pd.DataFrame([{c: total_dict.get(c, '—') for c in all_cols}])
+    final      = pd.concat([d[all_cols], total_row], ignore_index=True)
+
+    st.dataframe(
+        final.style.apply(style_total_rev, axis=1),
+        column_order=all_cols,
+        use_container_width=True,
+        hide_index=True
+    )
+
+
+# ─────────────────────────────────────────────
+# INSIGHTS
+# ─────────────────────────────────────────────
+
+def compute_revenue_insights(df, calling_df, collection_df, both_df):
     insights = []
-    if df.empty or report_df.empty:
+    if df.empty:
         return insights
 
-    # 1. Top Revenue Achiever
-    if not report_df.empty:
-        top = report_df.sort_values('raw_revenue', ascending=False).iloc[0]
+    # Combine all agent DFs for cross-cutting insights
+    all_agents = pd.concat(
+        [d for d in [calling_df, collection_df, both_df] if not d.empty],
+        ignore_index=True
+    )
+
+    # 1. Top Revenue Achiever (overall)
+    if not all_agents.empty:
+        top = all_agents.sort_values('raw_revenue', ascending=False).iloc[0]
         insights.append({
             "type": "good", "icon": "🏆",
             "title": f"Top Revenue Achiever: {top['CALLER NAME']}",
-            "body": (f"Brought in {fmt_inr(top['raw_revenue'])} with {top['ENROLLMENTS']} new "
-                     f"enrollment(s) — highest revenue contribution in the selected period.")
+            "body": f"Brought in {fmt_inr(top['raw_revenue'])} with {top['ENROLLMENTS']} new enrollment(s) — highest contribution in the selected period."
         })
 
-    # 2. Team with best avg target achievement
-    team_ach = (
-        report_df[report_df['raw_target'] > 0]
-        .groupby('TEAM')
-        .apply(lambda g: round(g['raw_revenue'].sum() / g['raw_target'].sum() * 100, 1))
-    )
-    if not team_ach.empty:
-        best_team = team_ach.idxmax()
-        insights.append({
-            "type": "good" if team_ach[best_team] >= 80 else "warn", "icon": "🎯",
-            "title": f"Best Target Achievement: {best_team}",
-            "body": f"{best_team} achieved {team_ach[best_team]}% of their combined target — highest among all teams in this period."
-        })
-
-    # 3. Team needing attention
-    if len(team_ach) > 1:
-        worst_team = team_ach.idxmin()
-        if team_ach[worst_team] < 60:
+    # 2. Best team by target achievement
+    if not all_agents.empty:
+        team_ach = (
+            all_agents[all_agents['raw_target'] > 0]
+            .groupby('TEAM')
+            .apply(lambda g: round(g['raw_revenue'].sum() / g['raw_target'].sum() * 100, 1))
+        )
+        if not team_ach.empty:
+            best_team = team_ach.idxmax()
             insights.append({
-                "type": "bad", "icon": "⚠️",
-                "title": f"Focus Required: {worst_team}",
-                "body": f"Only {team_ach[worst_team]}% of target achieved by {worst_team}. Consider reviewing pipeline activity and caller support."
+                "type": "good" if team_ach[best_team] >= 80 else "warn", "icon": "🎯",
+                "title": f"Best Target Achievement: {best_team}",
+                "body": f"{best_team} achieved {team_ach[best_team]}% of their combined target — highest among all teams."
             })
+            if len(team_ach) > 1:
+                worst_team = team_ach.idxmin()
+                if team_ach[worst_team] < 60:
+                    insights.append({
+                        "type": "bad", "icon": "⚠️",
+                        "title": f"Focus Required: {worst_team}",
+                        "body": f"Only {team_ach[worst_team]}% of target achieved by {worst_team}. Review pipeline activity and caller support."
+                    })
 
-    # 4. Top Course by Revenue
-    course_rev = df.groupby('Course')['Fee_paid'].sum().sort_values(ascending=False)
-    if not course_rev.empty:
-        top_course = course_rev.index[0]
-        insights.append({
-            "type": "info", "icon": "📚",
-            "title": f"Highest Revenue Course: {top_course}",
-            "body": f"Generated {fmt_inr(course_rev.iloc[0])} in the selected period — the strongest product in your portfolio."
-        })
-
-    # 5. Source mix
-    if 'Source' in df.columns:
-        src_rev = df.groupby('Source')['Fee_paid'].sum().sort_values(ascending=False)
-        if len(src_rev) >= 2:
-            top_src = src_rev.index[0]
-            insights.append({
-                "type": "info", "icon": "🔗",
-                "title": f"Top Lead Source: {top_src}",
-                "body": (f"{top_src} contributed {fmt_inr(src_rev.iloc[0])} "
-                         f"({round(src_rev.iloc[0]/src_rev.sum()*100, 1)}% of total revenue). "
-                         f"Second source: {src_rev.index[1]} at {fmt_inr(src_rev.iloc[1])}.")
-            })
-
-    # 6. Avg fee per enrollment vs course price gap
-    avg_fee    = df['Fee_paid'].mean()
-    avg_price  = df['Course_Price'].mean()
+    # 3. Avg discount
+    avg_fee   = df['Fee_paid'].mean()
+    avg_price = df['Course_Price'].mean()
     if avg_price > 0:
         discount_pct = round((1 - avg_fee / avg_price) * 100, 1)
         mood = "warn" if discount_pct > 20 else "good"
@@ -644,8 +619,20 @@ def compute_revenue_insights(df, report_df, df_meta, start_date, end_date):
             "type": mood, "icon": "💸",
             "title": f"Avg Discount Offered: {discount_pct}%",
             "body": (f"Average fee collected is {fmt_inr(avg_fee)} vs avg course price of {fmt_inr(avg_price)}. "
-                     f"{'High discount rate — may indicate negotiation pressure.' if discount_pct > 20 else 'Healthy fee realisation.'}")
+                     f"{'High discount — may indicate negotiation pressure.' if discount_pct > 20 else 'Healthy fee realisation.'}")
         })
+
+    # 4. Source mix
+    if 'Source' in df.columns:
+        src_rev = df.groupby('Source')['Fee_paid'].sum().sort_values(ascending=False)
+        if len(src_rev) >= 2:
+            insights.append({
+                "type": "info", "icon": "🔗",
+                "title": f"Top Lead Source: {src_rev.index[0]}",
+                "body": (f"{src_rev.index[0]} contributed {fmt_inr(src_rev.iloc[0])} "
+                         f"({round(src_rev.iloc[0]/src_rev.sum()*100,1)}% of total). "
+                         f"Second: {src_rev.index[1]} at {fmt_inr(src_rev.iloc[1])}.")
+            })
 
     return insights
 
@@ -663,48 +650,36 @@ st.sidebar.markdown("""
 
 min_d, max_d = get_available_dates()
 
-# ── Month Quick-Select ──
 def build_month_options(min_date, max_date):
-    options = {}
-    cur = date(min_date.year, min_date.month, 1)
+    options, cur = {}, date(min_date.year, min_date.month, 1)
     end = date(max_date.year, max_date.month, 1)
     while cur <= end:
-        label = cur.strftime("%B %Y")          # e.g. "January 2026"
-        options[label] = cur
+        options[cur.strftime("%B %Y")] = cur
         cur = (cur.replace(day=28) + timedelta(days=4)).replace(day=1)
     return options
 
-month_options = build_month_options(min_d, max_d)
-selected_month_label = st.sidebar.selectbox(
-    "🗓️ Month", options=list(reversed(list(month_options.keys())))
-)
+month_options        = build_month_options(min_d, max_d)
+selected_month_label = st.sidebar.selectbox("🗓️ Month", options=list(reversed(list(month_options.keys()))))
+selected_month_date  = month_options[selected_month_label]
 
-selected_month_date = month_options[selected_month_label]
-
-# Force all boundary dates to plain Python date objects
 min_d = pd.Timestamp(min_d).date()
 max_d = pd.Timestamp(max_d).date()
 
 if selected_month_date is not None:
-    s          = pd.Timestamp(selected_month_date).date()
-    next_month = (s.replace(day=28) + timedelta(days=4)).replace(day=1)
-    month_end  = next_month - timedelta(days=1)
-    # Clamp strictly inside [min_d, max_d]
+    s           = pd.Timestamp(selected_month_date).date()
+    next_month  = (s.replace(day=28) + timedelta(days=4)).replace(day=1)
+    month_end   = next_month - timedelta(days=1)
     default_start = max(s, min_d)
     default_end   = min(month_end, max_d)
-    # Safety: ensure start never exceeds end after clamping
     if default_start > default_end:
         default_start = default_end
 else:
-    default_start = max_d
-    default_end   = max_d
+    default_start = default_end = max_d
 
 selected_dates = st.sidebar.date_input(
     "📅 Date Range",
     value=(default_start, default_end),
-    min_value=min_d,
-    max_value=max_d,
-    format="DD-MM-YYYY"
+    min_value=min_d, max_value=max_d, format="DD-MM-YYYY"
 )
 
 if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
@@ -713,9 +688,9 @@ else:
     start_date = end_date = selected_dates if not isinstance(selected_dates, tuple) else selected_dates[0]
 
 teams, verticals, df_team_mapping = get_metadata()
-selected_vertical = st.sidebar.multiselect("📂 Filter by Vertical", options=verticals)
-selected_team     = st.sidebar.multiselect("🏢 Filter by Team",     options=teams)
-search_query      = st.sidebar.text_input("🔍 Search Caller Name")
+selected_vertical = st.sidebar.multiselect("👑 Filter by Vertical", options=verticals)
+selected_team     = st.sidebar.multiselect("👥 Filter by Team",     options=teams)
+search_query      = st.sidebar.text_input("👤 Search Caller Name")
 
 st.sidebar.markdown("<div style='margin:.5rem 0'></div>", unsafe_allow_html=True)
 gen_report   = st.sidebar.button("💰 Generate Revenue Report")
@@ -774,12 +749,15 @@ with tab1:
             if df_raw.empty:
                 st.warning("No revenue records found for the selected period (Fee Paid > 0).")
             else:
-                # ── Merge teamsheet for team/vertical info ──
-                df = pd.merge(df_raw, df_team_mapping[['merge_key','Caller Name','Team Name','Vertical']].drop_duplicates('merge_key'),
-                              on='merge_key', how='left')
+                # Merge team info
+                df = pd.merge(
+                    df_raw,
+                    df_team_mapping[['merge_key','Caller Name','Team Name','Vertical']].drop_duplicates('merge_key'),
+                    on='merge_key', how='left'
+                )
                 df['Caller_name'] = df['Caller Name'].fillna(df['Caller_name'])
 
-                # ── Apply filters ──
+                # Apply filters
                 if selected_team:
                     df = df[df['Team Name'].isin(selected_team)]
                 if selected_vertical:
@@ -790,62 +768,84 @@ with tab1:
                 if df.empty:
                     st.error("No records match the selected filters.")
                 else:
-                    report_df = process_revenue_metrics(df, df_team_mapping, start_date, end_date)
-                    report_df = report_df.sort_values('raw_revenue', ascending=False)
+                    # ── Classify callers ──
+                    calling_df, collection_df, both_df = classify_and_process(
+                        df, df_team_mapping, start_date, end_date
+                    )
+
+                    # ── Summary metrics ──
+                    metrics = compute_summary_metrics(df)
 
                     # ── TOP 3 HIGHLIGHTS ──
                     section_header("🏆 TOP 3 REVENUE HIGHLIGHTS")
                     top_cols = st.columns(3)
 
-                    top_rev = report_df.iloc[0]
+                    # Top Revenue Caller — from calling_df
                     with top_cols[0]:
-                        st.markdown(f"""
-                        <div class="metric-card" style="border-top:3px solid var(--gold);">
-                            <div class="metric-label">🥇 TOP REVENUE</div>
-                            <div class="metric-value" style="font-size:1.1rem;">{top_rev['CALLER NAME']}</div>
-                            <div class="metric-delta">{fmt_inr(top_rev['raw_revenue'])} Achieved</div>
-                        </div>""", unsafe_allow_html=True)
+                        if not calling_df.empty:
+                            top_c = calling_df.iloc[0]
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top:3px solid var(--gold);">
+                                <div class="metric-label">🥇 TOP REVENUE — CALLER</div>
+                                <div class="metric-value" style="font-size:1.1rem;">{top_c['CALLER NAME']}</div>
+                                <div class="metric-delta">{fmt_inr(top_c['raw_calling_rev'])} Calling Revenue</div>
+                            </div>""", unsafe_allow_html=True)
+                        else:
+                            st.markdown("""<div class="metric-card" style="border-top:3px solid var(--gold);">
+                                <div class="metric-label">🥇 TOP REVENUE — CALLER</div>
+                                <div class="metric-value" style="font-size:1rem;">No Data</div>
+                            </div>""", unsafe_allow_html=True)
 
-                    top_enr = report_df.sort_values('raw_enrollments', ascending=False).iloc[0]
+                    # Most Enrollments — from all agent types combined
                     with top_cols[1]:
-                        st.markdown(f"""
-                        <div class="metric-card" style="border-top:3px solid var(--silver);">
-                            <div class="metric-label">🎓 MOST ENROLLMENTS</div>
-                            <div class="metric-value" style="font-size:1.1rem;">{top_enr['CALLER NAME']}</div>
-                            <div class="metric-delta">{top_enr['raw_enrollments']} New Enrollments</div>
-                        </div>""", unsafe_allow_html=True)
+                        all_agents = pd.concat(
+                            [d for d in [calling_df, collection_df, both_df] if not d.empty],
+                            ignore_index=True
+                        )
+                        if not all_agents.empty and all_agents['raw_enrollments'].max() > 0:
+                            top_enr = all_agents.sort_values('raw_enrollments', ascending=False).iloc[0]
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top:3px solid var(--silver);">
+                                <div class="metric-label">🎓 MOST ENROLLMENTS</div>
+                                <div class="metric-value" style="font-size:1.1rem;">{top_enr['CALLER NAME']}</div>
+                                <div class="metric-delta">{top_enr['raw_enrollments']} New Enrollments</div>
+                            </div>""", unsafe_allow_html=True)
+                        else:
+                            st.markdown("""<div class="metric-card" style="border-top:3px solid var(--silver);">
+                                <div class="metric-label">🎓 MOST ENROLLMENTS</div>
+                                <div class="metric-value" style="font-size:1rem;">No Data</div>
+                            </div>""", unsafe_allow_html=True)
 
-                    top_ach = report_df[report_df['raw_target'] > 0].sort_values('ACHIEVEMENT %', ascending=False)
-                    if not top_ach.empty:
-                        top_a = top_ach.iloc[0]
-                        with top_cols[2]:
+                    # Top Revenue Collection Caller — from collection_df
+                    with top_cols[2]:
+                        coll_combined = pd.concat(
+                            [d for d in [collection_df] if not d.empty],
+                            ignore_index=True
+                        )
+                        if not coll_combined.empty:
+                            top_coll = coll_combined.sort_values('raw_collection_rev', ascending=False).iloc[0]
                             st.markdown(f"""
                             <div class="metric-card" style="border-top:3px solid var(--bronze);">
-                                <div class="metric-label">🎯 BEST ACHIEVEMENT</div>
-                                <div class="metric-value" style="font-size:1.1rem;">{top_a['CALLER NAME']}</div>
-                                <div class="metric-delta">{top_a['ACHIEVEMENT %']}% of Target</div>
+                                <div class="metric-label">🥇 TOP REVENUE — COLLECTION</div>
+                                <div class="metric-value" style="font-size:1.1rem;">{top_coll['CALLER NAME']}</div>
+                                <div class="metric-delta">{fmt_inr(top_coll['raw_collection_rev'])} Collection Revenue</div>
+                            </div>""", unsafe_allow_html=True)
+                        else:
+                            st.markdown("""<div class="metric-card" style="border-top:3px solid var(--bronze);">
+                                <div class="metric-label">🥇 TOP REVENUE — COLLECTION</div>
+                                <div class="metric-value" style="font-size:1rem;">No Data</div>
                             </div>""", unsafe_allow_html=True)
 
                     # ── SUMMARY KPI CARDS ──
                     section_header("SUMMARY METRICS")
-                    total_rev     = df['Fee_paid'].sum()
-                    total_enr     = int(df['is_new'].sum())
-                    total_target  = report_df['raw_target'].sum()
-                    ach_pct       = round(total_rev / total_target * 100, 1) if total_target > 0 else 0
-                    avg_fee       = total_rev / total_enr if total_enr > 0 else 0
-                    active_callers = len(report_df)
-                    unique_courses = df['Course'].nunique() if 'Course' in df.columns else 0
-                    top_course_rev = df.groupby('Course')['Fee_paid'].sum().max() if 'Course' in df.columns else 0
 
                     kpis = [
-                        ("Total Revenue",       fmt_inr(total_rev),    "💰"),
-                        ("Total Enrollments",   total_enr,             "🎓"),
-                        ("Target Achievement",  f"{ach_pct}%",         "🎯"),
-                        ("Avg Fee/Enrollment",  fmt_inr(avg_fee),      "📊"),
-                        ("Active Callers",      active_callers,        "🧑‍💼"),
-                        ("Courses Sold",        unique_courses,        "📚"),
-                        ("Total Target",        fmt_inr(total_target), "🏁"),
-                        ("Top Course Rev",      fmt_inr(top_course_rev),"⭐"),
+                        ("Total Revenue",                   fmt_inr(metrics['total_rev']),      "💰"),
+                        ("Calling Revenue (Incl. Funnel)",  fmt_inr(metrics['calling_rev']),    "📞"),
+                        ("Collection Revenue",              fmt_inr(metrics['collection_rev']), "🏦"),
+                        ("Community Revenue",               fmt_inr(metrics['community_rev']),  "🌐"),
+                        ("Direct Revenue",                  fmt_inr(metrics['direct_rev']),     "🎯"),
+                        ("Details Not Available",           fmt_inr(metrics['dna_rev']),        "❓"),
                     ]
 
                     cols = st.columns(len(kpis))
@@ -859,84 +859,104 @@ with tab1:
 
                     st.divider()
 
-                    # ── AGENT PERFORMANCE TABLE ──
-                    section_header("CALLER REVENUE PERFORMANCE TABLE")
+                    # ══════════════════════════════════════
+                    # TABLE 1 — CALLER REVENUE PERFORMANCE
+                    # ══════════════════════════════════════
+                    section_header("📞 CALLER REVENUE PERFORMANCE TABLE")
 
-                    # Medals
-                    report_df = report_df.reset_index(drop=True)
-                    report_df.insert(0, 'Rank', '')
-                    if len(report_df) > 0: report_df.at[0, 'Rank'] = "🥇"
-                    if len(report_df) > 1: report_df.at[1, 'Rank'] = "🥈"
-                    if len(report_df) > 2: report_df.at[2, 'Rank'] = "🥉"
-
-                    # Format display columns
-                    display_df = report_df.copy()
-                    display_df['TARGET (₹)']          = display_df['raw_target'].apply(fmt_inr)
-                    display_df['REVENUE ACHIEVED (₹)'] = display_df['raw_revenue'].apply(fmt_inr)
-                    display_df['ACHIEVEMENT %']        = display_df['ACHIEVEMENT %'].apply(lambda x: f"{x}%")
-
-                    # Total row
-                    total_row = pd.DataFrame([{
-                        'Rank': '',
-                        'DESIGNATION': '—',
-                        'CALLER NAME': 'TOTAL',
-                        'TEAM': '—',
-                        'VERTICAL': '—',
-                        'TARGET (₹)': fmt_inr(total_target),
-                        'ENROLLMENTS': total_enr,
-                        'REVENUE ACHIEVED (₹)': fmt_inr(total_rev),
-                        'ACHIEVEMENT %': f"{ach_pct}%",
-                    }])
-
-                    display_cols = [
-                        'Rank', 'DESIGNATION', 'CALLER NAME', 'TEAM', 'VERTICAL',
-                        'TARGET (₹)', 'ENROLLMENTS', 'REVENUE ACHIEVED (₹)', 'ACHIEVEMENT %'
+                    calling_display_cols = [
+                        'DESIGNATION', 'CALLER NAME', 'TEAM', 'VERTICAL',
+                        'TARGET (₹)', 'ENROLLMENTS',
+                        'ENROLLMENT REV', 'BALANCE REV',
+                        'CALLING REVENUE', 'ACHIEVEMENT %'
                     ]
 
-                    final_df = pd.concat([display_df[display_cols], total_row], ignore_index=True)
+                    if not calling_df.empty:
+                        calling_totals = {
+                            'TARGET (₹)'     : fmt_inr(calling_df['raw_target'].sum()),
+                            'ENROLLMENTS'    : int(calling_df['raw_enrollments'].sum()),
+                            'ENROLLMENT REV' : fmt_inr(calling_df['ENROLLMENT REV'].sum()),
+                            'BALANCE REV'    : fmt_inr(calling_df['BALANCE REV'].sum()),
+                            'CALLING REVENUE': fmt_inr(calling_df['CALLING REVENUE'].sum()),
+                            'ACHIEVEMENT %'  : f"{round(calling_df['CALLING REVENUE'].sum() / calling_df['raw_target'].sum() * 100, 1) if calling_df['raw_target'].sum() > 0 else 0}%",
+                        }
+                    else:
+                        calling_totals = {}
 
-                    st.dataframe(
-                        final_df.style.apply(style_total_rev, axis=1),
-                        column_order=display_cols,
-                        use_container_width=True,
-                        hide_index=True
+                    render_perf_table(
+                        calling_df, calling_display_cols,
+                        calling_totals, 'raw_calling_rev', 'calling'
                     )
 
                     st.divider()
 
-                    # ── COURSE BREAKDOWN ──
-                    if 'Course' in df.columns:
-                        section_header("📚 COURSE BREAKDOWN")
-                        course_df = (
-                            df.groupby('Course')
-                            .agg(
-                                Enrollments=('is_new', 'sum'),
-                                Revenue=('Fee_paid', 'sum'),
-                                Avg_Fee=('Fee_paid', 'mean'),
-                                Callers=('Caller_name', 'nunique')
-                            )
-                            .reset_index()
-                            .sort_values('Revenue', ascending=False)
-                        )
-                        course_df['Revenue']  = course_df['Revenue'].apply(fmt_inr)
-                        course_df['Avg_Fee']  = course_df['Avg_Fee'].apply(fmt_inr)
-                        course_df.columns     = ['Course', 'Enrollments', 'Revenue', 'Avg Fee', 'Callers']
-                        st.dataframe(course_df, use_container_width=True, hide_index=True)
+                    # ══════════════════════════════════════════════
+                    # TABLE 2 — COLLECTION CALLER REVENUE PERFORMANCE
+                    # ══════════════════════════════════════════════
+                    section_header("🏦 COLLECTION CALLER REVENUE PERFORMANCE TABLE")
+
+                    collection_display_cols = [
+                        'DESIGNATION', 'CALLER NAME', 'TEAM', 'VERTICAL',
+                        'ENROLLMENTS',
+                        'ENROLLMENT REV', 'BALANCE REV',
+                        'COMMUNITY COLLECTION', 'BOOTCAMP COLLECTION',
+                        'COLLECTION REVENUE'
+                    ]
+
+                    if not collection_df.empty:
+                        collection_totals = {
+                            'ENROLLMENTS'         : int(collection_df['raw_enrollments'].sum()),
+                            'ENROLLMENT REV'      : fmt_inr(collection_df['ENROLLMENT REV'].sum()),
+                            'BALANCE REV'         : fmt_inr(collection_df['BALANCE REV'].sum()),
+                            'COMMUNITY COLLECTION': fmt_inr(collection_df['COMMUNITY COLLECTION'].sum()),
+                            'BOOTCAMP COLLECTION' : fmt_inr(collection_df['BOOTCAMP COLLECTION'].sum()),
+                            'COLLECTION REVENUE'  : fmt_inr(collection_df['COLLECTION REVENUE'].sum()),
+                        }
+                    else:
+                        collection_totals = {}
+
+                    render_perf_table(
+                        collection_df, collection_display_cols,
+                        collection_totals, 'raw_collection_rev', 'collection'
+                    )
 
                     st.divider()
 
-                    # ── DOWNLOAD ──
-                    download_cols = [c for c in [
-                        'Date', 'Name', 'Contact_No', 'Email_Id', 'Course', 'Fee_paid',
-                        'Caller_name', 'Enrollment', 'Source', 'Course_Price',
-                        'LawSikho_Skill_Arbitrage', 'Rev_Month', 'updated_at_ampm',
-                        'Team Name', 'Vertical'
-                    ] if c in df.columns]
-                    st.download_button(
-                        label="📥 Download Revenue CDR",
-                        data=df[download_cols].to_csv(index=False).encode('utf-8'),
-                        file_name="Revenue_CDR.csv", mime='text/csv'
+                    # ══════════════════════════════════════════════════════════
+                    # TABLE 3 — CALLING + COLLECTION CALLER REVENUE PERFORMANCE
+                    # ══════════════════════════════════════════════════════════
+                    section_header("📞🏦 CALLING + COLLECTION CALLER REVENUE PERFORMANCE TABLE")
+
+                    both_display_cols = [
+                        'DESIGNATION', 'CALLER NAME', 'TEAM', 'VERTICAL',
+                        'TARGET (₹)', 'ENROLLMENTS',
+                        'ENROLLMENT REV', 'BALANCE REV',
+                        'COMMUNITY COLLECTION', 'BOOTCAMP COLLECTION',
+                        'CALLING REVENUE', 'COLLECTION REVENUE',
+                        'TOTAL REVENUE', 'ACHIEVEMENT %'
+                    ]
+
+                    if not both_df.empty:
+                        both_totals = {
+                            'TARGET (₹)'          : fmt_inr(both_df['raw_target'].sum()),
+                            'ENROLLMENTS'         : int(both_df['raw_enrollments'].sum()),
+                            'ENROLLMENT REV'      : fmt_inr(both_df['ENROLLMENT REV'].sum()),
+                            'BALANCE REV'         : fmt_inr(both_df['BALANCE REV'].sum()),
+                            'COMMUNITY COLLECTION': fmt_inr(both_df['COMMUNITY COLLECTION'].sum()),
+                            'BOOTCAMP COLLECTION' : fmt_inr(both_df['BOOTCAMP COLLECTION'].sum()),
+                            'CALLING REVENUE'     : fmt_inr(both_df['CALLING REVENUE'].sum()),
+                            'COLLECTION REVENUE'  : fmt_inr(both_df['COLLECTION REVENUE'].sum()),
+                            'TOTAL REVENUE'       : fmt_inr(both_df['raw_revenue'].sum()),
+                            'ACHIEVEMENT %'       : f"{round(both_df['raw_revenue'].sum() / both_df['raw_target'].sum() * 100, 1) if both_df['raw_target'].sum() > 0 else 0}%",
+                        }
+                    else:
+                        both_totals = {}
+
+                    render_perf_table(
+                        both_df, both_display_cols,
+                        both_totals, 'raw_revenue', 'both'
                     )
+
     else:
         st.markdown("""
         <div style='text-align:center;padding:6rem 1rem;opacity:.6;'>
@@ -970,14 +990,21 @@ with tab2:
                 if search_query:
                     df_ins = df_ins[df_ins['Caller_name'].str.contains(search_query, case=False, na=False)]
 
-                report_ins = process_revenue_metrics(df_ins, df_team_mapping, start_date, end_date)
+                calling_ins, collection_ins, both_ins = classify_and_process(
+                    df_ins, df_team_mapping, start_date, end_date
+                )
 
-                if report_ins.empty:
+                all_agents_ins = pd.concat(
+                    [d for d in [calling_ins, collection_ins, both_ins] if not d.empty],
+                    ignore_index=True
+                )
+
+                if all_agents_ins.empty:
                     st.error("Not enough data for insights.")
                 else:
                     # ── INSIGHTS ──
                     section_header("🧠 REVENUE INSIGHTS")
-                    insights = compute_revenue_insights(df_ins, report_ins, df_team_mapping, start_date, end_date)
+                    insights = compute_revenue_insights(df_ins, calling_ins, collection_ins, both_ins)
 
                     if insights:
                         cols_ins = st.columns(2)
@@ -999,7 +1026,7 @@ with tab2:
                     # ── TEAM LEADERBOARD ──
                     section_header("🏅 TEAM REVENUE LEADERBOARD")
                     lb = (
-                        report_ins.groupby('TEAM')
+                        all_agents_ins.groupby('TEAM')
                         .agg(
                             Callers=('CALLER NAME', 'count'),
                             Enrollments=('raw_enrollments', 'sum'),
@@ -1022,15 +1049,19 @@ with tab2:
                     st.divider()
 
                     # ── CALLER LEADERBOARD ──
-                    section_header("👤 CALLER LEADERBOARD")
-                    cl = report_ins.sort_values('raw_revenue', ascending=False).head(15).copy()
+                    section_header("👤 CALLER LEADERBOARD (Top 15)")
+                    cl = all_agents_ins.sort_values('raw_revenue', ascending=False).head(15).copy()
                     cl['TARGET (₹)']          = cl['raw_target'].apply(fmt_inr)
                     cl['REVENUE ACHIEVED (₹)'] = cl['raw_revenue'].apply(fmt_inr)
                     cl['ACHIEVEMENT %']        = cl['ACHIEVEMENT %'].apply(lambda x: f"{x}%")
                     cl_medals = (["🥇", "🥈", "🥉"] + [""] * len(cl))[:len(cl)]
                     cl.insert(0, '🏅', cl_medals)
-                    caller_cols = ['🏅', 'CALLER NAME', 'TEAM', 'ENROLLMENTS', 'TARGET (₹)', 'REVENUE ACHIEVED (₹)', 'ACHIEVEMENT %']
-                    st.dataframe(cl[caller_cols].reset_index(drop=True), use_container_width=True, hide_index=True)
+                    caller_cols = ['🏅', 'CALLER NAME', 'TEAM', 'ENROLLMENTS',
+                                   'TARGET (₹)', 'REVENUE ACHIEVED (₹)', 'ACHIEVEMENT %']
+                    st.dataframe(
+                        cl[[c for c in caller_cols if c in cl.columns]].reset_index(drop=True),
+                        use_container_width=True, hide_index=True
+                    )
 
     else:
         st.markdown("""
