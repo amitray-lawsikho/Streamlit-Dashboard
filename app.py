@@ -748,12 +748,13 @@ def _try_font(size, bold=False):
     return ImageFont.load_default()
 
 def render_team_table_as_jpg(team_name, report_df, team_dur_agg_sec, display_start, display_end):
+
     COLS = [
         "CALLER", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %",
         "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS"
     ]
 
-    # ── Build row data ──────────────────────────────────────
+    # ── Build rows ───────────────────────────────────────────
     data_rows = []
     for _, row in report_df.iterrows():
         data_rows.append([str(row.get(c, '-')) for c in COLS])
@@ -766,133 +767,191 @@ def render_team_table_as_jpg(team_name, report_df, team_dur_agg_sec, display_sta
         str(int(report_df["20+ MIN CALLS"].sum())),
         format_dur_hm(team_dur_agg_sec)
     ])
+    n_rows = len(data_rows)
 
-    # ── Fonts ───────────────────────────────────────────────
-    fnt_title   = _try_font(22, bold=True)
-    fnt_sub     = _try_font(14)
-    fnt_head    = _try_font(13, bold=True)
-    fnt_cell    = _try_font(13)
-    fnt_total   = _try_font(13, bold=True)
-    fnt_footer  = _try_font(11)
+    # ── Font loader — tries Sans first (more readable), then Mono ──
+    def load_font(size, bold=False):
+        paths = []
+        if bold:
+            paths = [
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
+                "/usr/share/fonts/truetype/freefont/FreeSansBold.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf",
+            ]
+        else:
+            paths = [
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+                "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
+                "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+            ]
+        for p in paths:
+            try:
+                return ImageFont.truetype(p, size)
+            except Exception:
+                pass
+        # Last resort: load_default doesn't accept size in old Pillow
+        try:
+            return ImageFont.load_default(size=size)
+        except Exception:
+            return ImageFont.load_default()
 
-    # ── Colours ─────────────────────────────────────────────
-    BG          = _hex('#0F0A05')
-    HEADER_BG   = _hex('#1c0700')
-    COL_HDR_BG  = _hex('#431407')
-    ROW_ODD     = _hex('#1A1006')
-    ROW_EVEN    = _hex('#231508')
-    TOTAL_BG    = _hex('#374151')
-    COL_HDR_FG  = (255, 255, 255)
-    CELL_FG     = _hex('#FEF3E8')
-    TOTAL_FG    = (255, 255, 255)
-    ACCENT      = _hex('#F97316')
-    BORDER      = (80, 35, 5, 100)   # RGBA for divider lines
-    MUTED       = (255, 255, 255, 60)
+    # ── Layout constants (no scaling tricks — render at final size) ──
+    IMG_W       = 2560
+    PAD_X       = 48
+    HEADER_H    = 200
+    COL_HDR_H   = 64
+    ROW_H       = 58
+    FOOTER_H    = 60
+    PAD_BOT     = 32
 
-    SCALE       = 2          # retina-style — halved at save time for sharp JPG
-    PAD_X       = 40 * SCALE
-    PAD_Y       = 20 * SCALE
-    HEADER_H    = 120 * SCALE
-    COL_HDR_H   = 42 * SCALE
-    ROW_H       = 38 * SCALE
-    FOOTER_H    = 36 * SCALE
-    IMG_W       = 2400 * SCALE
+    IMG_H = HEADER_H + COL_HDR_H + ROW_H * n_rows + FOOTER_H + PAD_BOT
 
-    n_cols      = len(COLS)
-    n_rows      = len(data_rows)
-    col_w       = (IMG_W - 2 * PAD_X) // n_cols
-    table_top   = HEADER_H + PAD_Y
-    table_h     = COL_HDR_H + ROW_H * n_rows
-    IMG_H       = table_top + table_h + FOOTER_H + PAD_Y * 2
+    # ── Colours ──────────────────────────────────────────────
+    C_BG        = (15,  10,   5)
+    C_HDRBG     = (28,   7,   0)
+    C_COLHDR    = (67,  20,   7)
+    C_COLHDR2   = (100, 29,  10)
+    C_ODD       = (26,  16,   6)
+    C_EVEN      = (35,  21,   8)
+    C_TOTAL     = (55,  65,  81)
+    C_ACCENT    = (249, 115,  22)
+    C_WHITE     = (255, 255, 255)
+    C_CELL      = (254, 243, 232)
+    C_MUTED     = (180, 130,  80)
+    C_BORDER    = (60,  30,   5)
 
-    img  = Image.new('RGB', (IMG_W, IMG_H), BG)
-    draw = ImageDraw.Draw(img, 'RGBA')
+    # ── Column widths — give CALLER more room ────────────────
+    # Weights: CALLER=2.2, others=1
+    weights     = [2.2, 1, 1.4, 1, 1, 1, 1, 1.4]
+    total_w     = IMG_W - 2 * PAD_X
+    unit        = total_w / sum(weights)
+    col_widths  = [int(w * unit) for w in weights]
+    # Fix any rounding drift
+    col_widths[-1] += total_w - sum(col_widths)
 
-    # ── Brand header ────────────────────────────────────────
-    draw.rectangle([0, 0, IMG_W, HEADER_H], fill=HEADER_BG)
+    # ── Fonts ────────────────────────────────────────────────
+    fnt_brand   = load_font(22)
+    fnt_title   = load_font(40, bold=True)
+    fnt_date    = load_font(24)
+    fnt_colhdr  = load_font(20, bold=True)
+    fnt_cell    = load_font(22)
+    fnt_total   = load_font(22, bold=True)
+    fnt_footer  = load_font(18)
 
-    # Orange bottom border on header
-    draw.rectangle([0, HEADER_H - 3 * SCALE, IMG_W, HEADER_H], fill=ACCENT)
+    # ── Canvas ───────────────────────────────────────────────
+    img  = Image.new('RGB', (IMG_W, IMG_H), C_BG)
+    draw = ImageDraw.Draw(img)
 
-    brand_y = 18 * SCALE
-    draw.text((IMG_W // 2, brand_y), "CALLING METRICS  ·  LAWSIKHO & SKILL ARBITRAGE",
-              font=fnt_sub, fill=(255, 255, 255, 100), anchor="mt")
-    draw.text((IMG_W // 2, brand_y + 28 * SCALE),
+    # ── Header background ────────────────────────────────────
+    draw.rectangle([0, 0, IMG_W, HEADER_H], fill=C_HDRBG)
+
+    # Gradient-ish effect: slightly lighter strip in middle
+    for i in range(HEADER_H):
+        alpha = int(30 * (1 - abs(i - HEADER_H // 2) / (HEADER_H // 2)))
+        draw.line([(0, i), (IMG_W, i)],
+                  fill=(min(255, C_HDRBG[0] + alpha),
+                        min(255, C_HDRBG[1] + alpha // 4),
+                        C_HDRBG[2]))
+
+    # Orange accent bar at bottom of header
+    draw.rectangle([0, HEADER_H - 4, IMG_W, HEADER_H], fill=C_ACCENT)
+
+    # Brand line
+    draw.text((IMG_W // 2, 28),
+              "LAWSIKHO  &  SKILL ARBITRAGE  ·  CALLING METRICS",
+              font=fnt_brand, fill=C_MUTED, anchor="mt")
+
+    # Team title
+    draw.text((IMG_W // 2, 72),
               f"DURATION REPORT  —  {team_name.upper()}",
-              font=fnt_title, fill=ACCENT, anchor="mt")
-    draw.text((IMG_W // 2, brand_y + 66 * SCALE),
-              f"{display_start}  to  {display_end}",
-              font=fnt_sub, fill=(255, 255, 255, 140), anchor="mt")
+              font=fnt_title, fill=C_ACCENT, anchor="mt")
+
+    # Date range
+    draw.text((IMG_W // 2, 136),
+              f"{display_start}   to   {display_end}",
+              font=fnt_date, fill=(220, 180, 140), anchor="mt")
 
     # ── Column header row ────────────────────────────────────
-    for ci, col in enumerate(COLS):
-        x0 = PAD_X + ci * col_w
-        y0 = table_top
-        x1 = x0 + col_w
-        y1 = y0 + COL_HDR_H
-        draw.rectangle([x0, y0, x1, y1], fill=COL_HDR_BG)
-        draw.rectangle([x1 - SCALE, y0, x1, y1], fill=(249, 115, 22, 60))   # subtle col divider
-        cx = x0 + col_w // 2
-        cy = y0 + COL_HDR_H // 2
-        draw.text((cx, cy), col, font=fnt_head, fill=COL_HDR_FG, anchor="mm")
+    x_cursor = PAD_X
+    y0_ch    = HEADER_H
+    y1_ch    = HEADER_H + COL_HDR_H
+
+    for ci, (col, cw) in enumerate(zip(COLS, col_widths)):
+        x0 = x_cursor
+        x1 = x0 + cw
+        # Alternating shade for visual separation
+        bg = C_COLHDR if ci % 2 == 0 else C_COLHDR2
+        draw.rectangle([x0, y0_ch, x1, y1_ch], fill=bg)
+        # Column divider
+        if ci > 0:
+            draw.line([(x0, y0_ch), (x0, y1_ch)], fill=C_ACCENT, width=1)
+        # Text centred
+        draw.text((x0 + cw // 2, y0_ch + COL_HDR_H // 2),
+                  col, font=fnt_colhdr, fill=C_WHITE, anchor="mm")
+        x_cursor = x1
+
+    # Bottom border of column headers
+    draw.rectangle([PAD_X, y1_ch - 2, IMG_W - PAD_X, y1_ch], fill=C_ACCENT)
 
     # ── Data rows ────────────────────────────────────────────
     for ri, row_data in enumerate(data_rows):
-        y0 = table_top + COL_HDR_H + ri * ROW_H
-        y1 = y0 + ROW_H
         is_total = (ri == n_rows - 1)
+        y0 = HEADER_H + COL_HDR_H + ri * ROW_H
+        y1 = y0 + ROW_H
+        x_cursor = PAD_X
 
-        for ci, cell_val in enumerate(row_data):
-            x0 = PAD_X + ci * col_w
-            x1 = x0 + col_w
+        for ci, (cell_val, cw) in enumerate(zip(row_data, col_widths)):
+            x0 = x_cursor
+            x1 = x0 + cw
 
             if is_total:
-                draw.rectangle([x0, y0, x1, y1], fill=TOTAL_BG)
-                draw.text((x0 + col_w // 2, y0 + ROW_H // 2),
-                          cell_val, font=fnt_total, fill=TOTAL_FG, anchor="mm")
+                draw.rectangle([x0, y0, x1, y1], fill=C_TOTAL)
+                fg  = C_WHITE
+                fnt = fnt_total
             else:
-                fill = ROW_ODD if ri % 2 == 0 else ROW_EVEN
-                draw.rectangle([x0, y0, x1, y1], fill=fill)
-                draw.text((x0 + col_w // 2, y0 + ROW_H // 2),
-                          cell_val, font=fnt_cell, fill=CELL_FG, anchor="mm")
+                draw.rectangle([x0, y0, x1, y1],
+                                fill=C_ODD if ri % 2 == 0 else C_EVEN)
+                fg  = C_CELL
+                fnt = fnt_cell
 
-            # row bottom border
-            draw.rectangle([x0, y1 - SCALE, x1, y1], fill=(249, 115, 22, 20))
+            # Cell divider
+            if ci > 0:
+                draw.line([(x0, y0), (x0, y1)], fill=C_BORDER, width=1)
 
-    # Orange line below total row
-    total_bottom = table_top + COL_HDR_H + n_rows * ROW_H
-    draw.rectangle([PAD_X, total_bottom - 3 * SCALE, IMG_W - PAD_X, total_bottom],
-                   fill=ACCENT)
+            # Row bottom border
+            draw.line([(PAD_X, y1 - 1), (IMG_W - PAD_X, y1 - 1)],
+                      fill=C_BORDER, width=1)
+
+            # Cell text — truncate long names gracefully
+            txt = cell_val
+            while True:
+                bbox = draw.textbbox((0, 0), txt, font=fnt)
+                tw   = bbox[2] - bbox[0]
+                if tw <= cw - 16 or len(txt) <= 4:
+                    break
+                txt = txt[:-2] + "…"
+
+            draw.text((x0 + cw // 2, y0 + ROW_H // 2),
+                      txt, font=fnt, fill=fg, anchor="mm")
+            x_cursor = x1
+
+    # Orange bar below TOTAL row
+    total_y = HEADER_H + COL_HDR_H + n_rows * ROW_H
+    draw.rectangle([PAD_X, total_y, IMG_W - PAD_X, total_y + 3], fill=C_ACCENT)
 
     # ── Footer ───────────────────────────────────────────────
-    footer_y = total_bottom + 18 * SCALE
+    footer_y = total_y + 18
     draw.text((IMG_W // 2, footer_y),
-              "Generated by Calling Metrics Dashboard  ·  Designed by AMIT RAY  ·  amitray@lawsikho.com",
-              font=fnt_footer, fill=(255, 255, 255, 55), anchor="mt")
+              f"Generated by Calling Metrics Dashboard  ·  Designed by AMIT RAY  ·  amitray@lawsikho.com",
+              font=fnt_footer, fill=(100, 70, 40), anchor="mt")
 
-    # ── Downscale for crisp output ───────────────────────────
-    out_w = IMG_W // SCALE
-    out_h = IMG_H // SCALE
-    img   = img.resize((out_w, out_h), Image.LANCZOS)
-
+    # ── Save ─────────────────────────────────────────────────
     buf = io.BytesIO()
     img.save(buf, format='JPEG', quality=95, optimize=True)
     buf.seek(0)
     return buf.getvalue()
-
-
-def generate_image_zip(team_data_list, display_start, display_end):
-    zip_buf = io.BytesIO()
-    with zipfile.ZipFile(zip_buf, 'w', zipfile.ZIP_DEFLATED) as zf:
-        for team_name, report_df, team_dur_agg_sec in team_data_list:
-            jpg_bytes = render_team_table_as_jpg(
-                team_name, report_df, team_dur_agg_sec, display_start, display_end
-            )
-            safe = (team_name.replace(' ', '_').replace('/', '-')
-                             .replace("'", '').replace('&', 'and'))
-            zf.writestr(f"{safe}.jpg", jpg_bytes)
-    zip_buf.seek(0)
-    return zip_buf.getvalue()
 # ─────────────────────────────────────────────
 # SIDEBAR
 # ─────────────────────────────────────────────
