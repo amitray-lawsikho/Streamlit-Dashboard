@@ -541,7 +541,184 @@ def compute_team_insights(df_merged, report_df):
 
     return insights
 
+# ─────────────────────────────────────────────
+# HTML SNAPSHOT GENERATOR
+# ─────────────────────────────────────────────
 
+def generate_html_report(team_data_list, display_start, display_end):
+    cols = [
+        "CALLER", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %",
+        "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS"
+    ]
+    now_str = datetime.now().strftime("%d %b %Y, %I:%M %p")
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Duration Report — {display_start} to {display_end}</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600;700&family=DM+Mono:wght@400;500&display=swap');
+  *, *::before, *::after {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{
+    font-family: 'DM Sans', sans-serif;
+    background: #0F0A05;
+    color: #FEF3E8;
+    padding: 2.5rem;
+    min-height: 100vh;
+  }}
+  .page-header {{
+    background: linear-gradient(135deg, #1c0700 0%, #7c2d12 50%, #431407 100%);
+    border-radius: 16px;
+    padding: 1.6rem 2rem;
+    margin-bottom: 2.5rem;
+    box-shadow: 0 8px 32px rgba(0,0,0,.4);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }}
+  .page-title {{ font-size: 1.65rem; font-weight: 700; color: #FFFFFF; letter-spacing: .4px; }}
+  .page-subtitle {{ font-size: .82rem; color: rgba(255,255,255,.55); font-family: 'DM Mono', monospace; margin-top: .3rem; }}
+  .page-meta {{ font-size: .72rem; color: rgba(255,255,255,.45); font-family: 'DM Mono', monospace; text-align: right; line-height: 1.7; }}
+  .team-section {{ margin-bottom: 3rem; }}
+  .team-header {{
+    text-align: center;
+    font-size: .9rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: #F97316;
+    margin: 0 0 .9rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: .75rem;
+  }}
+  .team-header::before, .team-header::after {{
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, #F97316);
+    opacity: .4;
+  }}
+  .team-header::after {{ background: linear-gradient(90deg, #F97316, transparent); }}
+  table {{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .8rem;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 2px 12px rgba(0,0,0,.25);
+  }}
+  thead tr th {{
+    background: linear-gradient(135deg, #431407, #7c1d1d);
+    color: #fff;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .7px;
+    padding: 11px 14px;
+    text-align: center;
+    font-size: .7rem;
+    white-space: nowrap;
+  }}
+  tbody tr td {{
+    padding: 9px 14px;
+    text-align: center;
+    border-bottom: 1px solid rgba(249,115,22,.08);
+    color: #FEF3E8;
+    background: #1A1006;
+    font-family: 'DM Mono', monospace;
+    font-size: .78rem;
+  }}
+  tbody tr:nth-child(even) td {{ background: #231508; }}
+  tbody tr.total-row td {{
+    font-weight: 700;
+    background: #374151 !important;
+    color: #FFFFFF;
+    border-top: 2px solid rgba(249,115,22,.3);
+    font-size: .82rem;
+  }}
+  .divider {{
+    border: none;
+    border-top: 1px solid rgba(249,115,22,.12);
+    margin: 2rem 0;
+  }}
+  .footer {{
+    text-align: center;
+    margin-top: 3.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid rgba(249,115,22,.12);
+    font-size: .72rem;
+    color: rgba(255,255,255,.3);
+    font-family: 'DM Mono', monospace;
+    line-height: 1.8;
+  }}
+  @media print {{
+    body {{ background: #fff; color: #111; padding: 1rem; }}
+    .page-header {{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
+    table {{ -webkit-print-color-adjust: exact; print-color-adjust: exact; }}
+    .team-section {{ page-break-inside: avoid; }}
+  }}
+</style>
+</head>
+<body>
+<div class="page-header">
+  <div>
+    <div class="page-title">🔔 CALLING METRICS — DURATION REPORT</div>
+    <div class="page-subtitle">LAWSIKHO &amp; SKILL ARBITRAGE &nbsp;·&nbsp; {display_start} to {display_end}</div>
+  </div>
+  <div class="page-meta">
+    Generated: {now_str}<br>
+    Teams: {len(team_data_list)}
+  </div>
+</div>
+"""
+
+    for idx, (team_name, report_df, team_dur_agg_sec) in enumerate(team_data_list):
+        if idx > 0:
+            html += '<hr class="divider">\n'
+
+        total_row_data = {
+            "CALLER": "TOTAL",
+            "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
+            "CALL STATUS": "—",
+            "PICK UP RATIO %": "—",
+            "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
+            "CALLS 15-20 MINS": int(report_df["CALLS 15-20 MINS"].sum()),
+            "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
+            "CALL DURATION > 3 MINS": format_dur_hm(team_dur_agg_sec)
+        }
+
+        html += f"""<div class="team-section">
+  <div class="team-header">DURATION REPORT — {team_name.upper()} &nbsp;({display_start} to {display_end})</div>
+  <table>
+    <thead>
+      <tr>{"".join(f"<th>{c}</th>" for c in cols)}</tr>
+    </thead>
+    <tbody>
+"""
+        for _, row in report_df.iterrows():
+            html += "      <tr>" + "".join(
+                f"<td>{row.get(c, '—')}</td>" for c in cols
+            ) + "</tr>\n"
+
+        html += "      <tr class='total-row'>" + "".join(
+            f"<td>{total_row_data.get(c, '—')}</td>" for c in cols
+        ) + "</tr>\n"
+        html += "    </tbody>\n  </table>\n</div>\n"
+
+    html += f"""<div class="footer">
+  Generated by Calling Metrics Dashboard &nbsp;·&nbsp;
+  Designed by <strong>AMIT RAY</strong> &nbsp;·&nbsp;
+  <a href="mailto:amitray@lawsikho.com" style="color:#F97316;text-decoration:none;">amitray@lawsikho.com</a>
+</div>
+</body>
+</html>"""
+
+    return html
 # ─────────────────────────────────────────────
 # SIDEBAR
 # ─────────────────────────────────────────────
@@ -572,6 +749,15 @@ st.sidebar.markdown("<div style='margin:.5rem 0'></div>", unsafe_allow_html=True
 gen_dynamic = st.sidebar.button("🚀 Generate Dynamic Report")
 st.sidebar.markdown("<div style='margin:.3rem 0'></div>", unsafe_allow_html=True)
 gen_static  = st.sidebar.button("📅 Generate Duration Report")
+
+if 'duration_report_html' in st.session_state:
+    st.sidebar.download_button(
+        label="📸 Download Duration Reports",
+        data=st.session_state['duration_report_html'].encode('utf-8'),
+        file_name=f"Duration_Report_{display_start}_to_{display_end}.html",
+        mime='text/html',
+        key='dl_duration_html_sidebar'
+    )
 
 st.sidebar.divider()
 st.sidebar.markdown("""
@@ -793,12 +979,14 @@ with tab2:
 
                     normal_team_data = df_static_master[~tl_ad_mask]
                     normal_teams     = sorted(normal_team_data['Team Name'].dropna().unique())
+                    team_data_list   = []   # ← collect for HTML snapshot
 
                     for team in normal_teams:
                         team_df = normal_team_data[normal_team_data['Team Name'] == team]
                         report_df, team_dur_agg_sec = process_metrics_logic(team_df)
                         if team_dur_agg_sec > 0:
                             report_df = report_df.sort_values(by="raw_dur_sec", ascending=False)
+                            team_data_list.append((team, report_df.copy(), team_dur_agg_sec))  # ← snapshot
                             st.markdown(f"""
                             <div class="static-team-header">
                                 DURATION REPORT — {team.upper()} &nbsp;({display_start} to {display_end})
@@ -842,6 +1030,7 @@ with tab2:
                         report_df_tl, tl_dur_agg_sec = process_metrics_logic(tl_ad_pool)
                         active_tl = report_df_tl[report_df_tl['raw_dur_sec'] > 300].sort_values(by="raw_dur_sec", ascending=False)
                         if not active_tl.empty:
+                            team_data_list.append(("TL's & ATL's", active_tl.copy(), active_tl["raw_dur_sec"].sum()))  # ← snapshot
                             st.markdown(f"""
                             <div class="static-team-header">
                                 TL'S DURATION REPORT &nbsp;({display_start} to {display_end})
@@ -883,9 +1072,12 @@ with tab2:
                     report_all, _ = process_metrics_logic(
                         df_static_master[df_static_master['call_owner'].notna() & (df_static_master['call_owner'] != '')]
                     )
-                    st.session_state['insights_df']     = df_static_master.copy()
-                    st.session_state['insights_report'] = report_all.copy()
-                    st.session_state['insights_source'] = "Duration Report"
+                    st.session_state['insights_df']         = df_static_master.copy()
+                    st.session_state['insights_report']     = report_all.copy()
+                    st.session_state['insights_source']     = "Duration Report"
+                    st.session_state['duration_report_html'] = generate_html_report(
+                        team_data_list, display_start, display_end
+                    )
 
     else:
         st.markdown("""
