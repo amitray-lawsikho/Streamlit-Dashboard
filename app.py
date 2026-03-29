@@ -961,7 +961,7 @@ with tab3:
                     "avg_prod_h": "Avg Prod Hrs (h)", "long_calls": "20+ Min Calls"
                 })
             )
-            medals = ["🥇", "🥈", "🥉"] + [""] * max(0, len(lb) - 3)
+            medals = (["🥇", "🥈", "🥉"] + [""] * max(0, len(lb) - 3))[:len(lb)]
             lb.insert(0, "🏅", medals)
             lb = lb.reset_index(drop=True)
             st.dataframe(lb, use_container_width=True, hide_index=True)
