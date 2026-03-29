@@ -1256,6 +1256,28 @@ with tab2:
                         team_data_list, display_start, display_end
                     )
 
+                    # ── Inline download buttons (always visible after generation) ──
+                    st.divider()
+                    dl_col1, dl_col2 = st.columns(2)
+                    with dl_col1:
+                        st.download_button(
+                            label="📸 Download All Reports (JPG ZIP)",
+                            data=st.session_state['duration_report_zip'],
+                            file_name=f"Duration_Reports_{start_date.strftime('%d-%m-%Y')}_to_{end_date.strftime('%d-%m-%Y')}.zip",
+                            mime='application/zip',
+                            key='dl_zip_tab2',
+                            use_container_width=True
+                        )
+                    with dl_col2:
+                        st.download_button(
+                            label="🌐 Download All Reports (HTML)",
+                            data=st.session_state['duration_report_html'].encode('utf-8'),
+                            file_name=f"Duration_Reports_{start_date.strftime('%d-%m-%Y')}_to_{end_date.strftime('%d-%m-%Y')}.html",
+                            mime='text/html',
+                            key='dl_html_tab2',
+                            use_container_width=True
+                        )
+
     else:
         st.markdown("""
         <div style='text-align:center;padding:6rem 1rem;opacity:.6;'>
