@@ -8,9 +8,7 @@ import pytz
 import numpy as np
 import io
 import zipfile
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+from PIL import Image, ImageDraw, ImageFont
 
 # --- 1. Cloud Credentials Setup ---
 if "gcp_service_account" in st.secrets:
@@ -725,19 +723,40 @@ def generate_html_report(team_data_list, display_start, display_end):
     return html
 
 # ─────────────────────────────────────────────
-# JPG IMAGE GENERATOR (per team)
+# JPG IMAGE GENERATOR (Pillow — no extra deps)
 # ─────────────────────────────────────────────
 
+def _hex(h):
+    h = h.lstrip('#')
+    return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+
+def _try_font(size, bold=False):
+    """Best available font — falls back to PIL default gracefully."""
+    candidates = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf" if bold else
+        "/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf",
+        "/usr/share/fonts/truetype/liberation/LiberationMono-Bold.ttf" if bold else
+        "/usr/share/fonts/truetype/liberation/LiberationMono-Regular.ttf",
+        "/System/Library/Fonts/Supplemental/Courier New Bold.ttf" if bold else
+        "/System/Library/Fonts/Supplemental/Courier New.ttf",
+    ]
+    for path in candidates:
+        try:
+            return ImageFont.truetype(path, size)
+        except Exception:
+            pass
+    return ImageFont.load_default()
+
 def render_team_table_as_jpg(team_name, report_df, team_dur_agg_sec, display_start, display_end):
-    cols = [
+    COLS = [
         "CALLER", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %",
         "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS", "CALL DURATION > 3 MINS"
     ]
 
+    # ── Build row data ──────────────────────────────────────
     data_rows = []
     for _, row in report_df.iterrows():
-        data_rows.append([str(row.get(c, '-')) for c in cols])
-
+        data_rows.append([str(row.get(c, '-')) for c in COLS])
     data_rows.append([
         "TOTAL",
         str(int(report_df["TOTAL CALLS"].sum())),
@@ -748,88 +767,116 @@ def render_team_table_as_jpg(team_name, report_df, team_dur_agg_sec, display_sta
         format_dur_hm(team_dur_agg_sec)
     ])
 
-    n_data_rows = len(data_rows)
+    # ── Fonts ───────────────────────────────────────────────
+    fnt_title   = _try_font(22, bold=True)
+    fnt_sub     = _try_font(14)
+    fnt_head    = _try_font(13, bold=True)
+    fnt_cell    = _try_font(13)
+    fnt_total   = _try_font(13, bold=True)
+    fnt_footer  = _try_font(11)
 
-    # ── Figure sizing ──────────────────────────
-    fig_w      = 24
-    cell_h     = 0.58
-    top_pad    = 1.8
-    fig_h      = top_pad + (n_data_rows + 1) * cell_h + 0.6
+    # ── Colours ─────────────────────────────────────────────
+    BG          = _hex('#0F0A05')
+    HEADER_BG   = _hex('#1c0700')
+    COL_HDR_BG  = _hex('#431407')
+    ROW_ODD     = _hex('#1A1006')
+    ROW_EVEN    = _hex('#231508')
+    TOTAL_BG    = _hex('#374151')
+    COL_HDR_FG  = (255, 255, 255)
+    CELL_FG     = _hex('#FEF3E8')
+    TOTAL_FG    = (255, 255, 255)
+    ACCENT      = _hex('#F97316')
+    BORDER      = (80, 35, 5, 100)   # RGBA for divider lines
+    MUTED       = (255, 255, 255, 60)
 
-    fig = plt.figure(figsize=(fig_w, fig_h), facecolor='#0F0A05')
-    ax  = fig.add_subplot(111)
-    ax.set_facecolor('#0F0A05')
-    ax.axis('off')
+    SCALE       = 2          # retina-style — halved at save time for sharp JPG
+    PAD_X       = 40 * SCALE
+    PAD_Y       = 20 * SCALE
+    HEADER_H    = 120 * SCALE
+    COL_HDR_H   = 42 * SCALE
+    ROW_H       = 38 * SCALE
+    FOOTER_H    = 36 * SCALE
+    IMG_W       = 2400 * SCALE
 
-    # ── Brand header strip ─────────────────────
-    header_rect = plt.Rectangle(
-        (0, 1 - top_pad / fig_h), 1, top_pad / fig_h,
-        transform=ax.transAxes, color='#1c0700',
-        clip_on=False, zorder=0
-    )
-    ax.add_patch(header_rect)
+    n_cols      = len(COLS)
+    n_rows      = len(data_rows)
+    col_w       = (IMG_W - 2 * PAD_X) // n_cols
+    table_top   = HEADER_H + PAD_Y
+    table_h     = COL_HDR_H + ROW_H * n_rows
+    IMG_H       = table_top + table_h + FOOTER_H + PAD_Y * 2
 
-    ax.text(0.5, 0.985, "CALLING METRICS  —  LAWSIKHO & SKILL ARBITRAGE",
-            transform=ax.transAxes, ha='center', va='top',
-            fontsize=10, color='rgba(255,255,255,0.45)',
-            fontfamily='DejaVu Sans Mono')
-    ax.text(0.5, 0.955, f"DURATION REPORT  —  {team_name.upper()}",
-            transform=ax.transAxes, ha='center', va='top',
-            fontsize=15, fontweight='bold', color='#F97316',
-            fontfamily='DejaVu Sans Mono')
-    ax.text(0.5, 0.915, f"{display_start}  to  {display_end}",
-            transform=ax.transAxes, ha='center', va='top',
-            fontsize=10, color='rgba(255,255,255,0.5)',
-            fontfamily='DejaVu Sans Mono')
+    img  = Image.new('RGB', (IMG_W, IMG_H), BG)
+    draw = ImageDraw.Draw(img, 'RGBA')
 
-    # ── Table ──────────────────────────────────
-    tbl = ax.table(
-        cellText=data_rows,
-        colLabels=cols,
-        cellLoc='center',
-        loc='center'
-    )
-    tbl.auto_set_font_size(False)
-    tbl.set_fontsize(9)
-    tbl.scale(1, 2.0)
-    tbl.auto_set_column_width(col=list(range(len(cols))))
+    # ── Brand header ────────────────────────────────────────
+    draw.rectangle([0, 0, IMG_W, HEADER_H], fill=HEADER_BG)
 
-    border_rgba = (0.98, 0.45, 0.09, 0.25)
+    # Orange bottom border on header
+    draw.rectangle([0, HEADER_H - 3 * SCALE, IMG_W, HEADER_H], fill=ACCENT)
 
-    for (r, c), cell in tbl.get_celld().items():
-        cell.set_linewidth(0.4)
-        cell.set_edgecolor(border_rgba)
+    brand_y = 18 * SCALE
+    draw.text((IMG_W // 2, brand_y), "CALLING METRICS  ·  LAWSIKHO & SKILL ARBITRAGE",
+              font=fnt_sub, fill=(255, 255, 255, 100), anchor="mt")
+    draw.text((IMG_W // 2, brand_y + 28 * SCALE),
+              f"DURATION REPORT  —  {team_name.upper()}",
+              font=fnt_title, fill=ACCENT, anchor="mt")
+    draw.text((IMG_W // 2, brand_y + 66 * SCALE),
+              f"{display_start}  to  {display_end}",
+              font=fnt_sub, fill=(255, 255, 255, 140), anchor="mt")
 
-        if r == 0:                          # Column headers
-            cell.set_facecolor('#431407')
-            cell.get_text().set_color('#FFFFFF')
-            cell.get_text().set_fontweight('bold')
-            cell.get_text().set_fontsize(7.8)
-        elif r == n_data_rows:              # TOTAL row (last)
-            cell.set_facecolor('#374151')
-            cell.get_text().set_color('#FFFFFF')
-            cell.get_text().set_fontweight('bold')
-        elif r % 2 == 1:
-            cell.set_facecolor('#1A1006')
-            cell.get_text().set_color('#FEF3E8')
-        else:
-            cell.set_facecolor('#231508')
-            cell.get_text().set_color('#FEF3E8')
+    # ── Column header row ────────────────────────────────────
+    for ci, col in enumerate(COLS):
+        x0 = PAD_X + ci * col_w
+        y0 = table_top
+        x1 = x0 + col_w
+        y1 = y0 + COL_HDR_H
+        draw.rectangle([x0, y0, x1, y1], fill=COL_HDR_BG)
+        draw.rectangle([x1 - SCALE, y0, x1, y1], fill=(249, 115, 22, 60))   # subtle col divider
+        cx = x0 + col_w // 2
+        cy = y0 + COL_HDR_H // 2
+        draw.text((cx, cy), col, font=fnt_head, fill=COL_HDR_FG, anchor="mm")
 
-    # ── Footer ─────────────────────────────────
-    ax.text(0.5, 0.01,
-            f"Generated by Calling Metrics Dashboard  ·  Designed by AMIT RAY  ·  amitray@lawsikho.com",
-            transform=ax.transAxes, ha='center', va='bottom',
-            fontsize=7.5, color='rgba(255,255,255,0.25)',
-            fontfamily='DejaVu Sans Mono')
+    # ── Data rows ────────────────────────────────────────────
+    for ri, row_data in enumerate(data_rows):
+        y0 = table_top + COL_HDR_H + ri * ROW_H
+        y1 = y0 + ROW_H
+        is_total = (ri == n_rows - 1)
 
-    plt.subplots_adjust(left=0.01, right=0.99, top=0.88, bottom=0.04)
+        for ci, cell_val in enumerate(row_data):
+            x0 = PAD_X + ci * col_w
+            x1 = x0 + col_w
+
+            if is_total:
+                draw.rectangle([x0, y0, x1, y1], fill=TOTAL_BG)
+                draw.text((x0 + col_w // 2, y0 + ROW_H // 2),
+                          cell_val, font=fnt_total, fill=TOTAL_FG, anchor="mm")
+            else:
+                fill = ROW_ODD if ri % 2 == 0 else ROW_EVEN
+                draw.rectangle([x0, y0, x1, y1], fill=fill)
+                draw.text((x0 + col_w // 2, y0 + ROW_H // 2),
+                          cell_val, font=fnt_cell, fill=CELL_FG, anchor="mm")
+
+            # row bottom border
+            draw.rectangle([x0, y1 - SCALE, x1, y1], fill=(249, 115, 22, 20))
+
+    # Orange line below total row
+    total_bottom = table_top + COL_HDR_H + n_rows * ROW_H
+    draw.rectangle([PAD_X, total_bottom - 3 * SCALE, IMG_W - PAD_X, total_bottom],
+                   fill=ACCENT)
+
+    # ── Footer ───────────────────────────────────────────────
+    footer_y = total_bottom + 18 * SCALE
+    draw.text((IMG_W // 2, footer_y),
+              "Generated by Calling Metrics Dashboard  ·  Designed by AMIT RAY  ·  amitray@lawsikho.com",
+              font=fnt_footer, fill=(255, 255, 255, 55), anchor="mt")
+
+    # ── Downscale for crisp output ───────────────────────────
+    out_w = IMG_W // SCALE
+    out_h = IMG_H // SCALE
+    img   = img.resize((out_w, out_h), Image.LANCZOS)
 
     buf = io.BytesIO()
-    fig.savefig(buf, format='jpeg', dpi=150, bbox_inches='tight',
-                facecolor='#0F0A05', edgecolor='none',
-                pil_kwargs={"quality": 95, "optimize": True})
-    plt.close(fig)
+    img.save(buf, format='JPEG', quality=95, optimize=True)
     buf.seek(0)
     return buf.getvalue()
 
@@ -841,7 +888,8 @@ def generate_image_zip(team_data_list, display_start, display_end):
             jpg_bytes = render_team_table_as_jpg(
                 team_name, report_df, team_dur_agg_sec, display_start, display_end
             )
-            safe = team_name.replace(' ', '_').replace('/', '-').replace("'", '').replace('&', 'and')
+            safe = (team_name.replace(' ', '_').replace('/', '-')
+                             .replace("'", '').replace('&', 'and'))
             zf.writestr(f"{safe}.jpg", jpg_bytes)
     zip_buf.seek(0)
     return zip_buf.getvalue()
