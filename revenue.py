@@ -224,9 +224,9 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
 
 def fmt_inr(value):
     if pd.isna(value) or value == 0: return "₹0"
-    if value >= 1_00_00_000: return f"₹{value/1_00_00_000:.1f}Cr"
-    if value >= 1_00_000:    return f"₹{value/1_00_000:.1f}L"
-    if value >= 1_000:       return f"₹{value/1_000:.1f}K"
+    if value >= 1_00_00_000: return f"₹{value/1_00_00_000:.2f}Cr"
+    if value >= 1_00_000:    return f"₹{value/1_00_000:.2f}L"
+    if value >= 1_000:       return f"₹{value/1_000:.2f}K"
     return f"₹{int(value)}"
 
 def section_header(label):
@@ -967,6 +967,46 @@ with tab1:
 
                     st.divider()
 
+                    # ── Download Summary Cards ──
+                    _rev_summary = pd.DataFrame([{
+                        'Metric'  : label,
+                        'Amount'  : val
+                    } for label, val, _ in [
+                        ("Total Revenue (EXCL. Services)",          metrics['total_rev'],           ""),
+                        ("Calling Revenue (INCL. Funnel)",          metrics['calling_rev'],         ""),
+                        ("Bootcamp-Direct Revenue",                 metrics['bootcamp_direct_rev'], ""),
+                        ("Bootcamp-Collection Revenue",             metrics['collection_rev'],      ""),
+                        ("Community Revenue (Direct+Collection)",   metrics['community_rev'],       ""),
+                        ("Direct/Other Revenue (INCL. Funnel)",     metrics['direct_rev'],          ""),
+                        ("Details Not Available / Not Updated Yet", metrics['dna_rev'],             ""),
+                    ]])
+
+                    _enr_summary = pd.DataFrame([{
+                        'Metric': label,
+                        'Count' : val
+                    } for label, val, _ in [
+                        ("Total Enrollments",            enr_metrics['total_enr'],     ""),
+                        ("Caller Enrollments",           enr_metrics['caller_enr'],    ""),
+                        ("Direct Enrollments",           enr_metrics['direct_enr'],    ""),
+                        ("Bootcamp-Direct Enrollments",  enr_metrics['bootcamp_enr'],  ""),
+                        ("Community-Direct Enrollments", enr_metrics['community_enr'], ""),
+                    ]])
+
+                    _combined = pd.concat([
+                        _rev_summary.rename(columns={'Amount': 'Value'}),
+                        _enr_summary.rename(columns={'Count': 'Value'})
+                    ], ignore_index=True)
+
+                    st.download_button(
+                        label="📥 Download Revenue & Enrollment Summary",
+                        data=_combined.to_csv(index=False).encode('utf-8'),
+                        file_name=f"Summary_{display_start}_to_{display_end}.csv",
+                        mime='text/csv',
+                        key='dl_summary'
+                    )
+
+                    st.divider()
+
                     # ══════════════════════════════════════
                     # TABLE 1 — CALLER REVENUE PERFORMANCE
                     # ══════════════════════════════════════
@@ -1014,7 +1054,7 @@ with tab1:
                     collection_display_cols = [
                         'DESIGNATION', 'CALLER NAME', 'TEAM', 'VERTICAL',
                         'TOTAL TARGET (₹)', 'TILL DAY TARGET (₹)', 'ENROLLMENTS',
-                        'ENROLLMENT REV', 'BALANCE REV',
+                        'CALLING REVENUE',
                         'COMMUNITY COLLECTION', 'BOOTCAMP COLLECTION',
                         'COLLECTION REVENUE'
                     ]
@@ -1024,8 +1064,7 @@ with tab1:
                             'TOTAL TARGET (₹)'    : fmt_inr(collection_df['raw_target'].sum()),
                             'TILL DAY TARGET (₹)' : fmt_inr(collection_df['TILL DAY TARGET (₹)'].sum()),
                             'ENROLLMENTS'         : int(collection_df['raw_enrollments'].sum()),
-                            'ENROLLMENT REV'      : fmt_inr(collection_df['ENROLLMENT REV'].sum()),
-                            'BALANCE REV'         : fmt_inr(collection_df['BALANCE REV'].sum()),
+                            'CALLING REVENUE'     : fmt_inr(collection_df['CALLING REVENUE'].sum()),
                             'COMMUNITY COLLECTION': fmt_inr(collection_df['COMMUNITY COLLECTION'].sum()),
                             'BOOTCAMP COLLECTION' : fmt_inr(collection_df['BOOTCAMP COLLECTION'].sum()),
                             'COLLECTION REVENUE'  : fmt_inr(collection_df['COLLECTION REVENUE'].sum()),
