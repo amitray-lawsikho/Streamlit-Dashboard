@@ -385,7 +385,10 @@ def resolve_targets(df_meta, start_date, end_date):
         return {}
 
     dedup = relevant.drop_duplicates(subset=[caller_col, month_col])
-    dedup[target_col] = pd.to_numeric(dedup[target_col], errors='coerce').fillna(0)
+     dedup[target_col] = pd.to_numeric(
+        dedup[target_col].astype(str).str.replace(',', '', regex=False),
+        errors='coerce'
+    ).fillna(0)
     return dedup.groupby(caller_col)[target_col].sum().to_dict()
 
 def resolve_designations(df_meta, start_date, end_date):
