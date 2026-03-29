@@ -507,7 +507,7 @@ def compute_summary_metrics(df):
         (df['is_new_enrollment']) &
         (df['Caller_name'].str.strip().str.lower() == 'bootcamp - direct')
     ]['Fee_paid'].sum()
-    total_rev      = calling_rev + collection_rev + community_rev + direct_rev + dna_rev
+    total_rev      = calling_rev + bootcamp_direct_rev + collection_rev + community_rev + direct_rev + dna_rev
 
     return {
         'total_rev'          : total_rev,
