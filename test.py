@@ -2289,60 +2289,6 @@ with tab3:
                 drop_agg = drop_agg[drop_agg['Team Name'] != 'Others'].copy()
                 drop_agg = drop_agg[~drop_agg['Team Name'].str.contains('Community Manager', case=False, na=False)].copy()
 
-                def render_drop_html(drop_agg, curr_label, prev_label):
-                    hs = "background:#7c2d12;color:#fff;font-size:.72rem;font-weight:700;text-transform:uppercase;padding:8px 6px;text-align:center;border:1px solid #991b1b;"
-                    ds = "font-size:.72rem;padding:6px 5px;text-align:center;border:1px solid #e5e7eb;color:var(--text-primary,#111827);"
-                    ts = "font-weight:700;background:#1f2937;color:#fff;font-size:.72rem;padding:7px 5px;text-align:center;border:1px solid #374151;"
-                    vs = "font-weight:700;background:#7c2d12;color:#fff;font-size:.72rem;padding:7px 5px;text-align:center;border:1px solid #991b1b;"
-                    gs = "font-weight:700;background:#1e3a5f;color:#fff;font-size:.72rem;padding:8px 5px;text-align:center;border:1px solid #1e3a5f;"
-
-                    html = f"""<div style='overflow-x:auto;'><table style='width:100%;border-collapse:collapse;'>
-                    <thead><tr>
-                        <th style='{hs}'>CALLER NAME</th>
-                        <th style='{hs}'>TEAM</th>
-                        <th style='{hs}'>VERTICAL</th>
-                        <th style='{hs}'>{curr_label.upper()} DROPS</th>
-                        <th style='{hs}'>{prev_label.upper()} DROPS</th>
-                        <th style='{hs}'>TOTAL DROP CASES</th>
-                    </tr></thead><tbody>"""
-
-                    g_c = g_p = g_t = 0
-                    for vert in sorted(drop_agg['Vertical'].fillna('Others').unique()):
-                        if vert == 'Others': continue
-                        v_df = drop_agg[drop_agg['Vertical'].fillna('Others') == vert]
-                        if v_df.empty: continue
-                        vc = vp = vt = 0
-                        for team in sorted(v_df['Team Name'].fillna('Others').unique()):
-                            if team == 'Others': continue
-                            t_df = v_df[v_df['Team Name'].fillna('Others') == team]
-                            if t_df.empty: continue
-                            tc = tp = tt = 0
-                            for _, r in t_df.sort_values('total_drops', ascending=False).iterrows():
-                                html += f"""<tr>
-                                    <td style='{ds}text-align:left;'>{r['Caller_name']}</td>
-                                    <td style='{ds}'>{team}</td>
-                                    <td style='{ds}'>{vert}</td>
-                                    <td style='{ds}'>{int(r['curr_drops'])}</td>
-                                    <td style='{ds}'>{int(r['prev_drops'])}</td>
-                                    <td style='{ds}font-weight:600;color:#DC2626;'>{int(r['total_drops'])}</td>
-                                </tr>"""
-                                tc += r['curr_drops']; tp += r['prev_drops']; tt += r['total_drops']
-                            html += f"""<tr>
-                                <td style='{ts}'>{team} Total</td><td style='{ts}'>—</td><td style='{ts}'>{vert}</td>
-                                <td style='{ts}'>{int(tc)}</td><td style='{ts}'>{int(tp)}</td><td style='{ts}'>{int(tt)}</td>
-                            </tr>"""
-                            vc += tc; vp += tp; vt += tt
-                        html += f"""<tr>
-                            <td style='{vs}'>{vert} Total</td><td style='{vs}'>—</td><td style='{vs}'>—</td>
-                            <td style='{vs}'>{int(vc)}</td><td style='{vs}'>{int(vp)}</td><td style='{vs}'>{int(vt)}</td>
-                        </tr>"""
-                        g_c += vc; g_p += vp; g_t += vt
-                    html += f"""<tr>
-                        <td style='{gs}'>Grand Total</td><td style='{gs}'>—</td><td style='{gs}'>—</td>
-                        <td style='{gs}'>{int(g_c)}</td><td style='{gs}'>{int(g_p)}</td><td style='{gs}'>{int(g_t)}</td>
-                    </tr></tbody></table></div>"""
-                    return html
-
                 st.markdown(render_drop_html(drop_agg, curr_label, prev_label), unsafe_allow_html=True)
             else:
                 st.info("No dropped leads found for current or previous month.")
