@@ -1119,38 +1119,39 @@ def fetch_both_months_rev(p_start, c_end):
     )
     return df
 
-def pending_leads_for_month(df_m, excl_emails, excl_phones):
+def pending_leads_for_month(df_m, excl_emails, excl_phones, df_combined=None):
     if df_m.empty:
         return pd.DataFrame()
 
     # ── Step 1: All rows with Fee_paid >= 999 across ALL enrollment types ──
-    # Mirrors original: rev_data built from ALL rows >= 999, not just New Enrollment
     df_valid = df_m[df_m['Fee_paid'] >= 999].copy()
     if df_valid.empty:
         return pd.DataFrame()
 
-    # ── Step 2: Count email + phone occurrences across ALL valid rows ──
-    # Original: leads.count(email)==1 AND lead_num.count(phone)==1
-    # If student has balance payment row → appears twice → count > 1 → excluded
-    email_counts = df_valid['Email_Id_norm'].value_counts()
-    phone_counts = df_valid['Contact_No_norm'].value_counts()
+    # ── Step 2: Count email + phone occurrences across COMBINED two-month pool ──
+    # Mirrors original: counts built from ALL rows in both months together
+    # so a student who enrolled in month A and paid balance in month B
+    # appears twice in the combined pool → count=2 → excluded from both months
+    if df_combined is not None and not df_combined.empty:
+        df_pool = df_combined[df_combined['Fee_paid'] >= 999]
+    else:
+        df_pool = df_valid  # fallback: single month only
+    email_counts = df_pool['Email_Id_norm'].value_counts()
+    phone_counts = df_pool['Contact_No_norm'].value_counts()
 
-    # ── Step 3: Filter to "booking fees" rows only ──
-    # Original: Full/Installment == "booking fees" = partial payment, balance pending
-    # This replaces is_new — only students who paid a booking/partial amount qualify
+    # ── Step 3: Filter to "booking fees" rows only (this month's slice) ──
     if 'Full_Installment' in df_valid.columns:
         pending_rows = df_valid[
             df_valid['Full_Installment'].str.lower().str.strip() == 'booking fees'
         ].copy()
     else:
-        # Fallback to is_new if field not yet in BigQuery (before pipeline reruns)
+        # Fallback until pipeline pushes Full_Installment to BigQuery
         pending_rows = df_valid[df_valid['is_new']].copy()
 
     if pending_rows.empty:
         return pd.DataFrame()
 
-    # ── Step 4: count==1 filter on BOTH email AND phone ──
-    # Excludes anyone with a second row of any type in the window
+    # ── Step 4: count==1 against COMBINED pool — same as original script ──
     pending_rows = pending_rows[
         pending_rows['Email_Id_norm'].map(email_counts) == 1
     ].copy()
@@ -2263,8 +2264,8 @@ with tab3:
         df_curr   = df_both[df_both['Date'] >= c_start].copy()
         df_prev   = df_both[(df_both['Date'] >= p_start) & (df_both['Date'] <= p_end)].copy()
 
-        pend_curr = pending_leads_for_month(df_curr, excl_emails, excl_phones)
-        pend_prev = pending_leads_for_month(df_prev, excl_emails, excl_phones)
+        pend_curr = pending_leads_for_month(df_curr, excl_emails, excl_phones, df_both)
+        pend_prev = pending_leads_for_month(df_prev, excl_emails, excl_phones, df_both)
 
         curr_cal  = caller_agg_pending(pend_curr, meta_map_pending)
         prev_cal  = caller_agg_pending(pend_prev, meta_map_pending)
