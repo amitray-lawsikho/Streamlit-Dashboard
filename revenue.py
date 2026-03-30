@@ -1067,7 +1067,16 @@ def build_month_options(min_date, max_date):
 
 month_options        = build_month_options(min_d, max_d)
 st.sidebar.markdown("""
-<div style='padding:.4rem 0 .8rem;'>
+<div style='padding:.6rem 0 .4rem; text-align:center;'>
+    <div style='display:flex; align-items:center; justify-content:center; gap:0; margin-bottom:.3rem;'>
+        <span style='font-size:.85rem; font-weight:700; color:#FFFFFF; letter-spacing:-.3px;'>LawSikho</span>
+        <div style='width:1px; height:18px; margin:0 .6rem;
+                    background:linear-gradient(180deg,transparent,rgba(16,185,129,.9),transparent);
+                    box-shadow:0 0 6px rgba(16,185,129,.5);'></div>
+        <span style='font-size:.85rem; font-weight:700; color:#FFFFFF; letter-spacing:-.3px;'>Skill Arbitrage</span>
+    </div>
+    <div style='font-size:.58rem; color:rgba(255,255,255,.3); letter-spacing:.8px;
+                font-family:monospace; margin-bottom:.9rem;'>India Learning 📖 India Earning</div>
     <div style='font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;
                 color:var(--text-muted,#6B7280);margin-bottom:.5rem;'>Report Controls</div>
 </div>
@@ -1139,7 +1148,7 @@ st.markdown(f"""
     <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:.75rem;">
         <div>
             <div class="rv-title">💰 REVENUE METRICS</div>
-            <div class="rv-subtitle">LAWSIKHO &amp; SKILL ARBITRAGE &nbsp;·&nbsp; {display_start} to {display_end}</div>
+            <div class="rv-subtitle">REVENUE PERIOD&nbsp;·&nbsp; {display_start} to {display_end}</div>
         </div>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.25rem;">
             <span class="rv-badge"><span class="rv-pulse"></span>LIVE REVENUE DATA</span>
