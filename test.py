@@ -1371,29 +1371,29 @@ def render_html_pending_table(combined, mode, curr_label, prev_label, title):
                 continue
             t = {k: 0 for k in g}
 
+            row_idx = 0
             if mode == "caller":
-                row_idx = 0
-        for _, r in t_df.sort_values('balance', ascending=False).iterrows():
-            pct  = _pct48(r.get("bal_48hr", 0), r.get("balance", 0))
-            ds   = data_style_alt if row_idx % 2 == 1 else data_style
-            row_idx += 1
-            html += (
-                "<tr>"
-                "<td style='" + ds + "text-align:left;'>" + str(r.get("Caller_name", "—")) + "</td>"
-                "<td style='" + ds + "'>" + str(team) + "</td>"
-                "<td style='" + ds + "'>" + fmt_inr(r.get("pool", 0)) + "</td>"
-                "<td style='" + ds + "'>" + fmt_inr(r.get("collected", 0)) + "</td>"
-                "<td style='" + ds + "color:#DC2626;font-weight:600;'>" + fmt_inr(r.get("balance", 0)) + "</td>"
-                "<td style='" + ds + "'>" + str(int(r.get("leads", 0))) + "</td>"
-                "<td style='" + ds + "'>" + str(int(r.get("leads_48", 0))) + "</td>"
-                "<td style='" + ds + "'>" + fmt_inr(r.get("bal_48hr", 0)) + "</td>"
-                "<td style='" + ds + "'>" + pct + "</td>"
-                "<td style='font-size:.72rem;padding:6px 5px;text-align:center;border:1px solid #d1fae5;color:#111827;background:#fef3c7;'>" + fmt_inr(r.get("prev_bal", 0)) + "</td>"
-                "<td style='font-size:.72rem;padding:6px 5px;text-align:center;border:1px solid #d1fae5;color:#111827;background:#fef3c7;'>" + str(int(r.get("prev_leads", 0))) + "</td>"
-                "<td style='font-size:.72rem;padding:6px 5px;text-align:center;border:1px solid #d1fae5;color:#111827;background:#dbeafe;font-weight:600;'>" + fmt_inr(r.get("grand_bal", 0)) + "</td>"
-                "<td style='font-size:.72rem;padding:6px 5px;text-align:center;border:1px solid #d1fae5;color:#111827;background:#dbeafe;font-weight:600;'>" + str(int(r.get("grand_leads", 0))) + "</td>"
-                "</tr>"
-            )
+                for _, r in t_df.sort_values('balance', ascending=False).iterrows():
+                    pct  = _pct48(r.get("bal_48hr", 0), r.get("balance", 0))
+                    ds   = data_style_alt if row_idx % 2 == 1 else data_style
+                    row_idx += 1
+                    html += (
+                        "<tr>"
+                        "<td style='" + ds + "text-align:left;'>" + str(r.get("Caller_name", "—")) + "</td>"
+                        "<td style='" + ds + "'>" + str(team) + "</td>"
+                        "<td style='" + ds + "'>" + fmt_inr(r.get("pool", 0)) + "</td>"
+                        "<td style='" + ds + "'>" + fmt_inr(r.get("collected", 0)) + "</td>"
+                        "<td style='" + ds + "color:#DC2626;font-weight:600;'>" + fmt_inr(r.get("balance", 0)) + "</td>"
+                        "<td style='" + ds + "'>" + str(int(r.get("leads", 0))) + "</td>"
+                        "<td style='" + ds + "'>" + str(int(r.get("leads_48", 0))) + "</td>"
+                        "<td style='" + ds + "'>" + fmt_inr(r.get("bal_48hr", 0)) + "</td>"
+                        "<td style='" + ds + "'>" + pct + "</td>"
+                        "<td style='font-size:.72rem;padding:6px 5px;text-align:center;border:1px solid #d1fae5;color:#111827;background:#fef3c7;'>" + fmt_inr(r.get("prev_bal", 0)) + "</td>"
+                        "<td style='font-size:.72rem;padding:6px 5px;text-align:center;border:1px solid #d1fae5;color:#111827;background:#fef3c7;'>" + str(int(r.get("prev_leads", 0))) + "</td>"
+                        "<td style='font-size:.72rem;padding:6px 5px;text-align:center;border:1px solid #d1fae5;color:#111827;background:#dbeafe;font-weight:600;'>" + fmt_inr(r.get("grand_bal", 0)) + "</td>"
+                        "<td style='font-size:.72rem;padding:6px 5px;text-align:center;border:1px solid #d1fae5;color:#111827;background:#dbeafe;font-weight:600;'>" + str(int(r.get("grand_leads", 0))) + "</td>"
+                        "</tr>"
+                    )
             for k in t:
                 val = r.get(k, 0)
                 t[k] += 0 if (val is None or (isinstance(val, float) and pd.isna(val))) else float(val)
