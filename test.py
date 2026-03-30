@@ -1120,24 +1120,34 @@ def pending_leads_for_month(df_m, excl_emails, excl_phones):
     if new.empty:
         return pd.DataFrame()
 
-    # Get contact numbers who have already made a balance payment in same window
-    paid_contacts = set(
-        df_m[df_m['is_bal']]['Contact_No_norm'].dropna().unique()
-    )
+    # Exclude students who have made ANY balance payment in the same window
+    # matched by Contact_No OR Email_Id
+    bal_rows = df_m[df_m['is_bal']].copy()
+    paid_contacts = set(bal_rows['Contact_No_norm'].dropna().unique())
+    paid_emails   = set(bal_rows['Email_Id_norm'].dropna().unique())
 
-    # Exclude students who have ANY balance payment row in the window
-    new = new[~new['Contact_No_norm'].isin(paid_contacts)].copy()
+    new = new[
+        ~new['Contact_No_norm'].isin(paid_contacts) &
+        ~new['Email_Id_norm'].isin(paid_emails)
+    ].copy()
     if new.empty:
         return pd.DataFrame()
 
-    # Pending = Course Price - Fee Paid on enrollment row only
+    # Exclude students who appear in the drop sheet
+    # (matched by Email_Id or Contact_No)
+    new = new[
+        ~new['Email_Id_norm'].isin(excl_emails) &
+        ~new['Contact_No_norm'].isin(excl_phones)
+    ].copy()
+    if new.empty:
+        return pd.DataFrame()
+
+    # Pending balance = Course Price - Fee Paid on enrollment row only
     new['balance'] = new['Course_Price'] - new['Fee_paid']
     p = new[new['balance'] > 0].copy()
 
-    p = p[~(p['Email_Id_norm'].isin(excl_emails) |
-             p['Contact_No_norm'].isin(excl_phones))].copy()
-    india       = pytz.timezone("Asia/Kolkata")
-    cut48       = (datetime.now(india) - timedelta(hours=48)).date()
+    india        = pytz.timezone("Asia/Kolkata")
+    cut48        = (datetime.now(india) - timedelta(hours=48)).date()
     p['over_48'] = p['Date'] <= cut48
     return p
 
@@ -1148,9 +1158,9 @@ def caller_agg_pending(pending_df, meta_map):
            .groupby('Caller_name')['balance'].sum()
            .rename('bal_48hr').reset_index())
     agg = (pending_df.groupby('Caller_name')
-           .agg(pool     =('Course_Price', 'sum'),
-                collected=('tot_paid',     'sum'),
-                balance  =('balance',      'sum'),
+           .agg(pool     =('Course_Price', 'sum'),   # total course price
+                collected=('Fee_paid',     'sum'),   # enrollment fee paid only
+                balance  =('balance',      'sum'),   # outstanding = Course_Price - Fee_paid
                 leads    =('balance',      'count'),
                 leads_48 =('over_48',      'sum'))
            .reset_index()
