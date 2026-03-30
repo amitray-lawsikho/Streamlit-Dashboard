@@ -2301,8 +2301,14 @@ with tab3:
             st.markdown("<div style='margin:.8rem 0;'></div>", unsafe_allow_html=True)
             dl_col1, dl_col2 = st.columns(2)
             if not pend_curr.empty:
-                dl_c = pend_curr[['Date','Name','Contact_No','Email_Id','Course','balance']].copy()
-                dl_c.columns = ['Date','Name','Contact','Email','Course','Balance Amount']
+                dl_c = pend_curr[[
+                    'Date','Name','Contact_No','Email_Id',
+                    'Course','Caller_name','Course_Price','Fee_paid','balance'
+                ]].copy()
+                dl_c.columns = [
+                    'Date','Name','Contact','Email',
+                    'Course','Caller Name','Course Price','Fee Paid','Balance Amount'
+                ]
                 with dl_col1:
                     st.download_button(
                         label=f"📥 Download {curr_label} Pending Leads",
@@ -2311,8 +2317,14 @@ with tab3:
                         mime='text/csv', key='dl_pend_curr'
                     )
             if not pend_prev.empty:
-                dl_p = pend_prev[['Date','Name','Contact_No','Email_Id','Course','balance']].copy()
-                dl_p.columns = ['Date','Name','Contact','Email','Course','Balance Amount']
+                dl_p = pend_prev[[
+                    'Date','Name','Contact_No','Email_Id',
+                    'Course','Caller_name','Course_Price','Fee_paid','balance'
+                ]].copy()
+                dl_p.columns = [
+                    'Date','Name','Contact','Email',
+                    'Course','Caller Name','Course Price','Fee Paid','Balance Amount'
+                ]
                 with dl_col2:
                     st.download_button(
                         label=f"📥 Download {prev_label} Pending Leads",
