@@ -622,7 +622,7 @@ st.markdown(f"""
 tab1, tab2, tab3 = st.tabs([
     "🚀 Dynamic Dashboard",
     "📅 Duration Report",
-    "🧠 Insights"
+    "🧠 Insights & Leaderboard"
 ])
 
 
