@@ -572,9 +572,9 @@ else:
     start_date = end_date = selected_dates if not isinstance(selected_dates, tuple) else selected_dates[0]
 
 teams, verticals, df_team_mapping = get_metadata()
-selected_vertical = st.sidebar.multiselect("🧑‍💼 Filter by Vertical", options=verticals)
-selected_team     = st.sidebar.multiselect("🫂 Filter by Team",       options=teams)
-search_query      = st.sidebar.text_input("🙋 Search By Name")
+selected_vertical = st.sidebar.multiselect("👑 Filter by Vertical", options=verticals)
+selected_team     = st.sidebar.multiselect("👥 Filter by Team",       options=teams)
+search_query      = st.sidebar.text_input("👤 Search By Name")
 
 st.sidebar.markdown("<div style='margin:.5rem 0'></div>", unsafe_allow_html=True)
 gen_dynamic = st.sidebar.button("🚀 Generate Dynamic Report")
