@@ -1075,8 +1075,8 @@ st.sidebar.markdown("""
                     box-shadow:0 0 6px rgba(16,185,129,.5);'></div>
         <span style='font-size:.85rem; font-weight:700; color:#FFFFFF; letter-spacing:-.3px;'>Skill Arbitrage</span>
     </div>
-    <div style='font-size:.58rem; color:rgba(255,255,255,.3); letter-spacing:.8px;
-                font-family:monospace; margin-bottom:.9rem;'>India Learning 📖 India Earning</div>
+    <div style='font-size:.58rem; color:var(--text-muted, #6B7280); letter-spacing:.8px;
+            font-family:monospace; margin-bottom:.9rem;'>India Learning 📖 India Earning</div>
     <div style='font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;
                 color:var(--text-muted,#6B7280);margin-bottom:.5rem;'>Report Controls</div>
 </div>
