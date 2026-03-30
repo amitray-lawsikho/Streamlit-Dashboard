@@ -1355,7 +1355,17 @@ def render_html_pending_table(combined, mode, curr_label, prev_label, title):
 
     num_keys = ["pool","collected","balance","leads","leads_48","bal_48hr","prev_bal","prev_leads","grand_bal","grand_leads"]
 
-    for vert in sorted(combined["Vertical"].fillna("Unassigned").unique()):
+    # Sort verticals by total grand_bal descending
+    vert_order = (
+        combined.copy()
+        .assign(_vert=combined["Vertical"].fillna("Unassigned"))
+        .groupby("_vert")["grand_bal"]
+        .sum()
+        .sort_values(ascending=False)
+        .index.tolist()
+    )
+
+    for vert in vert_order:
         v_df = combined[combined["Vertical"].fillna("Unassigned") == vert].copy()
         if v_df.empty:
             continue
@@ -1365,7 +1375,15 @@ def render_html_pending_table(combined, mode, curr_label, prev_label, title):
                 v_df[k] = pd.to_numeric(v_df[k], errors='coerce').fillna(0)
         v = {k: 0 for k in g}
 
-        for team in sorted(v_df["Team Name"].fillna("Unassigned").unique()):
+        # Sort teams within vertical by total grand_bal descending
+        team_order = (
+            v_df.assign(_team=v_df["Team Name"].fillna("Unassigned"))
+            .groupby("_team")["grand_bal"]
+            .sum()
+            .sort_values(ascending=False)
+            .index.tolist()
+        )
+        for team in team_order:
             t_df = v_df[v_df["Team Name"].fillna("Unassigned") == team].copy()
             if t_df.empty:
                 continue
@@ -1474,7 +1492,8 @@ def render_html_pending_table(combined, mode, curr_label, prev_label, title):
 
 def render_drop_html(drop_agg, curr_label, prev_label):
     hs = "background:#7c2d12;color:#fff;font-size:.72rem;font-weight:700;text-transform:uppercase;padding:8px 6px;text-align:center;border:1px solid #991b1b;"
-    ds = "font-size:.72rem;padding:6px 5px;text-align:center;border:1px solid #e5e7eb;color:var(--text-primary,#111827);"
+    ds = "font-size:.72rem;padding:6px 5px;text-align:center;border:1px solid #d1fae5;color:#111827;background:#ffffff;"
+    ds_alt = "font-size:.72rem;padding:6px 5px;text-align:center;border:1px solid #d1fae5;color:#111827;background:#f0fdf4;"
     ts = "font-weight:700;background:#1f2937;color:#fff;font-size:.72rem;padding:7px 5px;text-align:center;border:1px solid #374151;"
     vs = "font-weight:700;background:#7c2d12;color:#fff;font-size:.72rem;padding:7px 5px;text-align:center;border:1px solid #991b1b;"
     gs = "font-weight:700;background:#1e3a5f;color:#fff;font-size:.72rem;padding:8px 5px;text-align:center;border:1px solid #1e3a5f;"
@@ -1507,18 +1526,19 @@ def render_drop_html(drop_agg, curr_label, prev_label):
             if t_df.empty:
                 continue
             tc = tp = tt = 0
-            for _, r in t_df.sort_values("total_drops", ascending=False).iterrows():
-                html += (
-                    "<tr>"
-                    "<td style='" + ds + "text-align:left;'>" + str(r["Caller_name"]) + "</td>"
-                    "<td style='" + ds + "'>" + str(team) + "</td>"
-                    "<td style='" + ds + "'>" + str(vert) + "</td>"
-                    "<td style='" + ds + "'>" + str(int(r["curr_drops"])) + "</td>"
-                    "<td style='" + ds + "'>" + str(int(r["prev_drops"])) + "</td>"
-                    "<td style='" + ds + "font-weight:600;color:#DC2626;'>" + str(int(r["total_drops"])) + "</td>"
-                    "</tr>"
-                )
-                tc += r["curr_drops"]; tp += r["prev_drops"]; tt += r["total_drops"]
+            drop_row_idx = 0
+            for _, r in t_df.sort_values('total_drops', ascending=False).iterrows():
+                drow = ds_alt if drop_row_idx % 2 == 1 else ds
+                drop_row_idx += 1
+                html += f"""<tr>
+                    <td style='{drow}text-align:left;'>{r['Caller_name']}</td>
+                    <td style='{drow}'>{team}</td>
+                    <td style='{drow}'>{vert}</td>
+                    <td style='{drow}'>{int(r['curr_drops'])}</td>
+                    <td style='{drow}'>{int(r['prev_drops'])}</td>
+                    <td style='{drow}font-weight:600;color:#DC2626;'>{int(r['total_drops'])}</td>
+                </tr>"""
+                tc += r['curr_drops']; tp += r['prev_drops']; tt += r['total_drops']
             html += (
                 "<tr>"
                 "<td style='" + ts + "'>" + team + " Total</td>"
