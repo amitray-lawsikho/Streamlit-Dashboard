@@ -228,7 +228,7 @@ hr { border-color: var(--border, rgba(249,115,22,.12)) !important; margin: 1.2re
     letter-spacing: .8px;
     font-family: monospace;
     margin-bottom: .9rem;
-    color: #FDBA74;
+    color: #EA580C;
 }
 .js-plotly-plot { border-radius: var(--radius-md); overflow: hidden; }
 
