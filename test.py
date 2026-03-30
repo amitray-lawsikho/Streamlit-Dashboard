@@ -1067,6 +1067,248 @@ def generate_helper_pdf_bytes() -> bytes:
     return buffer.getvalue()
 
 # ─────────────────────────────────────────────
+# PENDING REVENUE — CONSTANTS & HELPERS
+# ─────────────────────────────────────────────
+
+DROP_LEADS_URL_P = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRJ9qaFD5Sc9O1JFH7ijR0JI2SEkAgXM8PJZsWslsASLDnTCA_fwIP0fg_PmtdMm_zs3KwTLI45fPog/pub?gid=1082322056&single=true&output=csv"
+
+def pending_months():
+    today   = date.today()
+    c_start = date(today.year, today.month, 1)
+    c_end   = today
+    p_end   = c_start - timedelta(days=1)
+    p_start = date(p_end.year, p_end.month, 1)
+    return c_start, c_end, p_start, p_end
+
+@st.cache_data(ttl=300, show_spinner=False)
+def load_drop_leads():
+    try:
+        df = pd.read_csv(DROP_LEADS_URL_P)
+        df.columns = df.columns.str.strip()
+        e_col = next((c for c in df.columns if 'email' in c.lower() and ('drop' in c.lower() or 'student' in c.lower())), None)
+        p_col = next((c for c in df.columns if 'phone' in c.lower() or ('number' in c.lower() and 'drop' in c.lower())), None)
+        t_col = next((c for c in df.columns if 'timestamp' in c.lower()), None)
+        df['drop_email'] = df[e_col].astype(str).str.strip().str.lower() if e_col else ''
+        df['drop_phone'] = (df[p_col].astype(str).str.replace(r'\D', '', regex=True).str[-10:]) if p_col else ''
+        df['drop_date']  = pd.to_datetime(df[t_col], errors='coerce', dayfirst=True) if t_col else pd.NaT
+        return df
+    except:
+        return pd.DataFrame()
+
+@st.cache_data(ttl=120, show_spinner=False)
+def fetch_both_months_rev(p_start, c_end):
+    q = f"SELECT * FROM `{REV_TABLE_ID}` WHERE Date BETWEEN '{p_start}' AND '{c_end}'"
+    df = client.query(q).to_dataframe()
+    if df.empty:
+        return df
+    df['Caller_name']     = df['Caller_name'].astype(str).str.strip()
+    df['merge_key']       = df['Caller_name'].str.lower()
+    df['Fee_paid']        = pd.to_numeric(df['Fee_paid'],     errors='coerce').fillna(0)
+    df['Course_Price']    = pd.to_numeric(df['Course_Price'], errors='coerce').fillna(0)
+    df['Email_Id_norm']   = df['Email_Id'].astype(str).str.strip().str.lower()
+    df['Contact_No_norm'] = df['Contact_No'].astype(str).str.replace(r'\D', '', regex=True).str[-10:]
+    enr_l = df['Enrollment'].astype(str).str.strip().str.lower()
+    df['is_new'] = enr_l == 'new enrollment'
+    df['is_bal'] = enr_l == 'new enrollment - balance payment'
+    df['Date']   = pd.to_datetime(df['Date'], errors='coerce').dt.date
+    return df
+
+def pending_leads_for_month(df_m, excl_emails, excl_phones):
+    if df_m.empty:
+        return pd.DataFrame()
+    new = df_m[df_m['is_new']].copy()
+    if new.empty:
+        return pd.DataFrame()
+    bal = (df_m[df_m['is_bal']]
+           .groupby('Contact_No_norm')['Fee_paid'].sum()
+           .rename('bal_paid').reset_index())
+    p = new.merge(bal, on='Contact_No_norm', how='left')
+    p['bal_paid'] = p['bal_paid'].fillna(0)
+    p['tot_paid'] = p['Fee_paid'] + p['bal_paid']
+    p['balance']  = p['Course_Price'] - p['tot_paid']
+    p = p[p['balance'] > 0].copy()
+    p = p[~(p['Email_Id_norm'].isin(excl_emails) |
+             p['Contact_No_norm'].isin(excl_phones))].copy()
+    india       = pytz.timezone("Asia/Kolkata")
+    cut48       = (datetime.now(india) - timedelta(hours=48)).date()
+    p['over_48'] = p['Date'] <= cut48
+    return p
+
+def caller_agg_pending(pending_df, meta_map):
+    if pending_df.empty:
+        return pd.DataFrame()
+    b48 = (pending_df[pending_df['over_48']]
+           .groupby('Caller_name')['balance'].sum()
+           .rename('bal_48hr').reset_index())
+    agg = (pending_df.groupby('Caller_name')
+           .agg(pool     =('Course_Price', 'sum'),
+                collected=('tot_paid',     'sum'),
+                balance  =('balance',      'sum'),
+                leads    =('balance',      'count'),
+                leads_48 =('over_48',      'sum'))
+           .reset_index()
+           .merge(b48, on='Caller_name', how='left'))
+    agg['bal_48hr'] = agg['bal_48hr'].fillna(0)
+    agg['leads_48'] = agg['leads_48'].astype(int)
+    agg['mk']       = agg['Caller_name'].str.strip().str.lower()
+    agg = agg.merge(meta_map.rename(columns={'merge_key': 'mk'}), on='mk', how='left')
+    agg['Caller_name'] = agg['Caller Name'].fillna(agg['Caller_name'])
+    agg['Team Name']   = agg['Team Name'].fillna('Others')
+    agg['Vertical']    = agg['Vertical'].fillna('Others')
+    return agg
+
+def merge_curr_prev(curr_df, prev_df):
+    prev_slim = pd.DataFrame()
+    if not prev_df.empty:
+        prev_slim = prev_df[['Caller_name', 'balance', 'leads']].rename(
+            columns={'balance': 'prev_bal', 'leads': 'prev_leads'})
+    if curr_df.empty and prev_df.empty:
+        return pd.DataFrame()
+    if curr_df.empty:
+        combined = prev_slim.copy()
+        for c in ['pool', 'collected', 'balance', 'leads', 'leads_48', 'bal_48hr']:
+            combined[c] = 0
+        combined = combined.merge(
+            prev_df[['Caller_name', 'Team Name', 'Vertical']], on='Caller_name', how='left')
+    elif prev_slim.empty:
+        combined = curr_df.copy()
+        combined['prev_bal']   = 0
+        combined['prev_leads'] = 0
+    else:
+        combined = curr_df.merge(prev_slim, on='Caller_name', how='outer')
+        combined['Team Name'] = combined['Team Name'].fillna('Others')
+        combined['Vertical']  = combined['Vertical'].fillna('Others')
+    for c in ['pool', 'collected', 'balance', 'leads', 'leads_48', 'bal_48hr', 'prev_bal', 'prev_leads']:
+        if c in combined.columns:
+            combined[c] = combined[c].fillna(0)
+    combined['grand_bal']   = combined['balance']  + combined['prev_bal']
+    combined['grand_leads'] = combined['leads'].astype(int) + combined['prev_leads'].astype(int)
+    return combined
+
+def _pct48(b48, bal):
+    return f"{round(b48 / bal * 100)}%" if bal and bal > 0 else "0%"
+
+def _make_pending_row(name, team, vert, r, row_type, curr_label, prev_label):
+    return {
+        '_rt'                 : row_type,
+        'NAME'                : name,
+        'TEAM'                : team,
+        'VERTICAL'            : vert,
+        f'REVENUE POOL ({curr_label})'  : fmt_inr(r.get('pool', 0)),
+        f'COLLECTED ({curr_label})'     : fmt_inr(r.get('collected', 0)),
+        f'BALANCE ({curr_label})'       : fmt_inr(r.get('balance', 0)),
+        f'LEADS ({curr_label})'         : int(r.get('leads', 0)),
+        '>48HR LEADS'                   : int(r.get('leads_48', 0)),
+        '>48HR BALANCE'                 : fmt_inr(r.get('bal_48hr', 0)),
+        '% PENDING >48HR'               : _pct48(r.get('bal_48hr', 0), r.get('balance', 0)),
+        f'BALANCE ({prev_label})'       : fmt_inr(r.get('prev_bal', 0)),
+        f'LEADS ({prev_label})'         : int(r.get('prev_leads', 0)),
+        'GRAND BALANCE'                 : fmt_inr(r.get('grand_bal', 0)),
+        'GRAND LEADS'                   : int(r.get('grand_leads', 0)),
+    }
+
+def build_pending_display(combined_df, mode, curr_label, prev_label):
+    rows   = []
+    g_sums = {k: 0 for k in ['pool','collected','balance','leads','leads_48','bal_48hr','prev_bal','prev_leads','grand_bal','grand_leads']}
+
+    for vert in sorted(combined_df['Vertical'].fillna('Others').unique()):
+        v_df   = combined_df[combined_df['Vertical'].fillna('Others') == vert]
+        v_sums = {k: 0 for k in g_sums}
+
+        for team in sorted(v_df['Team Name'].fillna('Others').unique()):
+            t_df   = v_df[v_df['Team Name'].fillna('Others') == team]
+            t_sums = {k: 0 for k in g_sums}
+
+            if mode == 'caller':
+                for _, r in t_df.sort_values('balance', ascending=False).iterrows():
+                    d = {k: r.get(k, 0) for k in g_sums}
+                    rows.append(_make_pending_row(r.get('Caller_name','—'), team, vert, d, 'data', curr_label, prev_label))
+                    for k in g_sums:
+                        t_sums[k] += d[k]
+            else:
+                for k in ['pool','collected','balance','leads','leads_48','bal_48hr','prev_bal','prev_leads','grand_bal','grand_leads']:
+                    t_sums[k] = t_df[k].sum() if k in t_df.columns else 0
+
+            rows.append(_make_pending_row(f"{team} Total", vert, vert, t_sums, 'team_total', curr_label, prev_label))
+            for k in g_sums:
+                v_sums[k] += t_sums[k]
+
+        rows.append(_make_pending_row(f"{vert} Total", '—', '—', v_sums, 'vertical_total', curr_label, prev_label))
+        for k in g_sums:
+            g_sums[k] += v_sums[k]
+
+    rows.append(_make_pending_row('Grand Total', '—', '—', g_sums, 'grand_total', curr_label, prev_label))
+    return pd.DataFrame(rows)
+
+def style_pending_row(row):
+    rt = row.get('_rt', 'data')
+    if rt == 'grand_total':    return ['font-weight:700;background-color:#1e3a5f;color:#FFFFFF;'] * len(row)
+    if rt == 'vertical_total': return ['font-weight:700;background-color:#064e3b;color:#FFFFFF;'] * len(row)
+    if rt == 'team_total':     return ['font-weight:700;background-color:#374151;color:#FFFFFF;'] * len(row)
+    return [''] * len(row)
+
+def attribute_drops_to_callers(drop_df, df_rev, meta_map, c_start, c_end, p_start, p_end, curr_label, prev_label):
+    if drop_df.empty or df_rev.empty:
+        return pd.DataFrame()
+    new_enr = df_rev[df_rev['is_new']].copy()
+    email_to_caller = new_enr.drop_duplicates('Email_Id_norm').set_index('Email_Id_norm')['Caller_name'].to_dict()
+    phone_to_caller = new_enr.drop_duplicates('Contact_No_norm').set_index('Contact_No_norm')['Caller_name'].to_dict()
+
+    def get_caller(row):
+        e = str(row.get('drop_email', '')).strip().lower()
+        p = str(row.get('drop_phone', '')).strip()
+        if e and e in email_to_caller: return email_to_caller[e]
+        if p and p in phone_to_caller: return phone_to_caller[p]
+        return 'Unknown'
+
+    df = drop_df.copy()
+    df['attributed_caller'] = df.apply(get_caller, axis=1)
+    df = df[df['drop_date'].notna()].copy()
+    df['drop_d'] = df['drop_date'].dt.date
+
+    curr_drops = (df[(df['drop_d'] >= c_start) & (df['drop_d'] <= c_end)]
+                  .groupby('attributed_caller').size().rename('curr_drops'))
+    prev_drops = (df[(df['drop_d'] >= p_start) & (df['drop_d'] <= p_end)]
+                  .groupby('attributed_caller').size().rename('prev_drops'))
+
+    combined = pd.DataFrame({'curr_drops': curr_drops, 'prev_drops': prev_drops}).fillna(0).reset_index()
+    combined.columns = ['Caller_name', 'curr_drops', 'prev_drops']
+    combined['curr_drops']   = combined['curr_drops'].astype(int)
+    combined['prev_drops']   = combined['prev_drops'].astype(int)
+    combined['total_drops']  = combined['curr_drops'] + combined['prev_drops']
+    combined['mk']           = combined['Caller_name'].str.strip().str.lower()
+    combined = combined.merge(meta_map.rename(columns={'merge_key': 'mk'}), on='mk', how='left')
+    combined['Caller_name'] = combined['Caller Name'].fillna(combined['Caller_name'])
+    combined['Team Name']   = combined['Team Name'].fillna('Others')
+    combined['Vertical']    = combined['Vertical'].fillna('Others')
+    return combined.sort_values('total_drops', ascending=False).reset_index(drop=True)
+
+def build_drop_display(drop_agg, curr_label, prev_label):
+    rows = []
+    g_c = g_p = g_t = 0
+    for vert in sorted(drop_agg['Vertical'].fillna('Others').unique()):
+        v_df = drop_agg[drop_agg['Vertical'].fillna('Others') == vert]
+        vc = vp = vt = 0
+        for team in sorted(v_df['Team Name'].fillna('Others').unique()):
+            t_df = v_df[v_df['Team Name'].fillna('Others') == team]
+            tc = tp = tt = 0
+            for _, r in t_df.sort_values('total_drops', ascending=False).iterrows():
+                rows.append({'_rt': 'data', 'CALLER NAME': r['Caller_name'], 'TEAM': team, 'VERTICAL': vert,
+                             f'{curr_label} DROPS': int(r['curr_drops']),
+                             f'{prev_label} DROPS': int(r['prev_drops']),
+                             'TOTAL DROPS': int(r['total_drops'])})
+                tc += r['curr_drops']; tp += r['prev_drops']; tt += r['total_drops']
+            rows.append({'_rt': 'team_total', 'CALLER NAME': f'{team} Total', 'TEAM': '—', 'VERTICAL': vert,
+                         f'{curr_label} DROPS': int(tc), f'{prev_label} DROPS': int(tp), 'TOTAL DROPS': int(tt)})
+            vc += tc; vp += tp; vt += tt
+        rows.append({'_rt': 'vertical_total', 'CALLER NAME': f'{vert} Total', 'TEAM': '—', 'VERTICAL': '—',
+                     f'{curr_label} DROPS': int(vc), f'{prev_label} DROPS': int(vp), 'TOTAL DROPS': int(vt)})
+        g_c += vc; g_p += vp; g_t += vt
+    rows.append({'_rt': 'grand_total', 'CALLER NAME': 'Grand Total', 'TEAM': '—', 'VERTICAL': '—',
+                 f'{curr_label} DROPS': int(g_c), f'{prev_label} DROPS': int(g_p), 'TOTAL DROPS': int(g_t)})
+    return pd.DataFrame(rows)
+
+# ─────────────────────────────────────────────
 # SIDEBAR
 # ─────────────────────────────────────────────
 
@@ -1177,7 +1419,7 @@ st.markdown(f"""
 # TABS
 # ─────────────────────────────────────────────
 
-tab1, tab2 = st.tabs(["💰 Revenue Dashboard", "🧠 Insights & Leaderboard"])
+tab1, tab2, tab3 = st.tabs(["💰 Revenue Dashboard", "🧠 Insights & Leaderboard", "📊 Callerwise Pending Revenue"])
 
 
 # ══════════════════════════════════════════════
@@ -1686,3 +1928,137 @@ with tab2:
             <div style='font-size:4rem;margin-bottom:1rem;'>🧠</div>
             <div style='font-size:.95rem;font-weight:600;'>Click <b>Generate Revenue Report</b> to load insights</div>
         </div>""", unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════
+# TAB 3 — PENDING REVENUE (no filter, auto-load)
+# ══════════════════════════════════════════════
+
+with tab3:
+    c_start, c_end, p_start, p_end = pending_months()
+    curr_label = c_start.strftime("%B %Y")
+    prev_label = p_start.strftime("%B %Y")
+
+    with st.spinner("Loading pending revenue data…"):
+        _, _, df_meta_all   = get_metadata()
+        meta_map_pending    = (df_meta_all.sort_values('Month', ascending=False)
+                               .drop_duplicates(subset=['merge_key'], keep='first')
+                               [['merge_key', 'Caller Name', 'Team Name', 'Vertical']].copy())
+
+        drop_df             = load_drop_leads()
+        excl_emails         = set(drop_df['drop_email'].dropna().astype(str).unique()) if not drop_df.empty else set()
+        excl_phones         = set(drop_df['drop_phone'].dropna().astype(str).unique()) if not drop_df.empty else set()
+
+        df_both             = fetch_both_months_rev(p_start, c_end)
+
+    if df_both.empty:
+        st.warning("No revenue data found for the current and previous month.")
+    else:
+        df_curr   = df_both[df_both['Date'] >= c_start].copy()
+        df_prev   = df_both[(df_both['Date'] >= p_start) & (df_both['Date'] <= p_end)].copy()
+
+        pend_curr = pending_leads_for_month(df_curr, excl_emails, excl_phones)
+        pend_prev = pending_leads_for_month(df_prev, excl_emails, excl_phones)
+
+        curr_cal  = caller_agg_pending(pend_curr, meta_map_pending)
+        prev_cal  = caller_agg_pending(pend_prev, meta_map_pending)
+        combined  = merge_curr_prev(curr_cal, prev_cal)
+
+        if combined.empty:
+            st.info("No pending leads found for the selected months.")
+        else:
+            # ══ TEAMWISE ══════════════════════════════
+            st.markdown(f"""
+            <div style='text-align:center;margin:1rem 0 .3rem;'>
+                <div style='font-size:1.05rem;font-weight:800;text-transform:uppercase;
+                            letter-spacing:1px;color:#10B981;'>
+                    📊 TEAMWISE PENDING REVENUE {prev_label.upper()} + {curr_label.upper()}
+                </div>
+            </div>
+            <div style='display:flex;gap:.5rem;margin-bottom:.6rem;justify-content:flex-end;'>
+                <span style='background:rgba(16,185,129,.15);border-radius:6px;padding:3px 10px;
+                             font-size:.72rem;font-weight:700;color:#10B981;'>
+                    CURR → {curr_label.upper()}
+                </span>
+                <span style='background:rgba(245,158,11,.15);border-radius:6px;padding:3px 10px;
+                             font-size:.72rem;font-weight:700;color:#F59E0B;'>
+                    PREV → {prev_label.upper()}
+                </span>
+                <span style='background:rgba(99,102,241,.15);border-radius:6px;padding:3px 10px;
+                             font-size:.72rem;font-weight:700;color:#818CF8;'>
+                    GRAND TOTAL
+                </span>
+            </div>""", unsafe_allow_html=True)
+
+            team_disp = build_pending_display(combined, 'team', curr_label, prev_label)
+            t_cols    = [c for c in team_disp.columns if c != '_rt']
+            st.dataframe(
+                team_disp[t_cols].style.apply(style_pending_row, axis=1),
+                use_container_width=True, hide_index=True
+            )
+
+            st.divider()
+
+            # ══ CALLERWISE ════════════════════════════
+            st.markdown(f"""
+            <div style='text-align:center;margin:1rem 0 .3rem;'>
+                <div style='font-size:1.05rem;font-weight:800;text-transform:uppercase;
+                            letter-spacing:1px;color:#10B981;'>
+                    📋 CALLERWISE PENDING REVENUE {prev_label.upper()} + {curr_label.upper()}
+                </div>
+            </div>""", unsafe_allow_html=True)
+
+            caller_disp = build_pending_display(combined, 'caller', curr_label, prev_label)
+            c_cols      = [c for c in caller_disp.columns if c != '_rt']
+            st.dataframe(
+                caller_disp[c_cols].style.apply(style_pending_row, axis=1),
+                use_container_width=True, hide_index=True
+            )
+
+            # ── Download buttons ──
+            dl_col1, dl_col2 = st.columns(2)
+            if not pend_curr.empty:
+                dl_c = pend_curr[['Date', 'Name', 'Contact_No', 'Email_Id', 'Course', 'balance']].copy()
+                dl_c.columns = ['Date', 'Name', 'Contact', 'Email', 'Course', 'Balance Amount']
+                dl_c = dl_c.sort_values('Date').reset_index(drop=True)
+                with dl_col1:
+                    st.download_button(
+                        label=f"📥 Download {curr_label} Pending Leads",
+                        data=dl_c.to_csv(index=False).encode('utf-8'),
+                        file_name=f"Pending_{curr_label.replace(' ','_')}.csv",
+                        mime='text/csv', key='dl_pend_curr'
+                    )
+            if not pend_prev.empty:
+                dl_p = pend_prev[['Date', 'Name', 'Contact_No', 'Email_Id', 'Course', 'balance']].copy()
+                dl_p.columns = ['Date', 'Name', 'Contact', 'Email', 'Course', 'Balance Amount']
+                dl_p = dl_p.sort_values('Date').reset_index(drop=True)
+                with dl_col2:
+                    st.download_button(
+                        label=f"📥 Download {prev_label} Pending Leads",
+                        data=dl_p.to_csv(index=False).encode('utf-8'),
+                        file_name=f"Pending_{prev_label.replace(' ','_')}.csv",
+                        mime='text/csv', key='dl_pend_prev'
+                    )
+
+        st.divider()
+
+        # ══ DROPPED LEADS CALLERWISE ══════════════
+        section_header(f"🚫 DROPPED LEADS — {prev_label} + {curr_label}")
+
+        if not drop_df.empty:
+            drop_agg = attribute_drops_to_callers(
+                drop_df, df_both, meta_map_pending,
+                c_start, c_end, p_start, p_end,
+                curr_label, prev_label
+            )
+            if not drop_agg.empty:
+                drop_disp = build_drop_display(drop_agg, curr_label, prev_label)
+                d_cols    = [c for c in drop_disp.columns if c != '_rt']
+                st.dataframe(
+                    drop_disp[d_cols].style.apply(style_pending_row, axis=1),
+                    use_container_width=True, hide_index=True
+                )
+            else:
+                st.info("No dropped leads found for the current or previous month.")
+        else:
+            st.info("Drop leads sheet could not be loaded.")
