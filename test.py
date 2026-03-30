@@ -1394,10 +1394,12 @@ def render_html_pending_table(combined, mode, curr_label, prev_label, title):
                         "<td style='font-size:.72rem;padding:6px 5px;text-align:center;border:1px solid #d1fae5;color:#111827;background:#dbeafe;font-weight:600;'>" + str(int(r.get("grand_leads", 0))) + "</td>"
                         "</tr>"
                     )
-            for k in t:
-                val = r.get(k, 0)
-                t[k] += 0 if (val is None or (isinstance(val, float) and pd.isna(val))) else float(val)
+                    # accumulate into team totals — inside the row loop
+                    for k in t:
+                        val = r.get(k, 0)
+                        t[k] += 0 if (val is None or (isinstance(val, float) and pd.isna(val))) else float(val)
             else:
+                # team mode — aggregate the whole t_df slice at once
                 for k in num_keys:
                     if k in t_df.columns:
                         t[k] = pd.to_numeric(t_df[k], errors='coerce').fillna(0).sum()
