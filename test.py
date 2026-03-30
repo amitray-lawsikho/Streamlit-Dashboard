@@ -2232,6 +2232,7 @@ with tab3:
                 (combined['Vertical'] == 'Others')
             )].copy()
             combined = combined[combined['grand_bal'] > 0].copy()
+            combined = combined[~combined['Team Name'].str.contains('Community Manager', case=False, na=False)].copy()
             
            
 
@@ -2285,7 +2286,8 @@ with tab3:
                 curr_label, prev_label
             )
             if not drop_agg.empty:
-                drop_agg = drop_agg[drop_agg['Team Name'] != 'Others']
+                drop_agg = drop_agg[drop_agg['Team Name'] != 'Others'].copy()
+                drop_agg = drop_agg[~drop_agg['Team Name'].str.contains('Community Manager', case=False, na=False)].copy()
 
                 def render_drop_html(drop_agg, curr_label, prev_label):
                     hs = "background:#7c2d12;color:#fff;font-size:.72rem;font-weight:700;text-transform:uppercase;padding:8px 6px;text-align:center;border:1px solid #991b1b;"
