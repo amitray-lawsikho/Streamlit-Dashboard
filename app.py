@@ -220,9 +220,8 @@ hr { border-color: var(--border, rgba(249,115,22,.12)) !important; margin: 1.2re
     font-size: .85rem;
     font-weight: 700;
     letter-spacing: -.3px;
-    color: #111827;
+    color: #F97316;
 }
-[data-theme="dark"] .brand-name { color: #FEF3E8 !important; }
 
 .brand-tagline {
     font-size: .58rem;
