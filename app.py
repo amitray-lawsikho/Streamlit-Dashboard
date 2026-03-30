@@ -778,11 +778,11 @@ def generate_calling_helper_pdf_bytes() -> bytes:
 st.sidebar.markdown("""
 <div style='padding:.6rem 0 .4rem; text-align:center;'>
     <div style='display:flex; align-items:center; justify-content:center; gap:0; margin-bottom:.3rem;'>
-        <span style='font-size:.85rem; font-weight:700; color:#FFFFFF; letter-spacing:-.3px;'>LawSikho</span>
+        <span style='font-size:.85rem; font-weight:700; color:var(--text-primary,#111827); letter-spacing:-.3px;'>LawSikho</span>
         <div style='width:1px; height:18px; margin:0 .6rem;
                     background:linear-gradient(180deg,transparent,rgba(249,115,22,.9),transparent);
                     box-shadow:0 0 6px rgba(249,115,22,.5);'></div>
-        <span style='font-size:.85rem; font-weight:700; color:#FFFFFF; letter-spacing:-.3px;'>Skill Arbitrage</span>
+        <span style='font-size:.85rem; font-weight:700; color:var(--text-primary,#111827); letter-spacing:-.3px;'>Skill Arbitrage</span>
     </div>
     <div style='font-size:.58rem; color:var(--text-muted, #6B7280); letter-spacing:.8px;
             font-family:monospace; margin-bottom:.9rem;'>India Learning 📖 India Earning</div>
