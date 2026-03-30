@@ -2197,11 +2197,7 @@ with tab3:
         if not combined.empty:
             combined = combined[combined['Team Name'] != 'Others'].copy()
             combined = combined[combined['grand_bal'] > 0].copy()
-
-        def render_html_pending_table(combined, mode, curr_label, prev_label, title):
-            CM = curr_label
-            PM = prev_label
-
+            
             # ── Style tokens ──
             BASE   = "font-size:.71rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:9px 8px;text-align:center;border:1px solid rgba(255,255,255,.15);white-space:nowrap;"
             H_CURR = f"background:#065f46;color:#fff;{BASE}"
