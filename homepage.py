@@ -681,7 +681,7 @@ function goTo(url) {
           <span class="dtag">Ozonetel</span>
           <span class="dtag">Acefone</span>
           <span class="dtag">Manual</span>
-          <span class="dtag">CDR</span>
+          <span class="dtag">TEAM PERFORMANCE</span>
         </div>
         <span class="dcard-cta">Open Dashboard &nbsp;→</span>
       </a>
@@ -700,7 +700,7 @@ function goTo(url) {
         <div class="dcard-tags">
           <span class="dtag">Enrollments</span>
           <span class="dtag">Targets</span>
-          <span class="dtag">Courses</span>
+          <span class="dtag">Achievement</span>
           <span class="dtag">Teams</span>
         </div>
         <span class="dcard-cta">Open Dashboard &nbsp;→</span>
