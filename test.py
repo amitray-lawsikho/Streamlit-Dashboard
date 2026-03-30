@@ -1111,40 +1111,68 @@ def fetch_both_months_rev(p_start, c_end):
     df['is_new'] = enr_l == 'new enrollment'
     df['is_bal'] = enr_l == 'new enrollment - balance payment'
     df['Date']   = pd.to_datetime(df['Date'], errors='coerce').dt.date
+    # Normalize Full_Installment field — "booking fees" = partial payment pending
+    df['Full_Installment'] = (
+        df['Full_Installment'].astype(str).str.strip().str.lower()
+        if 'Full_Installment' in df.columns
+        else 'unknown'
+    )
     return df
 
 def pending_leads_for_month(df_m, excl_emails, excl_phones):
     if df_m.empty:
         return pd.DataFrame()
-    new = df_m[df_m['is_new']].copy()
-    if new.empty:
+
+    # ── Step 1: All rows with Fee_paid >= 999 across ALL enrollment types ──
+    # Mirrors original: rev_data built from ALL rows >= 999, not just New Enrollment
+    df_valid = df_m[df_m['Fee_paid'] >= 999].copy()
+    if df_valid.empty:
         return pd.DataFrame()
 
-    # Exclude students who have made ANY balance payment in the same window
-    # matched by Contact_No OR Email_Id
-    bal_rows = df_m[df_m['is_bal']].copy()
-    paid_contacts = set(bal_rows['Contact_No_norm'].dropna().unique())
-    paid_emails   = set(bal_rows['Email_Id_norm'].dropna().unique())
+    # ── Step 2: Count email + phone occurrences across ALL valid rows ──
+    # Original: leads.count(email)==1 AND lead_num.count(phone)==1
+    # If student has balance payment row → appears twice → count > 1 → excluded
+    email_counts = df_valid['Email_Id_norm'].value_counts()
+    phone_counts = df_valid['Contact_No_norm'].value_counts()
 
-    new = new[
-        ~new['Contact_No_norm'].isin(paid_contacts) &
-        ~new['Email_Id_norm'].isin(paid_emails)
+    # ── Step 3: Filter to "booking fees" rows only ──
+    # Original: Full/Installment == "booking fees" = partial payment, balance pending
+    # This replaces is_new — only students who paid a booking/partial amount qualify
+    if 'Full_Installment' in df_valid.columns:
+        pending_rows = df_valid[
+            df_valid['Full_Installment'].str.lower().str.strip() == 'booking fees'
+        ].copy()
+    else:
+        # Fallback to is_new if field not yet in BigQuery (before pipeline reruns)
+        pending_rows = df_valid[df_valid['is_new']].copy()
+
+    if pending_rows.empty:
+        return pd.DataFrame()
+
+    # ── Step 4: count==1 filter on BOTH email AND phone ──
+    # Excludes anyone with a second row of any type in the window
+    pending_rows = pending_rows[
+        pending_rows['Email_Id_norm'].map(email_counts) == 1
     ].copy()
-    if new.empty:
-        return pd.DataFrame()
-
-    # Exclude students who appear in the drop sheet
-    # (matched by Email_Id or Contact_No)
-    new = new[
-        ~new['Email_Id_norm'].isin(excl_emails) &
-        ~new['Contact_No_norm'].isin(excl_phones)
+    pending_rows = pending_rows[
+        pending_rows['Contact_No_norm'].map(phone_counts) == 1
     ].copy()
-    if new.empty:
+    if pending_rows.empty:
         return pd.DataFrame()
 
-    # Pending balance = Course Price - Fee Paid on enrollment row only
-    new['balance'] = new['Course_Price'] - new['Fee_paid']
-    p = new[new['balance'] > 0].copy()
+    # ── Step 5: Exclude drop sheet (email AND phone) ──
+    pending_rows = pending_rows[
+        ~pending_rows['Email_Id_norm'].isin(excl_emails) &
+        ~pending_rows['Contact_No_norm'].isin(excl_phones)
+    ].copy()
+    if pending_rows.empty:
+        return pd.DataFrame()
+
+    # ── Step 6: Pending balance = Course Price - Fee Paid ──
+    pending_rows['balance'] = pending_rows['Course_Price'] - pending_rows['Fee_paid']
+    p = pending_rows[pending_rows['balance'] > 0].copy()
+    if p.empty:
+        return pd.DataFrame()
 
     india        = pytz.timezone("Asia/Kolkata")
     cut48        = (datetime.now(india) - timedelta(hours=48)).date()
