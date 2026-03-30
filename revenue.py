@@ -6,7 +6,17 @@ from datetime import datetime, date, timedelta
 import os
 import pytz
 import numpy as np
-
+from reportlab.lib.pagesizes import A4
+from reportlab.lib import colors
+from reportlab.lib.units import mm
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.platypus import (
+    SimpleDocTemplate, Paragraph, Spacer, Table,
+    TableStyle, HRFlowable
+)
+from reportlab.platypus import Flowable
+from reportlab.lib.enums import TA_CENTER
+import io
 # ─────────────────────────────────────────────
 # 1. CREDENTIALS & CONFIG
 # ─────────────────────────────────────────────
@@ -810,18 +820,257 @@ def compute_revenue_insights(df, calling_df, collection_df, both_df, start_date,
 
     return insights[:6]
 
+def generate_helper_pdf_bytes() -> bytes:
+    buffer = io.BytesIO()
+
+    GREEN_DARK  = colors.HexColor("#064e3b")
+    GREEN_MID   = colors.HexColor("#065f46")
+    GREEN_LIGHT = colors.HexColor("#10B981")
+    GREEN_PALE  = colors.HexColor("#DCFCE7")
+    GREEN_ROW   = colors.HexColor("#F0FDF4")
+    GREY_DARK   = colors.HexColor("#374151")
+    GREY_MID    = colors.HexColor("#6B7280")
+    WHITE       = colors.white
+    BLACK       = colors.HexColor("#111827")
+    W, H        = A4
+
+    def s(name, **kw):
+        defaults = dict(fontName='Helvetica', fontSize=9,
+                        textColor=BLACK, spaceAfter=3, leading=14)
+        defaults.update(kw)
+        return ParagraphStyle(name, **defaults)
+
+    S = {
+        'body'      : s('body'),
+        'label'     : s('label',   fontName='Helvetica-Bold', fontSize=8,
+                         textColor=GREEN_DARK, spaceAfter=1),
+        'formula'   : s('formula', fontName='Helvetica-Oblique', fontSize=8.5,
+                         textColor=colors.HexColor("#065f46"),
+                         backColor=GREEN_PALE, leftIndent=8, rightIndent=8),
+        'footer'    : s('footer',  fontSize=7.5, textColor=GREY_MID,
+                         alignment=TA_CENTER),
+    }
+
+    class CoverBlock(Flowable):
+        def __init__(self, w):
+            Flowable.__init__(self)
+            self.w = w
+            self.height = 90
+        def draw(self):
+            c = self.canv
+            c.setFillColor(GREEN_DARK);  c.rect(0, 52, self.w, 38, fill=1, stroke=0)
+            c.setFillColor(GREEN_MID);   c.rect(0, 22, self.w, 30, fill=1, stroke=0)
+            c.setFillColor(colors.HexColor("#065f46")); c.rect(0, 0, self.w, 22, fill=1, stroke=0)
+            c.setFillColor(WHITE); c.setFont("Helvetica-Bold", 22)
+            c.drawCentredString(self.w/2, 66, "REVENUE METRICS DASHBOARD")
+            c.setFillColor(colors.HexColor("#A7F3D0")); c.setFont("Helvetica-Bold", 11)
+            c.drawCentredString(self.w/2, 34, "Logic & Metric Reference Guide")
+            c.setFillColor(colors.HexColor("#D1FAE5")); c.setFont("Helvetica", 8.5)
+            c.drawCentredString(self.w/2, 8,
+                "LawSikho & Skill Arbitrage  \u00b7  Sales & Operations Team  \u00b7  Internal Use Only")
+
+    class SectionBanner(Flowable):
+        def __init__(self, icon, title, color=None, w=None):
+            Flowable.__init__(self)
+            self.icon = icon; self.title = title
+            self.color = color or GREEN_DARK
+            self.w = w or (W - 30*mm); self.height = 22
+        def draw(self):
+            c = self.canv
+            c.setFillColor(self.color)
+            c.roundRect(0, 0, self.w, self.height, 4, fill=1, stroke=0)
+            c.setFillColor(WHITE); c.setFont("Helvetica-Bold", 11)
+            c.drawString(10, 6, f"{self.icon}  {self.title}")
+
+    def btable(rows, cw=None):
+        cw = cw or [42*mm, 118*mm]
+        data = [[Paragraph(f"<b>{r[0]}</b>", S['label']),
+                 Paragraph(r[1], S['body'])] for r in rows]
+        t = Table(data, colWidths=cw, hAlign='LEFT')
+        t.setStyle(TableStyle([
+            ('BACKGROUND',    (0,0),(0,-1), GREEN_PALE),
+            ('VALIGN',        (0,0),(-1,-1),'TOP'),
+            ('GRID',          (0,0),(-1,-1),0.3, colors.HexColor("#D1FAE5")),
+            ('ROWBACKGROUNDS',(0,0),(-1,-1),[WHITE, GREEN_ROW]),
+            ('LEFTPADDING',   (0,0),(-1,-1),6),('RIGHTPADDING',(0,0),(-1,-1),6),
+            ('TOPPADDING',    (0,0),(-1,-1),4),('BOTTOMPADDING',(0,0),(-1,-1),4),
+        ]))
+        return t
+
+    def ltable(rows):
+        data = [[Paragraph(f"<b>{r[0]}</b>", S['label']),
+                 Paragraph(r[1], S['formula'])] for r in rows]
+        t = Table(data, colWidths=[50*mm, 110*mm], hAlign='LEFT')
+        t.setStyle(TableStyle([
+            ('VALIGN',        (0,0),(-1,-1),'TOP'),
+            ('GRID',          (0,0),(-1,-1),0.3, colors.HexColor("#A7F3D0")),
+            ('ROWBACKGROUNDS',(0,0),(-1,-1),[WHITE, GREEN_ROW]),
+            ('LEFTPADDING',   (0,0),(-1,-1),6),('RIGHTPADDING',(0,0),(-1,-1),6),
+            ('TOPPADDING',    (0,0),(-1,-1),4),('BOTTOMPADDING',(0,0),(-1,-1),4),
+        ]))
+        return t
+
+    SP  = Spacer
+    HR  = lambda: HRFlowable(width="100%", thickness=0.6,
+                              color=colors.HexColor("#A7F3D0"),
+                              spaceAfter=6, spaceBefore=4)
+    BAN = SectionBanner
+    cw  = W - 30*mm
+
+    story = [
+        SP(1,18*mm), CoverBlock(cw), SP(1,10*mm),
+        Paragraph("This document explains every metric, table, and highlight card in the "
+                  "Revenue Metrics Dashboard — a quick reference for the Sales & Operations team.", S['body']),
+        SP(1,4*mm),
+
+        # ── Section 1 ──
+        BAN("🏆","SECTION 1 — TOP 3 REVENUE HIGHLIGHTS"), SP(1,3*mm),
+        Paragraph("Three cards at the top of the dashboard — each shows the single best performer "
+                  "in one dimension for the selected date range.", S['body']), SP(1,2*mm),
+        btable([
+            ("🥇 Top Revenue — Caller",    "Caller with highest Calling Revenue (Enrollment Rev + Balance Rev). Excludes 'direct' and 'bootcamp-direct'."),
+            ("🎓 Most Enrollments",         "Caller with most rows where Enrollment = 'New Enrollment'. Covers all agent types."),
+            ("🥇 Top Revenue — Collection", "Caller with highest Collection Revenue (Community Collections + Bootcamp Collections). From Collection table only."),
+        ]), SP(1,4*mm),
+
+        # ── Section 2 ──
+        BAN("💵","SECTION 2 — REVENUE SUMMARY METRICS"), SP(1,3*mm),
+        Paragraph("Full-picture revenue breakdown. Filter: Fee Paid > 0 applied globally.", S['body']), SP(1,2*mm),
+        ltable([
+            ("Total Revenue\n(EXCL. Services)",    "Calling + Bootcamp-Direct + Bootcamp-Collection + Community + Direct/Other + DNA revenue."),
+            ("Calling Revenue\n(INCL. Funnel)",    "Fee Paid where Enrollment = 'New Enrollment' OR 'New Enrollment - Balance Payment', caller NOT in {direct, bootcamp-direct}."),
+            ("Bootcamp-Direct\nRevenue",            "Fee Paid where Enrollment = 'New Enrollment' AND Caller = 'bootcamp-direct'."),
+            ("Bootcamp-Collection\nRevenue",        "Fee Paid where Enrollment = 'Bootcamp Collections - Balance Payments'."),
+            ("Community Revenue\n(Direct+Collection)", "Fee Paid from: (a) Community Collections rows, (b) Other Revenue with community Source, (c) New Enrollment by 'direct' with community Source."),
+            ("Direct/Other Revenue\n(INCL. Funnel)","Fee Paid where Caller='direct', Source has no 'community', Enrollment in {Other Revenue, New Enrollment, Balance Payment}."),
+            ("DNA / Not Updated Yet",               "Fee Paid where Enrollment column is blank. Not yet categorised in BigQuery."),
+        ]), SP(1,4*mm),
+
+        # ── Section 3 ──
+        BAN("🎓","SECTION 3 — ENROLLMENT SUMMARY METRICS"), SP(1,3*mm),
+        Paragraph("Counts ONLY rows where Enrollment = 'New Enrollment'. Balance payments and collections are excluded.", S['body']), SP(1,2*mm),
+        ltable([
+            ("Total Enrollments",            "All New Enrollment rows across all callers."),
+            ("Caller Enrollments",           "New Enrollment rows where Caller is NOT 'direct' or 'bootcamp-direct'."),
+            ("Direct Enrollments",           "New Enrollment by 'direct' caller AND Source has no 'community'."),
+            ("Bootcamp-Direct Enrollments",  "New Enrollment where Caller = 'bootcamp-direct'."),
+            ("Community-Direct Enrollments", "New Enrollment by 'direct' caller AND Source contains 'community'."),
+        ]), SP(1,4*mm),
+
+        # ── Section 4 ──
+        BAN("📞","SECTION 4 — CALLER REVENUE PERFORMANCE TABLE"), SP(1,3*mm),
+        Paragraph("Calling agents with Calling Revenue > 0, no collection revenue, not Changemakers team. Sorted by Calling Revenue descending.", S['body']), SP(1,2*mm),
+        btable([
+            ("DESIGNATION",         "Role from team sheet: Academic Counselor, TL, ATL, etc."),
+            ("TOTAL TARGET (₹)",    "Sum of monthly targets from team sheet for all months in selected range."),
+            ("TILL DAY TARGET (₹)", "Total Target × (Mon-Fri days elapsed ÷ (20 × months in range)). Capped at 1.0."),
+            ("ENROLLMENTS",         "Count of New Enrollment rows for this caller."),
+            ("ENROLLMENT REV",      "Fee Paid where Enrollment = 'New Enrollment' for this caller."),
+            ("BALANCE REV",         "Fee Paid where Enrollment = 'New Enrollment - Balance Payment' for this caller."),
+            ("CALLING REVENUE",     "Enrollment Rev + Balance Rev."),
+            ("ACHIEVEMENT %",       "Calling Revenue ÷ Total Target × 100."),
+        ]), SP(1,4*mm),
+
+        # ── Section 5 ──
+        BAN("🏦","SECTION 5 — COLLECTION CALLER REVENUE PERFORMANCE TABLE"), SP(1,3*mm),
+        Paragraph("Callers with Collection Revenue > 0 and no calling revenue. Changemakers team always here. Sorted by Collection Revenue descending.", S['body']), SP(1,2*mm),
+        btable([
+            ("COMMUNITY COLLECTION", "Fee Paid where Enrollment = 'Community Collections - Balance Payments'."),
+            ("BOOTCAMP COLLECTION",  "Fee Paid where Enrollment = 'Bootcamp Collections - Balance Payments'."),
+            ("COLLECTION REVENUE",   "Community Collection + Bootcamp Collection."),
+            ("ACHIEVEMENT %",        "Collection Revenue ÷ Total Target × 100."),
+        ]), SP(1,4*mm),
+
+        # ── Section 6 ──
+        BAN("📞🏦","SECTION 6 — CALLING + COLLECTION CALLER REVENUE PERFORMANCE TABLE"), SP(1,3*mm),
+        Paragraph("Callers with BOTH Calling Revenue > 0 AND Collection Revenue > 0, not Changemakers. Sorted by Total Revenue descending.", S['body']), SP(1,2*mm),
+        btable([
+            ("TOTAL REVENUE",  "Calling Revenue + Collection Revenue."),
+            ("ACHIEVEMENT %",  "Total Revenue ÷ Total Target × 100."),
+            ("Other columns",  "Same definitions as Sections 4 and 5."),
+        ]), SP(1,4*mm),
+
+        # ── Section 7 ──
+        BAN("📞","SECTION 7 — CALLER REVENUE TEAM PERFORMANCE TABLE"), SP(1,3*mm),
+        Paragraph("Section 4 callers grouped by team. Insights & Leaderboard tab only. Sorted by Calling Revenue descending.", S['body']), SP(1,2*mm),
+        ltable([
+            ("Callers",         "Count of agents from this team in the Caller table."),
+            ("Total Target",    "Sum of all agent targets for this team."),
+            ("Till Day Target", "Sum of all agent till-day targets for this team."),
+            ("Calling Revenue", "Sum of Calling Revenue across all agents in this team."),
+            ("Achievement %",   "Team Calling Revenue ÷ Team Total Target × 100."),
+        ]), SP(1,4*mm),
+
+        # ── Section 8 ──
+        BAN("🏦","SECTION 8 — COLLECTION CALLER TEAM REVENUE PERFORMANCE TABLE"), SP(1,3*mm),
+        Paragraph("Section 5 callers grouped by team. Sorted by Collection Revenue descending.", S['body']), SP(1,2*mm),
+        ltable([
+            ("Community Collection", "Sum of Community Collection revenue for this team."),
+            ("Bootcamp Collection",  "Sum of Bootcamp Collection revenue for this team."),
+            ("Collection Revenue",   "Community + Bootcamp Collection total for this team."),
+            ("Achievement %",        "Team Collection Revenue ÷ Team Total Target × 100."),
+        ]), SP(1,4*mm),
+
+        # ── Section 9 ──
+        BAN("📞🏦","SECTION 9 — CALLING + COLLECTION CALLER TEAM REVENUE PERFORMANCE TABLE"), SP(1,3*mm),
+        Paragraph("Section 6 callers grouped by team. Sorted by Total Revenue descending.", S['body']), SP(1,2*mm),
+        ltable([
+            ("Calling Revenue",      "Sum of Calling Revenue for dual-stream agents in this team."),
+            ("Community Collection", "Sum of Community Collection revenue."),
+            ("Bootcamp Collection",  "Sum of Bootcamp Collection revenue."),
+            ("Total Revenue",        "Calling + Community + Bootcamp Collection for this team."),
+            ("Achievement %",        "Team Total Revenue ÷ Team Total Target × 100."),
+        ]), SP(1,4*mm),
+
+        # ── Glossary ──
+        BAN("📖","KEY TERMS GLOSSARY", color=GREY_DARK), SP(1,3*mm),
+        btable([
+            ("New Enrollment",       "A fresh admission. Counts toward enrollment metrics and Calling Revenue."),
+            ("Balance Payment",      "Remaining fee from a prior enrollment. NOT a new enrollment."),
+            ("Bootcamp Collections", "Balance payments from bootcamp-enrolled students."),
+            ("Community Collections","Balance payments from community-channel students."),
+            ("DNA / Not Updated",    "Rows with blank Enrollment. Tracked separately in summary."),
+            ("direct",               "Pseudo-caller for organic closures. Excluded from agent tables."),
+            ("bootcamp-direct",      "Pseudo-caller for bootcamp direct admissions. Tracked separately."),
+            ("Till Day Target",      "Daily-prorated target: Total Target x (Working Days / (20 x Months)). Working Days = Mon-Fri in selected range."),
+            ("Changemakers",         "Special team always routed to Collection table regardless of calling revenue."),
+        ], cw=[44*mm, 116*mm]),
+
+        SP(1,8*mm), HR(),
+        Paragraph("Designed by Amit Ray  \u00b7  amitray@lawsikho.com  \u00b7  "
+                  "For Internal Use of Sales and Operations Team Only. All Rights Reserved.", S['footer']),
+    ]
+
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        leftMargin=15*mm, rightMargin=15*mm,
+        topMargin=14*mm,  bottomMargin=14*mm,
+        title="Revenue Metrics — Logic Reference Guide",
+        author="Amit Ray",
+    )
+    doc.build(story)
+    return buffer.getvalue()
 
 # ─────────────────────────────────────────────
 # SIDEBAR
 # ─────────────────────────────────────────────
 
 st.sidebar.markdown("""
-<div style='padding:.4rem 0 .8rem;'>
-    <div style='font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;
-                color:var(--text-muted,#6B7280);margin-bottom:.5rem;'>Report Controls</div>
+<hr style='border:none; border-top:1px solid #10B981; opacity:.4; margin:.6rem 0;'>
+<div style='font-size:.72rem; color:var(--text-muted,#6B7280); font-weight:500; letter-spacing:0.3px;'>
+    <span style='font-size:.65rem; opacity:.75; display:block; margin-bottom:.5rem;'>For Internal Use of Sales and Operations Team Only.<br>All Rights Reserved.</span>
+    DESIGNED BY: <b>AMIT RAY</b><br>
+    <a href="mailto:amitray@lawsikho.com" style="color:#10B981; text-decoration:none;">amitray@lawsikho.com</a>
 </div>
 """, unsafe_allow_html=True)
 
+st.sidebar.download_button(
+    label="📖 Metrics Guide (PDF)",
+    data=generate_helper_pdf_bytes(),
+    file_name="Revenue_Metrics_Logic_Guide.pdf",
+    mime="application/pdf",
+    key="dl_helper_pdf"
+)
 min_d, max_d = get_available_dates()
 
 def build_month_options(min_date, max_date):
