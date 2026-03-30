@@ -1968,50 +1968,76 @@ with tab3:
             CM = curr_label
             PM = prev_label
 
-            hdr_style  = "background:#064e3b;color:#fff;font-size:.72rem;font-weight:700;text-transform:uppercase;padding:8px 6px;text-align:center;border:1px solid #065f46;"
-            sub_style  = "background:#065f46;color:#fff;font-size:.68rem;font-weight:600;padding:6px 4px;text-align:center;border:1px solid #0d9e6e;"
-            data_style = "font-size:.72rem;padding:6px 5px;text-align:center;border:1px solid #e5e7eb;color:var(--text-primary,#111827);"
-            team_style = "font-weight:700;background:#1f2937;color:#fff;font-size:.72rem;padding:7px 5px;text-align:center;border:1px solid #374151;"
-            vert_style = "font-weight:700;background:#064e3b;color:#fff;font-size:.72rem;padding:7px 5px;text-align:center;border:1px solid #065f46;"
-            grand_style= "font-weight:700;background:#1e3a5f;color:#fff;font-size:.72rem;padding:8px 5px;text-align:center;border:1px solid #1e3a5f;"
+            # ── Style tokens ──
+            BASE   = "font-size:.71rem;font-weight:700;text-transform:uppercase;letter-spacing:.4px;padding:9px 8px;text-align:center;border:1px solid rgba(255,255,255,.15);white-space:nowrap;"
+            H_CURR = f"background:#065f46;color:#fff;{BASE}"
+            H_PREV = f"background:#92400e;color:#fff;{BASE}"
+            H_GRAN = f"background:#1e3a5f;color:#fff;{BASE}"
+            H_48   = f"background:#0f766e;color:#fff;{BASE}"
+            H_NAME = f"background:#064e3b;color:#fff;{BASE}min-width:160px;text-align:left;"
 
-            name_col = "CALLER NAME" if mode == 'caller' else "TEAM NAME"
+            SUB    = "font-size:.68rem;font-weight:600;padding:7px 6px;text-align:center;border:1px solid rgba(255,255,255,.12);white-space:nowrap;color:#fff;"
+
+            DATA   = "font-size:.72rem;padding:7px 6px;text-align:center;border:1px solid #e5e7eb;white-space:nowrap;color:var(--text-primary,#111827);"
+            DATA_L = "font-size:.72rem;padding:7px 8px;text-align:left;border:1px solid #e5e7eb;white-space:nowrap;color:var(--text-primary,#111827);"
+            DATA_A = "font-size:.72rem;padding:7px 6px;text-align:center;border:1px solid #e5e7eb;white-space:nowrap;color:var(--text-primary,#111827);background:rgba(0,0,0,.025);"
+            DATA_LA= "font-size:.72rem;padding:7px 8px;text-align:left;border:1px solid #e5e7eb;white-space:nowrap;color:var(--text-primary,#111827);background:rgba(0,0,0,.025);"
+
+            BAL_HL = "color:#DC2626;font-weight:700;"
+
+            T_ROW  = "font-weight:700;background:#1f2937;color:#fff;font-size:.72rem;padding:8px 7px;text-align:center;border:1px solid #374151;white-space:nowrap;"
+            T_ROW_L= "font-weight:700;background:#1f2937;color:#fff;font-size:.72rem;padding:8px 8px;text-align:left;border:1px solid #374151;white-space:nowrap;"
+            V_ROW  = "font-weight:700;background:#064e3b;color:#fff;font-size:.72rem;padding:9px 8px;text-align:center;border:1px solid #065f46;white-space:nowrap;"
+            V_ROW_L= "font-weight:700;background:#064e3b;color:#fff;font-size:.72rem;padding:9px 8px;text-align:left;border:1px solid #065f46;white-space:nowrap;"
+            G_ROW  = "font-weight:800;background:#1e3a5f;color:#fff;font-size:.74rem;padding:10px 8px;text-align:center;border:1px solid #1e3a5f;white-space:nowrap;"
+            G_ROW_L= "font-weight:800;background:#1e3a5f;color:#fff;font-size:.74rem;padding:10px 8px;text-align:left;border:1px solid #1e3a5f;white-space:nowrap;"
+
+            is_caller = mode == 'caller'
+            name_label = "CALLER NAME" if is_caller else "TEAM NAME"
+            extra_th   = f"<th rowspan='2' style='{H_NAME}min-width:130px;'>TEAM</th>" if is_caller else ""
 
             html = f"""
-            <div style='margin:1.5rem 0 .5rem;text-align:center;'>
-                <div style='font-size:1rem;font-weight:800;text-transform:uppercase;
-                            letter-spacing:1px;color:#10B981;margin-bottom:.5rem;'>
+            <div style='margin:1.5rem 0 .4rem;text-align:center;'>
+                <div style='font-size:.95rem;font-weight:800;text-transform:uppercase;
+                            letter-spacing:1.2px;color:#10B981;margin-bottom:.6rem;'>
                     {title}
                 </div>
+                <div style='display:inline-flex;gap:.5rem;margin-bottom:.5rem;flex-wrap:wrap;justify-content:center;'>
+                    <span style='background:#065f46;color:#fff;border-radius:5px;padding:3px 10px;font-size:.7rem;font-weight:700;'>{CM.upper()}</span>
+                    <span style='background:#92400e;color:#fff;border-radius:5px;padding:3px 10px;font-size:.7rem;font-weight:700;'>{PM.upper()}</span>
+                    <span style='background:#1e3a5f;color:#fff;border-radius:5px;padding:3px 10px;font-size:.7rem;font-weight:700;'>GRAND TOTAL</span>
+                </div>
             </div>
-            <div style='overflow-x:auto;'>
-            <table style='width:100%;border-collapse:collapse;'>
+            <div style='overflow-x:auto;border-radius:8px;box-shadow:0 2px 12px rgba(0,0,0,.10);'>
+            <table style='width:100%;border-collapse:collapse;min-width:1100px;'>
             <thead>
                 <tr>
-                    <th rowspan='2' style='{hdr_style}'>{name_col}</th>
-                    {'<th rowspan="2" style="' + hdr_style + '">TEAM</th>' if mode == 'caller' else ''}
-                    <th colspan='7' style='{hdr_style}background:#065f46;'>{CM.upper()}</th>
-                    <th colspan='2' style='{hdr_style}background:#92400e;'>{PM.upper()}</th>
-                    <th colspan='2' style='{hdr_style}background:#1e3a5f;'>GRAND TOTAL</th>
+                    <th rowspan='2' style='{H_NAME}'>{name_label}</th>
+                    {extra_th}
+                    <th colspan='4' style='{H_CURR}'>{CM.upper()}</th>
+                    <th colspan='3' style='background:#0f766e;color:#fff;{BASE}'>&gt;48 HRS</th>
+                    <th colspan='2' style='{H_PREV}'>{PM.upper()}</th>
+                    <th colspan='2' style='{H_GRAN}'>GRAND TOTAL</th>
                 </tr>
                 <tr>
-                    <th style='{sub_style}'>REVENUE POOL</th>
-                    <th style='{sub_style}'>COLLECTED REVENUE</th>
-                    <th style='{sub_style}'>BALANCE TO RECOVER</th>
-                    <th style='{sub_style}'>NO. OF LEADS</th>
-                    <th style='{sub_style}background:#0f766e;'>LEADS &gt;48 HRS</th>
-                    <th style='{sub_style}background:#0f766e;'>BALANCE &gt;48 HRS</th>
-                    <th style='{sub_style}background:#0f766e;'>% PENDING &gt;48 HRS</th>
-                    <th style='{sub_style}background:#92400e;'>BALANCE TO RECOVER</th>
-                    <th style='{sub_style}background:#92400e;'>NO. OF LEADS</th>
-                    <th style='{sub_style}background:#1e3a5f;'>AMOUNT TO RECOVER</th>
-                    <th style='{sub_style}background:#1e3a5f;'>TOTAL LEADS</th>
+                    <th style='{SUB}background:#065f46;'>REVENUE POOL</th>
+                    <th style='{SUB}background:#065f46;'>COLLECTED REVENUE</th>
+                    <th style='{SUB}background:#065f46;'>BALANCE TO RECOVER</th>
+                    <th style='{SUB}background:#065f46;'>NO. OF LEADS</th>
+                    <th style='{SUB}background:#0f766e;'>LEADS &gt;48 HRS</th>
+                    <th style='{SUB}background:#0f766e;'>BALANCE &gt;48 HRS</th>
+                    <th style='{SUB}background:#0f766e;'>% PENDING &gt;48 HRS</th>
+                    <th style='{SUB}background:#92400e;'>BALANCE TO RECOVER</th>
+                    <th style='{SUB}background:#92400e;'>NO. OF LEADS</th>
+                    <th style='{SUB}background:#1e3a5f;'>AMOUNT TO RECOVER</th>
+                    <th style='{SUB}background:#1e3a5f;'>TOTAL LEADS</th>
                 </tr>
             </thead>
             <tbody>
             """
 
             g = {k: 0 for k in ['pool','collected','balance','leads','leads_48','bal_48hr','prev_bal','prev_leads','grand_bal','grand_leads']}
+            row_idx = 0
 
             for vert in sorted(combined['Vertical'].fillna('Others').unique()):
                 if vert == 'Others': continue
@@ -2025,84 +2051,25 @@ with tab3:
                     if t_df.empty: continue
                     t = {k: 0 for k in g}
 
-                    if mode == 'caller':
+                    if is_caller:
                         for _, r in t_df.sort_values('balance', ascending=False).iterrows():
-                            pct = _pct48(r.get('bal_48hr',0), r.get('balance',0))
+                            pct  = _pct48(r.get('bal_48hr',0), r.get('balance',0))
+                            alt  = row_idx % 2 == 1
+                            d    = DATA_A if alt else DATA
+                            dl   = DATA_LA if alt else DATA_L
                             html += f"""<tr>
-                                <td style='{data_style}text-align:left;'>{r.get('Caller_name','—')}</td>
-                                <td style='{data_style}'>{team}</td>
-                                <td style='{data_style}'>{fmt_inr(r.get('pool',0))}</td>
-                                <td style='{data_style}'>{fmt_inr(r.get('collected',0))}</td>
-                                <td style='{data_style}color:#DC2626;font-weight:600;'>{fmt_inr(r.get('balance',0))}</td>
-                                <td style='{data_style}'>{int(r.get('leads',0))}</td>
-                                <td style='{data_style}'>{int(r.get('leads_48',0))}</td>
-                                <td style='{data_style}'>{fmt_inr(r.get('bal_48hr',0))}</td>
-                                <td style='{data_style}'>{pct}</td>
-                                <td style='{data_style}background:rgba(146,64,14,.06);'>{fmt_inr(r.get('prev_bal',0))}</td>
-                                <td style='{data_style}background:rgba(146,64,14,.06);'>{int(r.get('prev_leads',0))}</td>
-                                <td style='{data_style}background:rgba(30,58,95,.08);font-weight:600;'>{fmt_inr(r.get('grand_bal',0))}</td>
-                                <td style='{data_style}background:rgba(30,58,95,.08);font-weight:600;'>{int(r.get('grand_leads',0))}</td>
-                            </tr>"""
-                            for k in t: t[k] += r.get(k, 0)
-                    else:
-                        for k in ['pool','collected','balance','leads','leads_48','bal_48hr','prev_bal','prev_leads','grand_bal','grand_leads']:
-                            t[k] = t_df[k].sum() if k in t_df.columns else 0
-
-                    pct_t = _pct48(t['bal_48hr'], t['balance'])
-                    team_td = f"<td style='{team_style}'>{team} Total</td>" + (f"<td style='{team_style}'>—</td>" if mode == 'caller' else "")
-                    html += f"""<tr>
-                        {team_td}
-                        <td style='{team_style}'>{fmt_inr(t['pool'])}</td>
-                        <td style='{team_style}'>{fmt_inr(t['collected'])}</td>
-                        <td style='{team_style}'>{fmt_inr(t['balance'])}</td>
-                        <td style='{team_style}'>{int(t['leads'])}</td>
-                        <td style='{team_style}'>{int(t['leads_48'])}</td>
-                        <td style='{team_style}'>{fmt_inr(t['bal_48hr'])}</td>
-                        <td style='{team_style}'>{pct_t}</td>
-                        <td style='{team_style}'>{fmt_inr(t['prev_bal'])}</td>
-                        <td style='{team_style}'>{int(t['prev_leads'])}</td>
-                        <td style='{team_style}'>{fmt_inr(t['grand_bal'])}</td>
-                        <td style='{team_style}'>{int(t['grand_leads'])}</td>
-                    </tr>"""
-                    for k in v: v[k] += t[k]
-
-                pct_v = _pct48(v['bal_48hr'], v['balance'])
-                extra_td = f"<td style='{vert_style}'>—</td>" if mode == 'caller' else ""
-                html += f"""<tr>
-                    <td style='{vert_style}'>{vert} Total</td>{extra_td}
-                    <td style='{vert_style}'>{fmt_inr(v['pool'])}</td>
-                    <td style='{vert_style}'>{fmt_inr(v['collected'])}</td>
-                    <td style='{vert_style}'>{fmt_inr(v['balance'])}</td>
-                    <td style='{vert_style}'>{int(v['leads'])}</td>
-                    <td style='{vert_style}'>{int(v['leads_48'])}</td>
-                    <td style='{vert_style}'>{fmt_inr(v['bal_48hr'])}</td>
-                    <td style='{vert_style}'>{pct_v}</td>
-                    <td style='{vert_style}'>{fmt_inr(v['prev_bal'])}</td>
-                    <td style='{vert_style}'>{int(v['prev_leads'])}</td>
-                    <td style='{vert_style}'>{fmt_inr(v['grand_bal'])}</td>
-                    <td style='{vert_style}'>{int(v['grand_leads'])}</td>
-                </tr>"""
-                for k in g: g[k] += v[k]
-
-            pct_g = _pct48(g['bal_48hr'], g['balance'])
-            extra_td_g = f"<td style='{grand_style}'>—</td>" if mode == 'caller' else ""
-            html += f"""<tr>
-                <td style='{grand_style}'>Grand Total</td>{extra_td_g}
-                <td style='{grand_style}'>{fmt_inr(g['pool'])}</td>
-                <td style='{grand_style}'>{fmt_inr(g['collected'])}</td>
-                <td style='{grand_style}'>{fmt_inr(g['balance'])}</td>
-                <td style='{grand_style}'>{int(g['leads'])}</td>
-                <td style='{grand_style}'>{int(g['leads_48'])}</td>
-                <td style='{grand_style}'>{fmt_inr(g['bal_48hr'])}</td>
-                <td style='{grand_style}'>{pct_g}</td>
-                <td style='{grand_style}'>{fmt_inr(g['prev_bal'])}</td>
-                <td style='{grand_style}'>{int(g['prev_leads'])}</td>
-                <td style='{grand_style}'>{fmt_inr(g['grand_bal'])}</td>
-                <td style='{grand_style}'>{int(g['grand_leads'])}</td>
-            </tr>
-            </tbody></table></div>
-            """
-            return html
+                                <td style='{dl}'>{r.get('Caller_name','—')}</td>
+                                <td style='{d}'>{team}</td>
+                                <td style='{d}'>{fmt_inr(r.get('pool',0))}</td>
+                                <td style='{d}'>{fmt_inr(r.get('collected',0))}</td>
+                                <td style='{d}{BAL_HL}'>{fmt_inr(r.get('balance',0))}</td>
+                                <td style='{d}'>{int(r.get('leads',0))}</td>
+                                <td style='{d}'>{int(r.get('leads_48',0))}</td>
+                                <td style='{d}'>{fmt_inr(r.get('bal_48hr',0))}</td>
+                                <td style='{d}'>{pct}</td>
+                                <td style='{d}'>{fmt_inr(r.get('prev_bal',0))}</td>
+                                <td style='{d}'>{int(r.get('prev_leads',0))}</td>
+                                <td style='{d}font-weigh
 
         if combined.empty:
             st.info("No pending leads found.")
