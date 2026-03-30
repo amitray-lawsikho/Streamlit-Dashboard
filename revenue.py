@@ -1066,6 +1066,13 @@ def build_month_options(min_date, max_date):
     return options
 
 month_options        = build_month_options(min_d, max_d)
+st.sidebar.markdown("""
+<div style='padding:.4rem 0 .8rem;'>
+    <div style='font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;
+                color:var(--text-muted,#6B7280);margin-bottom:.5rem;'>Report Controls</div>
+</div>
+""", unsafe_allow_html=True)
+
 selected_month_label = st.sidebar.selectbox("🗓️ Month", options=list(reversed(list(month_options.keys()))))
 selected_month_date  = month_options[selected_month_label]
 
