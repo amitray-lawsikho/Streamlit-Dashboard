@@ -228,9 +228,8 @@ hr { border-color: var(--border, rgba(249,115,22,.12)) !important; margin: 1.2re
     letter-spacing: .8px;
     font-family: monospace;
     margin-bottom: .9rem;
-    color: #6B7280;
+    color: #FDBA74;
 }
-[data-theme="dark"] .brand-tagline { color: #D1A67A !important; }
 
 .brand-tagline {
     font-size: .58rem;
