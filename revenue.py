@@ -1055,13 +1055,6 @@ def generate_helper_pdf_bytes() -> bytes:
 # SIDEBAR
 # ─────────────────────────────────────────────
 
-st.sidebar.download_button(
-    label="📖 Metrics Guide (PDF)",
-    data=generate_helper_pdf_bytes(),
-    file_name="Revenue_Metrics_Logic_Guide.pdf",
-    mime="application/pdf",
-    key="dl_helper_pdf"
-)
 min_d, max_d = get_available_dates()
 
 def build_month_options(min_date, max_date):
@@ -1118,6 +1111,13 @@ st.sidebar.markdown("""
     <a href="mailto:amitray@lawsikho.com" style="color:#10B981; text-decoration:none;">amitray@lawsikho.com</a>
 </div>
 """, unsafe_allow_html=True)
+st.sidebar.download_button(
+    label="📖 Metrics Guide (PDF)",
+    data=generate_helper_pdf_bytes(),
+    file_name="Revenue_Metrics_Logic_Guide.pdf",
+    mime="application/pdf",
+    key="dl_helper_pdf"
+)
 
 # ─────────────────────────────────────────────
 # HEADER BANNER
