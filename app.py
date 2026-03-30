@@ -259,7 +259,19 @@ def section_header(label):
         <div class="section-header-line" style="background:linear-gradient(90deg,transparent,#F97316)"></div>
     </div>""", unsafe_allow_html=True)
 
+def _unique_approvals(series):
+    seen = {}
+    for v in series.dropna().astype(str):
+        v = v.strip()
+        k = v.lower()
+        if k and k not in seen:
+            seen[k] = v
+    return ", ".join(seen.values()) if seen else "—"
 
+def style_team_manual_total(row):
+    if row.get('TEAM') == 'TOTAL':
+        return ['font-weight:bold;background-color:#374151;color:#FFFFFF;'] * len(row)
+    return [''] * len(row)
 # ─────────────────────────────────────────────
 # DATA FETCHING
 # ─────────────────────────────────────────────
@@ -713,6 +725,29 @@ def generate_calling_helper_pdf_bytes() -> bytes:
             ("Analyst","Analyst name from the team sheet, if populated."),
             ("source","Data source: 'Acefone', 'Ozonetel', or 'Manual'."),
         ],cw=[46*mm,114*mm]),SP(1,6*mm),
+        BAN("⚠️","SECTION 8 — HIGHEST MANUAL CALLS TABLE (DYNAMIC DASHBOARD)"),SP(1,3*mm),
+        Paragraph("Appears below the CDR download button in the Dynamic Dashboard when manual calls exist in the selected date range. Shows agent-level manual call activity sorted by count descending. No medal ranking — manual calls are a flag, not an achievement.",S['body']),SP(1,2*mm),
+        btable([
+            ("CALLER",                "Agent name from the team sheet, same as the main performance table."),
+            ("VERTICAL",              "Business vertical from the team sheet (e.g. Lawsikho, Skill Arbitrage)."),
+            ("TEAM",                  "Team name from the team sheet."),
+            ("MANUAL CALLS COUNT",    "Total number of manual call entries for this agent in the selected date range. Sorted descending — highest manual caller appears at top."),
+            ("MANUAL CALLS DURATION", "Total duration of manual calls for this agent in Xh Ym format. Sourced from the call_duration column of the manual_calls BigQuery table."),
+            ("APPROVED BY",           "Unique approver names from the Approved_By field, deduplicated case-insensitively (e.g. 'John', 'john', 'JOHN' collapse to one entry). Multiple unique approvers are separated by ', '."),
+            ("TOTAL row",             "Bottom row summing Manual Calls Count and Duration across all agents shown."),
+        ]),SP(1,6*mm),
+
+        BAN("⚠️","SECTION 9 — TEAM MANUAL CALLS TABLE (INSIGHTS TAB)"),SP(1,3*mm),
+        Paragraph("Appears at the bottom of the Insights & Leaderboard tab after generating any report. Shows the same manual call data aggregated by team instead of by agent. Sorted by Manual Calls Count descending.",S['body']),SP(1,2*mm),
+        btable([
+            ("VERTICAL",              "Business vertical from the team sheet."),
+            ("TEAM",                  "Team name. The TOTAL row at the bottom sums across all teams."),
+            ("MANUAL CALLS COUNT",    "Total manual calls across all agents in this team."),
+            ("MANUAL CALLS DURATION", "Total manual call duration across all agents in this team, in Xh Ym format."),
+            ("APPROVALS BY",          "All unique approver names across all agents in this team, deduplicated case-insensitively and joined by ', '."),
+            ("Why no medals?",        "Manual calls indicate reliance on manual logging rather than system-dialled calls. High manual call counts may signal data quality gaps or agents bypassing the dialler. This table exists for monitoring, not ranking."),
+        ]),SP(1,6*mm),
+
         BAN("📖","KEY TERMS GLOSSARY",color=GREY_DARK),SP(1,3*mm),
         btable([
             ("Qualifying Call","Any call with duration >= 180 seconds (3 minutes). Used for all duration metrics and performance flags."),
@@ -961,6 +996,51 @@ with tab1:
                         data=df[existing_cols].to_csv(index=False).encode('utf-8'),
                         file_name="CDR_LOG.csv", mime='text/csv'
                     )
+
+                    # ── Manual Calls Table ──
+                    manual_df_view = df[df['source'] == 'Manual'].copy()
+                    if not manual_df_view.empty:
+                        st.divider()
+                        section_header("⚠️ HIGHEST MANUAL CALLS")
+
+                        man_agg = (
+                            manual_df_view.groupby('call_owner', sort=False)
+                            .agg(
+                                Vertical  = ('Vertical',      'first'),
+                                Team      = ('Team Name',     'first'),
+                                Count     = ('source',        'count'),
+                                DurSec    = ('call_duration', 'sum'),
+                                Approvals = ('reason',        _unique_approvals),
+                            )
+                            .reset_index()
+                            .sort_values('Count', ascending=False)
+                            .reset_index(drop=True)
+                        )
+
+                        man_display = pd.DataFrame({
+                            'CALLER'               : man_agg['call_owner'],
+                            'VERTICAL'             : man_agg['Vertical'].fillna('—'),
+                            'TEAM'                 : man_agg['Team'].fillna('—'),
+                            'MANUAL CALLS COUNT'   : man_agg['Count'],
+                            'MANUAL CALLS DURATION': man_agg['DurSec'].apply(format_dur_hm),
+                            'APPROVED BY'          : man_agg['Approvals'],
+                        })
+
+                        total_man_row = pd.DataFrame([{
+                            'CALLER'               : 'TOTAL',
+                            'VERTICAL'             : '—',
+                            'TEAM'                 : '—',
+                            'MANUAL CALLS COUNT'   : int(man_agg['Count'].sum()),
+                            'MANUAL CALLS DURATION': format_dur_hm(man_agg['DurSec'].sum()),
+                            'APPROVED BY'          : '—',
+                        }])
+
+                        man_final = pd.concat([man_display, total_man_row], ignore_index=True)
+                        st.dataframe(
+                            man_final.style.apply(style_total, axis=1),
+                            use_container_width=True, hide_index=True
+                        )
+
     else:
         st.markdown("""
         <div style='text-align:center;padding:6rem 1rem;opacity:.6;'>
@@ -1169,6 +1249,47 @@ with tab3:
             lb.insert(0, "🏅", medals)
             lb = lb.reset_index(drop=True)
             st.dataframe(lb, use_container_width=True, hide_index=True)
+
+    # ── Team Manual Calls ──
+        manual_team_df = df_ins[df_ins['source'] == 'Manual'].copy()
+        if not manual_team_df.empty:
+            st.divider()
+            section_header("⚠️ TEAM MANUAL CALLS")
+
+            team_man_agg = (
+                manual_team_df.groupby('Team Name', sort=False)
+                .agg(
+                    Vertical  = ('Vertical',      'first'),
+                    Count     = ('source',        'count'),
+                    DurSec    = ('call_duration', 'sum'),
+                    Approvals = ('reason',        _unique_approvals),
+                )
+                .reset_index()
+                .sort_values('Count', ascending=False)
+                .reset_index(drop=True)
+            )
+
+            team_man_display = pd.DataFrame({
+                'VERTICAL'             : team_man_agg['Vertical'].fillna('—'),
+                'TEAM'                 : team_man_agg['Team Name'],
+                'MANUAL CALLS COUNT'   : team_man_agg['Count'],
+                'MANUAL CALLS DURATION': team_man_agg['DurSec'].apply(format_dur_hm),
+                'APPROVALS BY'         : team_man_agg['Approvals'],
+            })
+
+            total_team_man = pd.DataFrame([{
+                'VERTICAL'             : '—',
+                'TEAM'                 : 'TOTAL',
+                'MANUAL CALLS COUNT'   : int(team_man_agg['Count'].sum()),
+                'MANUAL CALLS DURATION': format_dur_hm(team_man_agg['DurSec'].sum()),
+                'APPROVALS BY'         : '—',
+            }])
+
+            team_man_final = pd.concat([team_man_display, total_team_man], ignore_index=True)
+            st.dataframe(
+                team_man_final.style.apply(style_team_manual_total, axis=1),
+                use_container_width=True, hide_index=True
+            )
 
     else:
         # Nothing generated yet
