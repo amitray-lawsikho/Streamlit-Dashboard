@@ -222,6 +222,27 @@ div[data-testid="stDataFrame"] thead tr th {
 
 hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !important; }
 
+.brand-name {
+    font-size: .85rem;
+    font-weight: 700;
+    letter-spacing: -.3px;
+    color: #10B981;
+}
+
+.brand-tagline {
+    font-size: .58rem;
+    letter-spacing: .8px;
+    font-family: monospace;
+    margin-bottom: .9rem;
+    color: #FDBA74;
+}
+
+@media (prefers-color-scheme: dark) {
+    .brand-tagline { color: #94A3B8; }
+}
+[data-theme="dark"] .brand-tagline { color: #94A3B8 !important; }
+[data-theme="light"] .brand-tagline { color: #6B7280 !important; }
+
 .achieve-bar-wrap { background: var(--bg-muted, #DCFCE7); border-radius: 999px; height: 6px; margin-top: .4rem; overflow: hidden; }
 .achieve-bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #10B981, #34D399); transition: width .6s ease; }
 /* ── Download Buttons — match Generate Revenue Report style ── */
@@ -1069,14 +1090,13 @@ month_options        = build_month_options(min_d, max_d)
 st.sidebar.markdown("""
 <div style='padding:.6rem 0 .4rem; text-align:center;'>
     <div style='display:flex; align-items:center; justify-content:center; gap:0; margin-bottom:.3rem;'>
-        <span style='font-size:.85rem; font-weight:700; color:#FFFFFF; letter-spacing:-.3px;'>LawSikho</span>
+        <span class='brand-name'>LawSikho</span>
         <div style='width:1px; height:18px; margin:0 .6rem;
                     background:linear-gradient(180deg,transparent,rgba(16,185,129,.9),transparent);
                     box-shadow:0 0 6px rgba(16,185,129,.5);'></div>
-        <span style='font-size:.85rem; font-weight:700; color:#FFFFFF; letter-spacing:-.3px;'>Skill Arbitrage</span>
+        <span class='brand-name'>Skill Arbitrage</span>
     </div>
-    <div style='font-size:.58rem; color:var(--text-muted, #6B7280); letter-spacing:.8px;
-            font-family:monospace; margin-bottom:.9rem;'>India Learning 📖 India Earning</div>
+    <div class='brand-tagline'>India Learning 📖 India Earning</div>
     <div style='font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;
                 color:var(--text-muted,#6B7280);margin-bottom:.5rem;'>Report Controls</div>
 </div>
