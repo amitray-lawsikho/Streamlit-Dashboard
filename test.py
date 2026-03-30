@@ -1353,16 +1353,15 @@ def render_html_pending_table(combined, mode, curr_label, prev_label, title):
 
     g = {k: 0 for k in ["pool","collected","balance","leads","leads_48","bal_48hr","prev_bal","prev_leads","grand_bal","grand_leads"]}
 
-    for vert in sorted(combined["Vertical"].fillna("Others").unique()):
-        if vert == "Others":
-            continue
-        v_df = combined[combined["Vertical"].fillna("Others") == vert]
+    for vert in sorted(combined["Vertical"].fillna("Unassigned").unique()):
+        v_df = combined[combined["Vertical"].fillna("Unassigned") == vert]
         if v_df.empty:
             continue
         v = {k: 0 for k in g}
 
-        for team in sorted(v_df["Team Name"].fillna("Others").unique()):
-            if team == "Others":
+        for team in sorted(v_df["Team Name"].fillna("Unassigned").unique()):
+            t_df = v_df[v_df["Team Name"].fillna("Unassigned") == team]
+            if t_df.empty:
                 continue
             t_df = v_df[v_df["Team Name"].fillna("Others") == team]
             if t_df.empty:
@@ -1393,10 +1392,15 @@ def render_html_pending_table(combined, mode, curr_label, prev_label, title):
                 "</tr>"
             )
             for k in t:
-                t[k] += r.get(k, 0)
+                val = r.get(k, 0)
+                t[k] += 0 if pd.isna(val) else float(val)
             else:
+                t_reset = t_df.reset_index(drop=True)
                 for k in ["pool","collected","balance","leads","leads_48","bal_48hr","prev_bal","prev_leads","grand_bal","grand_leads"]:
-                    t[k] = t_df[k].sum() if k in t_df.columns else 0
+                    if k in t_reset.columns:
+                        t[k] = pd.to_numeric(t_reset[k], errors='coerce').fillna(0).sum()
+                    else:
+                        t[k] = 0
 
             pct_t    = _pct48(t["bal_48hr"], t["balance"])
             extra_td = "<td style='" + team_style + "'>—</td>" if mode == "caller" else ""
