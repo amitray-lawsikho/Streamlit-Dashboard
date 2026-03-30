@@ -237,12 +237,6 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
     color: #6EE7B7;
 }
 
-@media (prefers-color-scheme: dark) {
-    .brand-tagline { color: #94A3B8; }
-}
-[data-theme="dark"] .brand-tagline { color: #94A3B8 !important; }
-[data-theme="light"] .brand-tagline { color: #6B7280 !important; }
-
 .achieve-bar-wrap { background: var(--bg-muted, #DCFCE7); border-radius: 999px; height: 6px; margin-top: .4rem; overflow: hidden; }
 .achieve-bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #10B981, #34D399); transition: width .6s ease; }
 /* ── Download Buttons — match Generate Revenue Report style ── */
