@@ -1372,6 +1372,7 @@ def render_html_pending_table(combined, mode, curr_label, prev_label, title):
             t = {k: 0 for k in g}
 
             if mode == "caller":
+                row_idx = 0
         for _, r in t_df.sort_values('balance', ascending=False).iterrows():
             pct  = _pct48(r.get("bal_48hr", 0), r.get("balance", 0))
             ds   = data_style_alt if row_idx % 2 == 1 else data_style
