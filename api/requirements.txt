@@ -1,5 +1,0 @@
-fastapi
-pandas
-google-cloud-bigquery
-pytz
-uvicorn
