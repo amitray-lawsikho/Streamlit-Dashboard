@@ -234,7 +234,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
     letter-spacing: .8px;
     font-family: monospace;
     margin-bottom: .9rem;
-    color: #FDBA74;
+    color: #6EE7B7;
 }
 
 @media (prefers-color-scheme: dark) {
