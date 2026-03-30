@@ -613,7 +613,7 @@ st.markdown(f"""
     <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:.75rem;">
         <div>
             <div class="cw-title">🔔 CALLING METRICS</div>
-            <div class="cw-subtitle">LAWSIKHO &amp; SKILL ARBITRAGE &nbsp;·&nbsp; {display_start} to {display_end}</div>
+            <div class="cw-subtitle">DURATION PERIOD : &nbsp;·&nbsp; {display_start} to {display_end}</div>
         </div>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.25rem;">
             <span class="cw-badge"><span class="cw-pulse"></span>OZONETEL &amp; ACEFONE</span>
