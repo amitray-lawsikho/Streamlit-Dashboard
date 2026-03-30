@@ -1119,16 +1119,6 @@ st.sidebar.markdown("<div style='margin:.5rem 0'></div>", unsafe_allow_html=True
 gen_report   = st.sidebar.button("💰 Generate Revenue Report")
 st.sidebar.markdown("<div style='margin:.3rem 0'></div>", unsafe_allow_html=True)
 
-st.sidebar.divider()
-st.sidebar.markdown("""
-<div style='font-size:.72rem; color:var(--text-muted,#6B7280); font-weight:500; letter-spacing:0.3px;'>
-    <span style='font-size:.65rem; opacity:.75; display:block; margin-bottom:.5rem;'>For Internal Use of Sales and Operations Team Only.<br>All Rights Reserved.</span>
-    DESIGNED BY: <b>AMIT RAY</b><br>
-    <a href="mailto:amitray@lawsikho.com" style="color:#10B981; text-decoration:none;">amitray@lawsikho.com</a>
-</div>
-""", unsafe_allow_html=True)
-
-
 # ─────────────────────────────────────────────
 # HEADER BANNER
 # ─────────────────────────────────────────────
