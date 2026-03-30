@@ -1308,6 +1308,240 @@ def build_drop_display(drop_agg, curr_label, prev_label):
                  f'{curr_label} DROPS': int(g_c), f'{prev_label} DROPS': int(g_p), 'TOTAL DROPS': int(g_t)})
     return pd.DataFrame(rows)
 
+def render_html_pending_table(combined, mode, curr_label, prev_label, title):
+    hdr_style  = "background:#064e3b;color:#fff;font-size:.72rem;font-weight:700;text-transform:uppercase;padding:8px 6px;text-align:center;border:1px solid #065f46;"
+    sub_style  = "background:#065f46;color:#fff;font-size:.68rem;font-weight:600;padding:6px 4px;text-align:center;border:1px solid #0d9e6e;"
+    data_style = "font-size:.72rem;padding:6px 5px;text-align:center;border:1px solid #e5e7eb;color:var(--text-primary,#111827);"
+    team_style = "font-weight:700;background:#1f2937;color:#fff;font-size:.72rem;padding:7px 5px;text-align:center;border:1px solid #374151;"
+    vert_style = "font-weight:700;background:#064e3b;color:#fff;font-size:.72rem;padding:7px 5px;text-align:center;border:1px solid #065f46;"
+    grand_style= "font-weight:700;background:#1e3a5f;color:#fff;font-size:.72rem;padding:8px 5px;text-align:center;border:1px solid #1e3a5f;"
+    name_col   = "CALLER NAME" if mode == "caller" else "TEAM NAME"
+    extra_th   = '<th rowspan="2" style="' + hdr_style + '">TEAM</th>' if mode == "caller" else ""
+
+    html = (
+        "<div style='margin:1.5rem 0 .5rem;text-align:center;'>"
+        "<div style='font-size:1rem;font-weight:800;text-transform:uppercase;"
+        "letter-spacing:1px;color:#10B981;margin-bottom:.5rem;'>"
+        + title +
+        "</div></div>"
+        "<div style='overflow-x:auto;'>"
+        "<table style='width:100%;border-collapse:collapse;'>"
+        "<thead>"
+        "<tr>"
+        "<th rowspan='2' style='" + hdr_style + "'>" + name_col + "</th>"
+        + extra_th +
+        "<th colspan='7' style='" + hdr_style + "background:#065f46;'>" + curr_label.upper() + "</th>"
+        "<th colspan='2' style='" + hdr_style + "background:#92400e;'>" + prev_label.upper() + "</th>"
+        "<th colspan='2' style='" + hdr_style + "background:#1e3a5f;'>GRAND TOTAL</th>"
+        "</tr>"
+        "<tr>"
+        "<th style='" + sub_style + "'>SUM OF COURSE PRICE</th>"
+        "<th style='" + sub_style + "'>SUM OF TOTAL FEES PAID</th>"
+        "<th style='" + sub_style + "'>BALANCE AMOUNT TO BE RECOVERED</th>"
+        "<th style='" + sub_style + "'>NO. OF LEADS (BALANCE TO BE RECOVERED)</th>"
+        "<th style='" + sub_style + "background:#0f766e;'>NO. OF LEADS PENDING &gt;48 HRS</th>"
+        "<th style='" + sub_style + "background:#0f766e;'>BALANCE RECOVERY PENDING &gt;48 HRS</th>"
+        "<th style='" + sub_style + "background:#0f766e;'>PERCENTAGE OF REVENUE PENDING &gt;48 HRS</th>"
+        "<th style='" + sub_style + "background:#92400e;'>BALANCE AMOUNT TO BE RECOVERED</th>"
+        "<th style='" + sub_style + "background:#92400e;'>NO. OF LEADS (BALANCE AMOUNT TO BE RECOVERED)</th>"
+        "<th style='" + sub_style + "background:#1e3a5f;'>AMOUNT TO BE RECOVERED</th>"
+        "<th style='" + sub_style + "background:#1e3a5f;'>TOTAL LEAD TO BE RECOVERED</th>"
+        "</tr>"
+        "</thead><tbody>"
+    )
+
+    g = {k: 0 for k in ["pool","collected","balance","leads","leads_48","bal_48hr","prev_bal","prev_leads","grand_bal","grand_leads"]}
+
+    for vert in sorted(combined["Vertical"].fillna("Others").unique()):
+        if vert == "Others":
+            continue
+        v_df = combined[combined["Vertical"].fillna("Others") == vert]
+        if v_df.empty:
+            continue
+        v = {k: 0 for k in g}
+
+        for team in sorted(v_df["Team Name"].fillna("Others").unique()):
+            if team == "Others":
+                continue
+            t_df = v_df[v_df["Team Name"].fillna("Others") == team]
+            if t_df.empty:
+                continue
+            t = {k: 0 for k in g}
+
+            if mode == "caller":
+                for _, r in t_df.sort_values("balance", ascending=False).iterrows():
+                    pct  = _pct48(r.get("bal_48hr", 0), r.get("balance", 0))
+                    html += (
+                        "<tr>"
+                        "<td style='" + data_style + "text-align:left;'>" + str(r.get("Caller_name", "—")) + "</td>"
+                        "<td style='" + data_style + "'>" + str(team) + "</td>"
+                        "<td style='" + data_style + "'>" + fmt_inr(r.get("pool", 0)) + "</td>"
+                        "<td style='" + data_style + "'>" + fmt_inr(r.get("collected", 0)) + "</td>"
+                        "<td style='" + data_style + "color:#DC2626;font-weight:600;'>" + fmt_inr(r.get("balance", 0)) + "</td>"
+                        "<td style='" + data_style + "'>" + str(int(r.get("leads", 0))) + "</td>"
+                        "<td style='" + data_style + "'>" + str(int(r.get("leads_48", 0))) + "</td>"
+                        "<td style='" + data_style + "'>" + fmt_inr(r.get("bal_48hr", 0)) + "</td>"
+                        "<td style='" + data_style + "'>" + pct + "</td>"
+                        "<td style='" + data_style + "background:rgba(146,64,14,.06);'>" + fmt_inr(r.get("prev_bal", 0)) + "</td>"
+                        "<td style='" + data_style + "background:rgba(146,64,14,.06);'>" + str(int(r.get("prev_leads", 0))) + "</td>"
+                        "<td style='" + data_style + "background:rgba(30,58,95,.08);font-weight:600;'>" + fmt_inr(r.get("grand_bal", 0)) + "</td>"
+                        "<td style='" + data_style + "background:rgba(30,58,95,.08);font-weight:600;'>" + str(int(r.get("grand_leads", 0))) + "</td>"
+                        "</tr>"
+                    )
+                    for k in t:
+                        t[k] += r.get(k, 0)
+            else:
+                for k in ["pool","collected","balance","leads","leads_48","bal_48hr","prev_bal","prev_leads","grand_bal","grand_leads"]:
+                    t[k] = t_df[k].sum() if k in t_df.columns else 0
+
+            pct_t    = _pct48(t["bal_48hr"], t["balance"])
+            extra_td = "<td style='" + team_style + "'>—</td>" if mode == "caller" else ""
+            html += (
+                "<tr>"
+                "<td style='" + team_style + "'>" + team + " Total</td>"
+                + extra_td +
+                "<td style='" + team_style + "'>" + fmt_inr(t["pool"]) + "</td>"
+                "<td style='" + team_style + "'>" + fmt_inr(t["collected"]) + "</td>"
+                "<td style='" + team_style + "'>" + fmt_inr(t["balance"]) + "</td>"
+                "<td style='" + team_style + "'>" + str(int(t["leads"])) + "</td>"
+                "<td style='" + team_style + "'>" + str(int(t["leads_48"])) + "</td>"
+                "<td style='" + team_style + "'>" + fmt_inr(t["bal_48hr"]) + "</td>"
+                "<td style='" + team_style + "'>" + pct_t + "</td>"
+                "<td style='" + team_style + "'>" + fmt_inr(t["prev_bal"]) + "</td>"
+                "<td style='" + team_style + "'>" + str(int(t["prev_leads"])) + "</td>"
+                "<td style='" + team_style + "'>" + fmt_inr(t["grand_bal"]) + "</td>"
+                "<td style='" + team_style + "'>" + str(int(t["grand_leads"])) + "</td>"
+                "</tr>"
+            )
+            for k in v:
+                v[k] += t[k]
+
+        pct_v    = _pct48(v["bal_48hr"], v["balance"])
+        extra_vd = "<td style='" + vert_style + "'>—</td>" if mode == "caller" else ""
+        html += (
+            "<tr>"
+            "<td style='" + vert_style + "'>" + vert + " Total</td>"
+            + extra_vd +
+            "<td style='" + vert_style + "'>" + fmt_inr(v["pool"]) + "</td>"
+            "<td style='" + vert_style + "'>" + fmt_inr(v["collected"]) + "</td>"
+            "<td style='" + vert_style + "'>" + fmt_inr(v["balance"]) + "</td>"
+            "<td style='" + vert_style + "'>" + str(int(v["leads"])) + "</td>"
+            "<td style='" + vert_style + "'>" + str(int(v["leads_48"])) + "</td>"
+            "<td style='" + vert_style + "'>" + fmt_inr(v["bal_48hr"]) + "</td>"
+            "<td style='" + vert_style + "'>" + pct_v + "</td>"
+            "<td style='" + vert_style + "'>" + fmt_inr(v["prev_bal"]) + "</td>"
+            "<td style='" + vert_style + "'>" + str(int(v["prev_leads"])) + "</td>"
+            "<td style='" + vert_style + "'>" + fmt_inr(v["grand_bal"]) + "</td>"
+            "<td style='" + vert_style + "'>" + str(int(v["grand_leads"])) + "</td>"
+            "</tr>"
+        )
+        for k in g:
+            g[k] += v[k]
+
+    pct_g    = _pct48(g["bal_48hr"], g["balance"])
+    extra_gd = "<td style='" + grand_style + "'>—</td>" if mode == "caller" else ""
+    html += (
+        "<tr>"
+        "<td style='" + grand_style + "'>Grand Total</td>"
+        + extra_gd +
+        "<td style='" + grand_style + "'>" + fmt_inr(g["pool"]) + "</td>"
+        "<td style='" + grand_style + "'>" + fmt_inr(g["collected"]) + "</td>"
+        "<td style='" + grand_style + "'>" + fmt_inr(g["balance"]) + "</td>"
+        "<td style='" + grand_style + "'>" + str(int(g["leads"])) + "</td>"
+        "<td style='" + grand_style + "'>" + str(int(g["leads_48"])) + "</td>"
+        "<td style='" + grand_style + "'>" + fmt_inr(g["bal_48hr"]) + "</td>"
+        "<td style='" + grand_style + "'>" + pct_g + "</td>"
+        "<td style='" + grand_style + "'>" + fmt_inr(g["prev_bal"]) + "</td>"
+        "<td style='" + grand_style + "'>" + str(int(g["prev_leads"])) + "</td>"
+        "<td style='" + grand_style + "'>" + fmt_inr(g["grand_bal"]) + "</td>"
+        "<td style='" + grand_style + "'>" + str(int(g["grand_leads"])) + "</td>"
+        "</tr></tbody></table></div>"
+    )
+    return html
+
+
+def render_drop_html(drop_agg, curr_label, prev_label):
+    hs = "background:#7c2d12;color:#fff;font-size:.72rem;font-weight:700;text-transform:uppercase;padding:8px 6px;text-align:center;border:1px solid #991b1b;"
+    ds = "font-size:.72rem;padding:6px 5px;text-align:center;border:1px solid #e5e7eb;color:var(--text-primary,#111827);"
+    ts = "font-weight:700;background:#1f2937;color:#fff;font-size:.72rem;padding:7px 5px;text-align:center;border:1px solid #374151;"
+    vs = "font-weight:700;background:#7c2d12;color:#fff;font-size:.72rem;padding:7px 5px;text-align:center;border:1px solid #991b1b;"
+    gs = "font-weight:700;background:#1e3a5f;color:#fff;font-size:.72rem;padding:8px 5px;text-align:center;border:1px solid #1e3a5f;"
+
+    html = (
+        "<div style='overflow-x:auto;'>"
+        "<table style='width:100%;border-collapse:collapse;'>"
+        "<thead><tr>"
+        "<th style='" + hs + "'>CALLER NAME</th>"
+        "<th style='" + hs + "'>TEAM</th>"
+        "<th style='" + hs + "'>VERTICAL</th>"
+        "<th style='" + hs + "'>" + curr_label.upper() + " DROPS</th>"
+        "<th style='" + hs + "'>" + prev_label.upper() + " DROPS</th>"
+        "<th style='" + hs + "'>TOTAL DROP CASES</th>"
+        "</tr></thead><tbody>"
+    )
+
+    g_c = g_p = g_t = 0
+    for vert in sorted(drop_agg["Vertical"].fillna("Others").unique()):
+        if vert == "Others":
+            continue
+        v_df = drop_agg[drop_agg["Vertical"].fillna("Others") == vert]
+        if v_df.empty:
+            continue
+        vc = vp = vt = 0
+        for team in sorted(v_df["Team Name"].fillna("Others").unique()):
+            if team == "Others":
+                continue
+            t_df = v_df[v_df["Team Name"].fillna("Others") == team]
+            if t_df.empty:
+                continue
+            tc = tp = tt = 0
+            for _, r in t_df.sort_values("total_drops", ascending=False).iterrows():
+                html += (
+                    "<tr>"
+                    "<td style='" + ds + "text-align:left;'>" + str(r["Caller_name"]) + "</td>"
+                    "<td style='" + ds + "'>" + str(team) + "</td>"
+                    "<td style='" + ds + "'>" + str(vert) + "</td>"
+                    "<td style='" + ds + "'>" + str(int(r["curr_drops"])) + "</td>"
+                    "<td style='" + ds + "'>" + str(int(r["prev_drops"])) + "</td>"
+                    "<td style='" + ds + "font-weight:600;color:#DC2626;'>" + str(int(r["total_drops"])) + "</td>"
+                    "</tr>"
+                )
+                tc += r["curr_drops"]; tp += r["prev_drops"]; tt += r["total_drops"]
+            html += (
+                "<tr>"
+                "<td style='" + ts + "'>" + team + " Total</td>"
+                "<td style='" + ts + "'>—</td>"
+                "<td style='" + ts + "'>" + str(vert) + "</td>"
+                "<td style='" + ts + "'>" + str(int(tc)) + "</td>"
+                "<td style='" + ts + "'>" + str(int(tp)) + "</td>"
+                "<td style='" + ts + "'>" + str(int(tt)) + "</td>"
+                "</tr>"
+            )
+            vc += tc; vp += tp; vt += tt
+        html += (
+            "<tr>"
+            "<td style='" + vs + "'>" + vert + " Total</td>"
+            "<td style='" + vs + "'>—</td>"
+            "<td style='" + vs + "'>—</td>"
+            "<td style='" + vs + "'>" + str(int(vc)) + "</td>"
+            "<td style='" + vs + "'>" + str(int(vp)) + "</td>"
+            "<td style='" + vs + "'>" + str(int(vt)) + "</td>"
+            "</tr>"
+        )
+        g_c += vc; g_p += vp; g_t += vt
+    html += (
+        "<tr>"
+        "<td style='" + gs + "'>Grand Total</td>"
+        "<td style='" + gs + "'>—</td>"
+        "<td style='" + gs + "'>—</td>"
+        "<td style='" + gs + "'>" + str(int(g_c)) + "</td>"
+        "<td style='" + gs + "'>" + str(int(g_p)) + "</td>"
+        "<td style='" + gs + "'>" + str(int(g_t)) + "</td>"
+        "</tr></tbody></table></div>"
+    )
+    return html
+
+
 # ─────────────────────────────────────────────
 # SIDEBAR
 # ─────────────────────────────────────────────
