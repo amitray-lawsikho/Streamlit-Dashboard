@@ -215,6 +215,31 @@ div[data-testid="stDataFrame"] thead tr th {
 .stDownloadButton>button:hover { opacity: .88; transform: translateY(-1px); }
 
 hr { border-color: var(--border, rgba(249,115,22,.12)) !important; margin: 1.2rem 0 !important; }
+
+.brand-name {
+    font-size: .85rem;
+    font-weight: 700;
+    letter-spacing: -.3px;
+    color: #111827;
+}
+@media (prefers-color-scheme: dark) {
+    .brand-name { color: #FEF3E8; }
+}
+[data-theme="dark"] .brand-name { color: #FEF3E8 !important; }
+[data-theme="light"] .brand-name { color: #111827 !important; }
+
+.brand-tagline {
+    font-size: .58rem;
+    letter-spacing: .8px;
+    font-family: monospace;
+    margin-bottom: .9rem;
+    color: #6B7280;
+}
+@media (prefers-color-scheme: dark) {
+    .brand-tagline { color: #D1A67A; }
+}
+[data-theme="dark"] .brand-tagline { color: #D1A67A !important; }
+[data-theme="light"] .brand-tagline { color: #6B7280 !important; }
 .js-plotly-plot { border-radius: var(--radius-md); overflow: hidden; }
 
 .kpi-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 20px; font-size: .7rem; font-weight: 600; font-family: 'DM Mono', monospace; }
@@ -778,14 +803,13 @@ def generate_calling_helper_pdf_bytes() -> bytes:
 st.sidebar.markdown("""
 <div style='padding:.6rem 0 .4rem; text-align:center;'>
     <div style='display:flex; align-items:center; justify-content:center; gap:0; margin-bottom:.3rem;'>
-        <span style='font-size:.85rem; font-weight:700; color:var(--text-primary,#111827); letter-spacing:-.3px;'>LawSikho</span>
+        <span class='brand-name'>LawSikho</span>
         <div style='width:1px; height:18px; margin:0 .6rem;
                     background:linear-gradient(180deg,transparent,rgba(249,115,22,.9),transparent);
                     box-shadow:0 0 6px rgba(249,115,22,.5);'></div>
-        <span style='font-size:.85rem; font-weight:700; color:var(--text-primary,#111827); letter-spacing:-.3px;'>Skill Arbitrage</span>
+        <span class='brand-name'>Skill Arbitrage</span>
     </div>
-    <div style='font-size:.58rem; color:var(--text-muted, #6B7280); letter-spacing:.8px;
-            font-family:monospace; margin-bottom:.9rem;'>India Learning 📖 India Earning</div>
+    <div class='brand-tagline'>India Learning 📖 India Earning</div>
     <div style='font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;
                 color:var(--text-muted,#6B7280);margin-bottom:.5rem;'>Report Controls</div>
 </div>
