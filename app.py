@@ -230,19 +230,6 @@ hr { border-color: var(--border, rgba(249,115,22,.12)) !important; margin: 1.2re
     margin-bottom: .9rem;
     color: #FDBA74;
 }
-
-.brand-tagline {
-    font-size: .58rem;
-    letter-spacing: .8px;
-    font-family: monospace;
-    margin-bottom: .9rem;
-    color: #6B7280;
-}
-@media (prefers-color-scheme: dark) {
-    .brand-tagline { color: #D1A67A; }
-}
-[data-theme="dark"] .brand-tagline { color: #D1A67A !important; }
-[data-theme="light"] .brand-tagline { color: #6B7280 !important; }
 .js-plotly-plot { border-radius: var(--radius-md); overflow: hidden; }
 
 .kpi-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 20px; font-size: .7rem; font-weight: 600; font-family: 'DM Mono', monospace; }
