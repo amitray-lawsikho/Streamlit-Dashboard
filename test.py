@@ -1119,14 +1119,21 @@ def pending_leads_for_month(df_m, excl_emails, excl_phones):
     new = df_m[df_m['is_new']].copy()
     if new.empty:
         return pd.DataFrame()
-    bal = (df_m[df_m['is_bal']]
-           .groupby('Contact_No_norm')['Fee_paid'].sum()
-           .rename('bal_paid').reset_index())
-    p = new.merge(bal, on='Contact_No_norm', how='left')
-    p['bal_paid'] = p['bal_paid'].fillna(0)
-    p['tot_paid'] = p['Fee_paid'] + p['bal_paid']
-    p['balance']  = p['Course_Price'] - p['tot_paid']
-    p = p[p['balance'] > 0].copy()
+
+    # Get contact numbers who have already made a balance payment in same window
+    paid_contacts = set(
+        df_m[df_m['is_bal']]['Contact_No_norm'].dropna().unique()
+    )
+
+    # Exclude students who have ANY balance payment row in the window
+    new = new[~new['Contact_No_norm'].isin(paid_contacts)].copy()
+    if new.empty:
+        return pd.DataFrame()
+
+    # Pending = Course Price - Fee Paid on enrollment row only
+    new['balance'] = new['Course_Price'] - new['Fee_paid']
+    p = new[new['balance'] > 0].copy()
+
     p = p[~(p['Email_Id_norm'].isin(excl_emails) |
              p['Contact_No_norm'].isin(excl_phones))].copy()
     india       = pytz.timezone("Asia/Kolkata")
