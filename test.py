@@ -1353,23 +1353,25 @@ def render_html_pending_table(combined, mode, curr_label, prev_label, title):
 
     g = {k: 0 for k in ["pool","collected","balance","leads","leads_48","bal_48hr","prev_bal","prev_leads","grand_bal","grand_leads"]}
 
+    num_keys = ["pool","collected","balance","leads","leads_48","bal_48hr","prev_bal","prev_leads","grand_bal","grand_leads"]
+
     for vert in sorted(combined["Vertical"].fillna("Unassigned").unique()):
-        v_df = combined[combined["Vertical"].fillna("Unassigned") == vert]
+        v_df = combined[combined["Vertical"].fillna("Unassigned") == vert].copy()
         if v_df.empty:
             continue
+        # Force numeric on all aggregation columns
+        for k in num_keys:
+            if k in v_df.columns:
+                v_df[k] = pd.to_numeric(v_df[k], errors='coerce').fillna(0)
         v = {k: 0 for k in g}
 
         for team in sorted(v_df["Team Name"].fillna("Unassigned").unique()):
-            t_df = v_df[v_df["Team Name"].fillna("Unassigned") == team]
-            if t_df.empty:
-                continue
-            t_df = v_df[v_df["Team Name"].fillna("Others") == team]
+            t_df = v_df[v_df["Team Name"].fillna("Unassigned") == team].copy()
             if t_df.empty:
                 continue
             t = {k: 0 for k in g}
 
-            row_idx = 0
-    if mode == 'caller':
+            if mode == "caller":
         for _, r in t_df.sort_values('balance', ascending=False).iterrows():
             pct  = _pct48(r.get("bal_48hr", 0), r.get("balance", 0))
             ds   = data_style_alt if row_idx % 2 == 1 else data_style
@@ -1393,12 +1395,11 @@ def render_html_pending_table(combined, mode, curr_label, prev_label, title):
             )
             for k in t:
                 val = r.get(k, 0)
-                t[k] += 0 if pd.isna(val) else float(val)
+                t[k] += 0 if (val is None or (isinstance(val, float) and pd.isna(val))) else float(val)
             else:
-                t_reset = t_df.reset_index(drop=True)
-                for k in ["pool","collected","balance","leads","leads_48","bal_48hr","prev_bal","prev_leads","grand_bal","grand_leads"]:
-                    if k in t_reset.columns:
-                        t[k] = pd.to_numeric(t_reset[k], errors='coerce').fillna(0).sum()
+                for k in num_keys:
+                    if k in t_df.columns:
+                        t[k] = pd.to_numeric(t_df[k], errors='coerce').fillna(0).sum()
                     else:
                         t[k] = 0
 
@@ -2203,7 +2204,10 @@ with tab3:
 
         # ── Remove Others and zero-balance callers ──
         if not combined.empty:
-            combined = combined[combined['Team Name'] != 'Others'].copy()
+            combined = combined[~(
+                (combined['Team Name'] == 'Others') &
+                (combined['Vertical'] == 'Others')
+            )].copy()
             combined = combined[combined['grand_bal'] > 0].copy()
             
            
