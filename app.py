@@ -556,27 +556,15 @@ def compute_team_insights(df_merged, report_df):
 
 st.sidebar.markdown("""
 <div style='padding:.6rem 0 .4rem; text-align:center;'>
-    <div style='display:flex; align-items:center; justify-content:center; gap:0; margin-bottom:.5rem;'>
-        <div style='flex:1; display:flex; justify-content:center;'>
-            <img src="https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/assets/lawsikho_logo.png"
-                 style='height:28px; width:auto; object-fit:contain; mix-blend-mode:lighten;
-                        filter:brightness(1.2) saturate(.9);'
-                 onerror="this.style.display='none';" alt="LawSikho"/>
-        </div>
-        <div style='width:1px; height:28px; margin:0 .5rem;
-                    background:linear-gradient(180deg,transparent,rgba(249,115,22,.8),transparent);
+    <div style='display:flex; align-items:center; justify-content:center; gap:0; margin-bottom:.3rem;'>
+        <span style='font-size:.85rem; font-weight:700; color:#FFFFFF; letter-spacing:-.3px;'>LawSikho</span>
+        <div style='width:1px; height:18px; margin:0 .6rem;
+                    background:linear-gradient(180deg,transparent,rgba(249,115,22,.9),transparent);
                     box-shadow:0 0 6px rgba(249,115,22,.5);'></div>
-        <div style='flex:1; display:flex; justify-content:center;'>
-            <img src="https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/assets/skillarbitrage_logo.png"
-                 style='height:28px; width:auto; object-fit:contain; mix-blend-mode:lighten;
-                        filter:brightness(1.2) saturate(.9);'
-                 onerror="this.style.display='none';" alt="Skill Arbitrage"/>
-        </div>
+        <span style='font-size:.85rem; font-weight:700; color:#FFFFFF; letter-spacing:-.3px;'>Skill Arbitrage</span>
     </div>
-    <div style='font-size:.6rem; color:rgba(255,255,255,.3); letter-spacing:1px;
-                font-family:monospace; margin-bottom:.8rem;'>
-        India Learning 📖 India Earning
-    </div>
+    <div style='font-size:.58rem; color:rgba(255,255,255,.3); letter-spacing:.8px;
+                font-family:monospace; margin-bottom:.9rem;'>India Learning 📖 India Earning</div>
     <div style='font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;
                 color:var(--text-muted,#6B7280);margin-bottom:.5rem;'>Report Controls</div>
 </div>
