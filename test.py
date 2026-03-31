@@ -1176,7 +1176,8 @@ def pending_leads_for_month(df_m, excl_emails, excl_phones, df_combined=None):
         return pd.DataFrame()
 
     india        = pytz.timezone("Asia/Kolkata")
-    cut48        = (datetime.now(india) - timedelta(hours=48)).date()
+    today_ist    = datetime.now(india).date()
+    cut48        = today_ist - timedelta(days=2)
     p['over_48'] = p['Date'] <= cut48
     return p
 
@@ -1559,15 +1560,12 @@ def render_drop_html(drop_agg, curr_label, prev_label):
 
     g_c = g_p = g_t = 0
     for vert in sorted(drop_agg["Vertical"].fillna("Others").unique()):
-        if vert == "Others":
             continue
         v_df = drop_agg[drop_agg["Vertical"].fillna("Others") == vert]
         if v_df.empty:
             continue
         vc = vp = vt = 0
         for team in sorted(v_df["Team Name"].fillna("Others").unique()):
-            if team == "Others":
-                continue
             t_df = v_df[v_df["Team Name"].fillna("Others") == team]
             if t_df.empty:
                 continue
@@ -1958,6 +1956,95 @@ def build_pending_leads_excel(pend_curr, pend_prev, meta_map_pending, curr_label
 
     ws2 = wb.create_sheet(f"Pending {prev_label[:3]} {prev_label[-4:]}"[:31])
     write_leads_sheet(ws2, pend_prev, prev_label)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def build_drop_leads_excel(drop_df, c_start, c_end, p_start, p_end, curr_label, prev_label):
+    """
+    Returns bytes of an xlsx with 2 tabs:
+      Tab 1 — Current month dropped leads
+      Tab 2 — Previous month dropped leads
+    Columns: DATE, EMAIL, PHONE NUMBER, CALLER NAME
+    """
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    HDR_FILL   = PatternFill("solid", start_color="7c2d12", end_color="7c2d12")
+    ALT_FILL   = PatternFill("solid", start_color="fff7ed", end_color="fff7ed")
+    WHITE_FILL = PatternFill("solid", start_color="ffffff", end_color="ffffff")
+    HDR_FONT   = Font(bold=True, color="FFFFFF", name="Arial", size=9)
+    DATA_FONT  = Font(name="Arial", size=9)
+    CENTER     = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    LEFT       = Alignment(horizontal='left',   vertical='center', wrap_text=True)
+    BORDER     = Border(
+        left=Side(style='thin', color='FED7AA'),
+        right=Side(style='thin', color='FED7AA'),
+        top=Side(style='thin', color='FED7AA'),
+        bottom=Side(style='thin', color='FED7AA'),
+    )
+
+    COLS       = ["DATE", "EMAIL", "PHONE NUMBER", "CALLER NAME"]
+    COL_WIDTHS = [14, 36, 16, 28]
+
+    e_col = next((c for c in drop_df.columns if 'email' in c.lower() and ('drop' in c.lower() or 'student' in c.lower())), None)
+    p_col = next((c for c in drop_df.columns if 'phone' in c.lower() or ('number' in c.lower() and 'drop' in c.lower())), None)
+    t_col = next((c for c in drop_df.columns if 'timestamp' in c.lower()), None)
+
+    def write_drop_sheet(ws, df_slice, label):
+        ws.row_dimensions[1].height = 28
+        for c_idx, h in enumerate(COLS, 1):
+            cell = ws.cell(1, c_idx, h)
+            cell.fill = HDR_FILL
+            cell.font = HDR_FONT
+            cell.alignment = CENTER
+            cell.border = BORDER
+        for i, w in enumerate(COL_WIDTHS, 1):
+            ws.column_dimensions[get_column_letter(i)].width = w
+        ws.freeze_panes = "A2"
+
+        if df_slice.empty:
+            ws.cell(2, 1, f"No dropped leads for {label}")
+            return
+
+        alt = False
+        for r_idx, (_, r) in enumerate(df_slice.iterrows(), 2):
+            fill = ALT_FILL if alt else WHITE_FILL
+            alt  = not alt
+            drop_date = r.get('drop_date', '')
+            if hasattr(drop_date, 'date'):
+                drop_date = drop_date.date()
+            vals = [
+                str(drop_date),
+                str(r.get('drop_email', '')),
+                str(r.get('drop_phone', '')),
+                str(r.get('attributed_caller', '—')),
+            ]
+            for c_idx, v_ in enumerate(vals, 1):
+                cell = ws.cell(r_idx, c_idx, v_)
+                cell.fill = fill
+                cell.font = DATA_FONT
+                cell.border = BORDER
+                cell.alignment = LEFT
+
+    wb  = Workbook()
+    ws1 = wb.active
+    ws1.title = f"{curr_label[:3]} {curr_label[-4:]} Drops"[:31]
+
+    # Attribute caller to each drop row
+    df_work = drop_df.copy()
+    df_work['drop_d'] = pd.to_datetime(df_work['drop_date'], errors='coerce').dt.date
+
+    curr_drops = df_work[(df_work['drop_d'] >= c_start) & (df_work['drop_d'] <= c_end)].copy()
+    prev_drops = df_work[(df_work['drop_d'] >= p_start) & (df_work['drop_d'] <= p_end)].copy()
+
+    write_drop_sheet(ws1, curr_drops.sort_values('drop_d'), curr_label)
+
+    ws2 = wb.create_sheet(f"{prev_label[:3]} {prev_label[-4:]} Drops"[:31])
+    write_drop_sheet(ws2, prev_drops.sort_values('drop_d'), prev_label)
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -2619,7 +2706,8 @@ with tab3:
         if not combined.empty:
             combined = combined[~(
                 (combined['Team Name'] == 'Others') &
-                (combined['Vertical'] == 'Others')
+                (combined['Vertical'] == 'Others') &
+                (combined['grand_bal'] == 0)
             )].copy()
             combined = combined[combined['grand_bal'] > 0].copy()
             combined = combined[~combined['Team Name'].str.contains('Community Manager', case=False, na=False)].copy()
@@ -2688,5 +2776,19 @@ with tab3:
                 st.markdown(render_drop_html(drop_agg, curr_label, prev_label), unsafe_allow_html=True)
             else:
                 st.info("No dropped leads found for current or previous month.")
+
+            # ── Drop leads download ──
+            if not drop_agg.empty:
+                _drop_xlsx = build_drop_leads_excel(
+                    drop_df, c_start, c_end, p_start, p_end,
+                    curr_label, prev_label
+                )
+                st.download_button(
+                    label=f"📥 Download Dropped Leads — {prev_label} + {curr_label} (Excel)",
+                    data=_drop_xlsx,
+                    file_name=f"Dropped_Leads_{prev_label.replace(' ','_')}_{curr_label.replace(' ','_')}.xlsx",
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    key='dl_drop_leads_xlsx'
+                )
         else:
             st.info("Drop leads sheet could not be loaded.")
