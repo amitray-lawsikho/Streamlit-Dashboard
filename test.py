@@ -1063,36 +1063,6 @@ def generate_helper_pdf_bytes() -> bytes:
         ]), SP(1,4*mm),
 
         # ── Glossary ──
-        # ── Section 10 ──
-        BAN("📊","SECTION 10 — CALLERWISE PENDING REVENUE TAB"), SP(1,3*mm),
-        Paragraph("Auto-loads on tab open. Always shows current + previous calendar month. Not affected by sidebar filters. Sorted by grand balance descending within each vertical and team.", S['body']), SP(1,2*mm),
-        ltable([
-            ("Revenue Pool",              "Sum of Course Price for all booking-fee leads (Full_Installment = 'Booking Fees') with Fee_paid ≥ ₹999 and a positive balance remaining. Excludes leads on the drop sheet and students appearing in both months (already paid balance)."),
-            ("Revenue Collected",         "Sum of Fee_paid (the booking fee already received) for leads in the pool."),
-            ("Balance to be Recovered",   "Course Price − Fee_paid per lead. Only leads with balance > 0 are included."),
-            ("No. of Leads",              "Count of individual pending-balance leads for this caller / team."),
-            ("Leads >48 HRS",             "Leads whose enrollment Date is ≤ today − 3 calendar days (IST). Today, yesterday and day-before-yesterday are excluded so only genuinely overdue leads are flagged."),
-            ("Balance >48 HRS",           "Sum of pending balance for leads that qualify as >48 hrs overdue."),
-            ("% Pending >48 HRS",         "Balance >48 HRS ÷ Total Balance × 100 for this caller / team row."),
-            ("Previous Month columns",    "Same balance and lead-count metrics computed from the previous calendar month's pending-leads pool."),
-            ("Grand Balance / Leads",     "Current month balance + previous month balance (and lead counts combined). Rows where grand balance = 0 are hidden from the table."),
-            ("Download — Pending Revenue","Excel file with 2 tabs (Teamwise and Callerwise). All amounts are raw rupee integers — no K / L abbreviations. Sorted by grand balance descending."),
-            ("Download — Pending Leads",  "Excel file with 2 tabs (current month and previous month). Columns: Date, Name, Contact No, Email ID, Course, Caller Name, Team Name, Vertical, Course Price, Revenue Collected, Balance."),
-        ]), SP(1,4*mm),
-
-        # ── Section 11 ──
-        BAN("🚫","SECTION 11 — CALLERWISE DROPPED LEADS"), SP(1,3*mm),
-        Paragraph("Drop leads are sourced from the Drop Leads Google Sheet. Each drop is attributed to the caller who originally enrolled the student, matched by email first then phone against New Enrollment rows in the revenue table.", S['body']), SP(1,2*mm),
-        ltable([
-            ("Current Month Drops",   "Drop form submissions with a timestamp in the current calendar month."),
-            ("Previous Month Drops",  "Drop form submissions with a timestamp in the previous calendar month."),
-            ("Total Drop Cases",      "Current + Previous month drops for this caller."),
-            ("Attribution Logic",     "Email match first against New Enrollment rows; if no email match, phone match. If neither matches, attributed to 'Unknown' and excluded from the team-grouped view."),
-            ("Team / Vertical",       "Resolved from the team sheet using the attributed caller name as the merge key."),
-            ("Download — Drops Excel","Excel file with 2 tabs (current month and previous month). Columns: Date, Email, Phone Number (numeric), Caller Name, Team, Vertical. Sorted by date ascending within each tab."),
-        ]), SP(1,4*mm),
-
-        # ── Glossary ──
         BAN("📖","KEY TERMS GLOSSARY", color=GREY_DARK), SP(1,3*mm),
         btable([
             ("New Enrollment",       "A fresh admission. Counts toward enrollment metrics and Calling Revenue."),
