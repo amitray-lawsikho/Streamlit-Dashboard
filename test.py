@@ -1631,11 +1631,6 @@ def build_pending_excel(combined, pend_curr, pend_prev, meta_map_pending, curr_l
       Tab 2 — Callerwise Pending Revenue
     All monetary values are raw integers (no K/L formatting).
     """
-    import io
-    from openpyxl import Workbook
-    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
-    from openpyxl.utils import get_column_letter
-
     HDR_FILL   = PatternFill("solid", start_color="064e3b", end_color="064e3b")
     TEAM_FILL  = PatternFill("solid", start_color="1f2937", end_color="1f2937")
     VERT_FILL  = PatternFill("solid", start_color="064e3b", end_color="064e3b")
