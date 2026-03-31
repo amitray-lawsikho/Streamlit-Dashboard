@@ -2872,6 +2872,12 @@ with tab3:
                 (combined['grand_bal'] == 0)
             )].copy()
             combined = combined[combined['grand_bal'] > 0].copy()
+
+            # ── Apply sidebar filters ──
+            if selected_vertical:
+                combined = combined[combined['Vertical'].isin(selected_vertical)].copy()
+            if selected_team:
+                combined = combined[combined['Team Name'].isin(selected_team)].copy()
             
            
 
