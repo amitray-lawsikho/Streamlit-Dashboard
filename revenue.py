@@ -2890,7 +2890,7 @@ with tab3:
                     curr_label, prev_label
                 )
                 st.download_button(
-                    label=f"📥 Download Dropped Leads — {prev_label} + {curr_label} (Excel)",
+                    label=f"📥 Download Dropped Leads",
                     data=_drop_xlsx,
                     file_name=f"Dropped_Leads_{prev_label.replace(' ','_')}_{curr_label.replace(' ','_')}.xlsx",
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
