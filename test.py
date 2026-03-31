@@ -2709,7 +2709,6 @@ with tab3:
                 (combined['grand_bal'] == 0)
             )].copy()
             combined = combined[combined['grand_bal'] > 0].copy()
-            combined = combined[~combined['Team Name'].str.contains('Community Manager', case=False, na=False)].copy()
             
            
 
@@ -2770,7 +2769,6 @@ with tab3:
             )
             if not drop_agg.empty:
                 drop_agg = drop_agg[drop_agg['Team Name'] != 'Others'].copy()
-                drop_agg = drop_agg[~drop_agg['Team Name'].str.contains('Community Manager', case=False, na=False)].copy()
 
                 st.markdown(render_drop_html(drop_agg, curr_label, prev_label), unsafe_allow_html=True)
             else:
