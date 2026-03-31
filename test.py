@@ -1177,7 +1177,7 @@ def pending_leads_for_month(df_m, excl_emails, excl_phones, df_combined=None):
 
     india        = pytz.timezone("Asia/Kolkata")
     today_ist    = datetime.now(india).date()
-    cut48        = today_ist - timedelta(days=2)
+    cut48        = today_ist - timedelta(days=3)
     p['over_48'] = p['Date'] <= cut48
     return p
 
