@@ -2939,6 +2939,12 @@ with tab3:
             if not drop_agg.empty:
                 drop_agg = drop_agg[drop_agg['Team Name'] != 'Others'].copy()
 
+                # ── Apply sidebar filters ──
+                if selected_vertical:
+                    drop_agg = drop_agg[drop_agg['Vertical'].isin(selected_vertical)].copy()
+                if selected_team:
+                    drop_agg = drop_agg[drop_agg['Team Name'].isin(selected_team)].copy()
+
                 st.markdown(render_drop_html(drop_agg, curr_label, prev_label), unsafe_allow_html=True)
             else:
                 st.info("No dropped leads found for current or previous month.")
