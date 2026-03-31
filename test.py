@@ -1560,7 +1560,6 @@ def render_drop_html(drop_agg, curr_label, prev_label):
 
     g_c = g_p = g_t = 0
     for vert in sorted(drop_agg["Vertical"].fillna("Others").unique()):
-            continue
         v_df = drop_agg[drop_agg["Vertical"].fillna("Others") == vert]
         if v_df.empty:
             continue
