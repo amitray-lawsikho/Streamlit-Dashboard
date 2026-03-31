@@ -1551,8 +1551,8 @@ def render_drop_html(drop_agg, curr_label, prev_label):
         "<th style='" + hs + "'>CALLER NAME</th>"
         "<th style='" + hs + "'>TEAM</th>"
         "<th style='" + hs + "'>VERTICAL</th>"
-        "<th style='" + hs + "'>" + curr_label.upper() + " DROPS</th>"
-        "<th style='" + hs + "'>" + prev_label.upper() + " DROPS</th>"
+        "<th style='" + hs + "'>" + curr_label.upper() + " DROP CASES</th>"
+        "<th style='" + hs + "'>" + prev_label.upper() + " DROP CASES</th>"
         "<th style='" + hs + "'>TOTAL DROP CASES</th>"
         "</tr></thead><tbody>"
     )
@@ -2651,7 +2651,7 @@ with tab3:
                     meta_map_pending, curr_label, prev_label
                 )
                 st.download_button(
-                    label=f"📥 Download Teamwise + Callerwise Pending Revenue (Excel)",
+                    label=f"📥 Download Teamwise + Callerwise Pending Revenue",
                     data=_pending_xlsx,
                     file_name=f"Pending_Revenue_{prev_label.replace(' ','_')}_{curr_label.replace(' ','_')}.xlsx",
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -2664,7 +2664,7 @@ with tab3:
                     meta_map_pending, curr_label, prev_label
                 )
                 st.download_button(
-                    label=f"📥 Download {prev_label} + {curr_label} Pending Leads (Excel)",
+                    label=f"📥 Download {prev_label} + {curr_label} Pending Leads",
                     data=_leads_xlsx,
                     file_name=f"Pending_Leads_{prev_label.replace(' ','_')}_{curr_label.replace(' ','_')}.xlsx",
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
