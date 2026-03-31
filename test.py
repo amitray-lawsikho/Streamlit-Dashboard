@@ -1621,6 +1621,354 @@ def render_drop_html(drop_agg, curr_label, prev_label):
 
 
 # ─────────────────────────────────────────────
+# EXCEL DOWNLOAD BUILDERS — PENDING TAB
+# ─────────────────────────────────────────────
+
+def build_pending_excel(combined, pend_curr, pend_prev, meta_map_pending, curr_label, prev_label):
+    """
+    Returns bytes of an xlsx with 2 tabs:
+      Tab 1 — Teamwise Pending Revenue
+      Tab 2 — Callerwise Pending Revenue
+    All monetary values are raw integers (no K/L formatting).
+    """
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    HDR_FILL   = PatternFill("solid", start_color="064e3b", end_color="064e3b")
+    TEAM_FILL  = PatternFill("solid", start_color="1f2937", end_color="1f2937")
+    VERT_FILL  = PatternFill("solid", start_color="064e3b", end_color="064e3b")
+    GRAND_FILL = PatternFill("solid", start_color="1e3a5f", end_color="1e3a5f")
+    ALT_FILL   = PatternFill("solid", start_color="f0fdf4", end_color="f0fdf4")
+    WHITE_FILL = PatternFill("solid", start_color="ffffff", end_color="ffffff")
+    HDR_FONT   = Font(bold=True, color="FFFFFF", name="Arial", size=9)
+    DATA_FONT  = Font(name="Arial", size=9)
+    BOLD_WHITE = Font(bold=True, color="FFFFFF", name="Arial", size=9)
+    BORDER     = Border(
+        left=Side(style='thin', color='D1FAE5'),
+        right=Side(style='thin', color='D1FAE5'),
+        top=Side(style='thin', color='D1FAE5'),
+        bottom=Side(style='thin', color='D1FAE5'),
+    )
+    CENTER = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    LEFT   = Alignment(horizontal='left',   vertical='center', wrap_text=True)
+
+    wb = Workbook()
+
+    num_keys = ["pool","collected","balance","leads","leads_48","bal_48hr",
+                "prev_bal","prev_leads","grand_bal","grand_leads"]
+
+    def _safe(v):
+        try:
+            f = float(v)
+            return 0 if pd.isna(f) else f
+        except:
+            return 0
+
+    def _pct(b48, bal):
+        if bal and bal > 0:
+            return round(b48 / bal * 100, 1)
+        return 0.0
+
+    def write_pending_sheet(ws, mode):
+        # ── Header rows ──
+        cl = curr_label.upper()
+        pl = prev_label.upper()
+        name_col_hdr = "CALLER NAME" if mode == "caller" else "TEAM NAME"
+        extra = 1 if mode == "caller" else 0   # extra TEAM column for caller mode
+
+        # Row 1 — group headers
+        col = 1
+        ws.cell(1, col, name_col_hdr).fill = HDR_FILL
+        ws.cell(1, col).font = HDR_FONT
+        ws.cell(1, col).alignment = CENTER
+        ws.cell(1, col).border = BORDER
+        col += 1
+        if mode == "caller":
+            ws.cell(1, col, "TEAM").fill = HDR_FILL
+            ws.cell(1, col).font = HDR_FONT
+            ws.cell(1, col).alignment = CENTER
+            ws.cell(1, col).border = BORDER
+            col += 1
+
+        # Current month group (7 cols)
+        for i in range(7):
+            ws.cell(1, col+i, cl if i == 0 else "").fill = PatternFill("solid", start_color="065f46", end_color="065f46")
+            ws.cell(1, col+i).font = HDR_FONT
+            ws.cell(1, col+i).alignment = CENTER
+            ws.cell(1, col+i).border = BORDER
+        ws.merge_cells(start_row=1, start_column=col, end_row=1, end_column=col+6)
+        col += 7
+
+        # Previous month group (2 cols)
+        for i in range(2):
+            ws.cell(1, col+i, pl if i == 0 else "").fill = PatternFill("solid", start_color="92400e", end_color="92400e")
+            ws.cell(1, col+i).font = HDR_FONT
+            ws.cell(1, col+i).alignment = CENTER
+            ws.cell(1, col+i).border = BORDER
+        ws.merge_cells(start_row=1, start_column=col, end_row=1, end_column=col+1)
+        col += 2
+
+        # Grand total group (2 cols)
+        for i in range(2):
+            ws.cell(1, col+i, "GRAND TOTAL" if i == 0 else "").fill = PatternFill("solid", start_color="1e3a5f", end_color="1e3a5f")
+            ws.cell(1, col+i).font = HDR_FONT
+            ws.cell(1, col+i).alignment = CENTER
+            ws.cell(1, col+i).border = BORDER
+        ws.merge_cells(start_row=1, start_column=col, end_row=1, end_column=col+1)
+
+        # Row 2 — sub-headers
+        sub_headers = [name_col_hdr] + (["TEAM"] if mode == "caller" else []) + [
+            "REVENUE POOL (₹)", "COLLECTED (₹)", "BALANCE (₹)", "LEADS",
+            "LEADS >48HR", "BALANCE >48HR (₹)", "% PENDING >48HR",
+            f"BALANCE ({pl}) (₹)", f"LEADS ({pl})",
+            "GRAND BALANCE (₹)", "GRAND LEADS"
+        ]
+        for c_idx, h in enumerate(sub_headers, 1):
+            cell = ws.cell(2, c_idx, h)
+            cell.fill = HDR_FILL
+            cell.font = HDR_FONT
+            cell.alignment = CENTER
+            cell.border = BORDER
+
+        ws.row_dimensions[1].height = 22
+        ws.row_dimensions[2].height = 28
+
+        # ── Data rows ──
+        row_num = 3
+        g = {k: 0.0 for k in num_keys}
+
+        vert_order = (
+            combined.assign(_v=combined["Vertical"].fillna("Unassigned"))
+            .groupby("_v")["grand_bal"].sum()
+            .sort_values(ascending=False).index.tolist()
+        )
+
+        for vert in vert_order:
+            v_df = combined[combined["Vertical"].fillna("Unassigned") == vert].copy()
+            if v_df.empty:
+                continue
+            for k in num_keys:
+                if k in v_df.columns:
+                    v_df[k] = pd.to_numeric(v_df[k], errors='coerce').fillna(0)
+            v = {k: 0.0 for k in num_keys}
+
+            team_order = (
+                v_df.assign(_t=v_df["Team Name"].fillna("Unassigned"))
+                .groupby("_t")["grand_bal"].sum()
+                .sort_values(ascending=False).index.tolist()
+            )
+
+            for team in team_order:
+                t_df = v_df[v_df["Team Name"].fillna("Unassigned") == team].copy()
+                if t_df.empty:
+                    continue
+                t = {k: 0.0 for k in num_keys}
+
+                if mode == "caller":
+                    alt = False
+                    for _, r in t_df.sort_values("balance", ascending=False).iterrows():
+                        vals = [
+                            str(r.get("Caller_name", "—")),
+                            str(team),
+                            _safe(r.get("pool", 0)),
+                            _safe(r.get("collected", 0)),
+                            _safe(r.get("balance", 0)),
+                            int(_safe(r.get("leads", 0))),
+                            int(_safe(r.get("leads_48", 0))),
+                            _safe(r.get("bal_48hr", 0)),
+                            _pct(_safe(r.get("bal_48hr", 0)), _safe(r.get("balance", 0))),
+                            _safe(r.get("prev_bal", 0)),
+                            int(_safe(r.get("prev_leads", 0))),
+                            _safe(r.get("grand_bal", 0)),
+                            int(_safe(r.get("grand_leads", 0))),
+                        ]
+                        fill = ALT_FILL if alt else WHITE_FILL
+                        alt = not alt
+                        for c_idx, v_ in enumerate(vals, 1):
+                            cell = ws.cell(row_num, c_idx, v_)
+                            cell.fill = fill
+                            cell.font = DATA_FONT
+                            cell.border = BORDER
+                            cell.alignment = LEFT if c_idx <= 2 else CENTER
+                        row_num += 1
+                        for k in num_keys:
+                            t[k] += _safe(r.get(k, 0))
+                else:
+                    for k in num_keys:
+                        t[k] = pd.to_numeric(t_df[k], errors='coerce').fillna(0).sum() if k in t_df.columns else 0
+
+                # Team total row
+                t_vals = ([f"{team} Total"] + (["—"] if mode == "caller" else []) +
+                          [t["pool"], t["collected"], t["balance"], int(t["leads"]),
+                           int(t["leads_48"]), t["bal_48hr"], _pct(t["bal_48hr"], t["balance"]),
+                           t["prev_bal"], int(t["prev_leads"]), t["grand_bal"], int(t["grand_leads"])])
+                for c_idx, v_ in enumerate(t_vals, 1):
+                    cell = ws.cell(row_num, c_idx, v_)
+                    cell.fill = TEAM_FILL
+                    cell.font = BOLD_WHITE
+                    cell.border = BORDER
+                    cell.alignment = LEFT if c_idx == 1 else CENTER
+                row_num += 1
+
+                for k in num_keys:
+                    v[k] += t[k]
+
+            # Vertical total row
+            v_vals = ([f"{vert} Total"] + (["—"] if mode == "caller" else []) +
+                      [v["pool"], v["collected"], v["balance"], int(v["leads"]),
+                       int(v["leads_48"]), v["bal_48hr"], _pct(v["bal_48hr"], v["balance"]),
+                       v["prev_bal"], int(v["prev_leads"]), v["grand_bal"], int(v["grand_leads"])])
+            for c_idx, v_ in enumerate(v_vals, 1):
+                cell = ws.cell(row_num, c_idx, v_)
+                cell.fill = VERT_FILL
+                cell.font = BOLD_WHITE
+                cell.border = BORDER
+                cell.alignment = LEFT if c_idx == 1 else CENTER
+            row_num += 1
+
+            for k in num_keys:
+                g[k] += v[k]
+
+        # Grand total row
+        g_vals = (["Grand Total"] + (["—"] if mode == "caller" else []) +
+                  [g["pool"], g["collected"], g["balance"], int(g["leads"]),
+                   int(g["leads_48"]), g["bal_48hr"], _pct(g["bal_48hr"], g["balance"]),
+                   g["prev_bal"], int(g["prev_leads"]), g["grand_bal"], int(g["grand_leads"])])
+        for c_idx, v_ in enumerate(g_vals, 1):
+            cell = ws.cell(row_num, c_idx, v_)
+            cell.fill = GRAND_FILL
+            cell.font = BOLD_WHITE
+            cell.border = BORDER
+            cell.alignment = LEFT if c_idx == 1 else CENTER
+
+        # Column widths
+        col_widths = [28] + ([18] if mode == "caller" else []) + [16, 16, 16, 8, 10, 16, 14, 16, 10, 16, 10]
+        for i, w in enumerate(col_widths, 1):
+            ws.column_dimensions[get_column_letter(i)].width = w
+
+    # Tab 1 — Teamwise
+    ws1 = wb.active
+    ws1.title = f"Teamwise {curr_label[:3]}{curr_label[-4:]}+{prev_label[:3]}{prev_label[-4:]}"[:31]
+    ws1.freeze_panes = "A3"
+    write_pending_sheet(ws1, "team")
+
+    # Tab 2 — Callerwise
+    ws2 = wb.create_sheet(f"Callerwise {curr_label[:3]}{curr_label[-4:]}+{prev_label[:3]}{prev_label[-4:]}"[:31])
+    ws2.freeze_panes = "A3"
+    write_pending_sheet(ws2, "caller")
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+def build_pending_leads_excel(pend_curr, pend_prev, meta_map_pending, curr_label, prev_label):
+    """
+    Returns bytes of an xlsx with 2 tabs — one per month — with full lead details
+    including Caller Name, Team Name, Vertical, Course Price, Revenue Collected, Balance.
+    """
+    import io
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    HDR_FILL  = PatternFill("solid", start_color="064e3b", end_color="064e3b")
+    ALT_FILL  = PatternFill("solid", start_color="f0fdf4", end_color="f0fdf4")
+    WHITE_FILL= PatternFill("solid", start_color="ffffff", end_color="ffffff")
+    HDR_FONT  = Font(bold=True, color="FFFFFF", name="Arial", size=9)
+    DATA_FONT = Font(name="Arial", size=9)
+    CENTER    = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    LEFT      = Alignment(horizontal='left',   vertical='center', wrap_text=True)
+    BORDER    = Border(
+        left=Side(style='thin', color='D1FAE5'),
+        right=Side(style='thin', color='D1FAE5'),
+        top=Side(style='thin', color='D1FAE5'),
+        bottom=Side(style='thin', color='D1FAE5'),
+    )
+
+    COLS = ["DATE", "NAME", "CONTACT NO", "EMAIL ID", "COURSE",
+            "CALLER NAME", "TEAM NAME", "VERTICAL",
+            "COURSE PRICE (₹)", "REVENUE COLLECTED (₹)", "BALANCE (₹)"]
+    COL_WIDTHS = [12, 28, 14, 32, 32, 22, 22, 18, 16, 20, 14]
+
+    # Build meta lookup: merge_key → {Team Name, Vertical, Caller Name}
+    meta_lkp = {}
+    if not meta_map_pending.empty:
+        for _, row in meta_map_pending.iterrows():
+            k = str(row.get('merge_key', '')).strip().lower()
+            meta_lkp[k] = {
+                'Caller Name': row.get('Caller Name', '—'),
+                'Team Name':   row.get('Team Name',   '—'),
+                'Vertical':    row.get('Vertical',    '—'),
+            }
+
+    def enrich(df):
+        if df.empty:
+            return df
+        d = df.copy()
+        d['_mk'] = d['Caller_name'].astype(str).str.strip().str.lower()
+        d['_cn']   = d['_mk'].map(lambda k: meta_lkp.get(k, {}).get('Caller Name', d.loc[d['_mk']==k, 'Caller_name'].iloc[0] if not d[d['_mk']==k].empty else '—'))
+        d['_team'] = d['_mk'].map(lambda k: meta_lkp.get(k, {}).get('Team Name', '—'))
+        d['_vert'] = d['_mk'].map(lambda k: meta_lkp.get(k, {}).get('Vertical',  '—'))
+        return d
+
+    def write_leads_sheet(ws, df, label):
+        ws.row_dimensions[1].height = 28
+        for c_idx, h in enumerate(COLS, 1):
+            cell = ws.cell(1, c_idx, h)
+            cell.fill = HDR_FILL
+            cell.font = HDR_FONT
+            cell.alignment = CENTER
+            cell.border = BORDER
+        for i, w in enumerate(COL_WIDTHS, 1):
+            ws.column_dimensions[get_column_letter(i)].width = w
+        ws.freeze_panes = "A2"
+
+        if df.empty:
+            ws.cell(2, 1, f"No pending leads found for {label}")
+            return
+
+        df = enrich(df)
+        alt = False
+        for r_idx, (_, r) in enumerate(df.sort_values('Date').iterrows(), 2):
+            fill = ALT_FILL if alt else WHITE_FILL
+            alt  = not alt
+            vals = [
+                str(r.get('Date', '')),
+                str(r.get('Name', '')),
+                str(r.get('Contact_No', '')),
+                str(r.get('Email_Id', '')),
+                str(r.get('Course', '')),
+                str(r.get('_cn', r.get('Caller_name', '—'))),
+                str(r.get('_team', '—')),
+                str(r.get('_vert', '—')),
+                float(r.get('Course_Price', 0) or 0),
+                float(r.get('Fee_paid', 0) or 0),
+                float(r.get('balance', 0) or 0),
+            ]
+            for c_idx, v_ in enumerate(vals, 1):
+                cell = ws.cell(r_idx, c_idx, v_)
+                cell.fill = fill
+                cell.font = DATA_FONT
+                cell.border = BORDER
+                cell.alignment = LEFT if c_idx <= 6 else CENTER
+
+    wb = Workbook()
+    ws1 = wb.active
+    ws1.title = f"Pending {curr_label[:3]} {curr_label[-4:]}"[:31]
+    write_leads_sheet(ws1, pend_curr, curr_label)
+
+    ws2 = wb.create_sheet(f"Pending {prev_label[:3]} {prev_label[-4:]}"[:31])
+    write_leads_sheet(ws2, pend_prev, prev_label)
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+# ─────────────────────────────────────────────
 # SIDEBAR
 # ─────────────────────────────────────────────
 
@@ -2298,24 +2646,34 @@ with tab3:
             ), unsafe_allow_html=True)
 
             # ── Downloads ──
-            st.markdown("<div style='margin:.8rem 0;'></div>", unsafe_allow_html=True)
+            st.markdown("<div style='margin:1rem 0;'></div>", unsafe_allow_html=True)
             dl_col1, dl_col2 = st.columns(2)
-            if not pend_curr.empty:
-                dl_c = pend_curr[[
-                    'Date','Name','Contact_No','Email_Id',
-                    'Course','Caller_name','Course_Price','Fee_paid','balance'
-                ]].copy()
-                dl_c.columns = [
-                    'Date','Name','Contact','Email',
-                    'Course','Caller Name','Course Price','Fee Paid','Balance Amount'
-                ]
-                with dl_col1:
-                    st.download_button(
-                        label=f"📥 Download {curr_label} Pending Leads",
-                        data=dl_c.sort_values('Date').to_csv(index=False).encode('utf-8'),
-                        file_name=f"Pending_{curr_label.replace(' ','_')}.csv",
-                        mime='text/csv', key='dl_pend_curr'
-                    )
+
+            with dl_col1:
+                _pending_xlsx = build_pending_excel(
+                    combined, pend_curr, pend_prev,
+                    meta_map_pending, curr_label, prev_label
+                )
+                st.download_button(
+                    label=f"📥 Download Teamwise + Callerwise Pending Revenue (Excel)",
+                    data=_pending_xlsx,
+                    file_name=f"Pending_Revenue_{prev_label.replace(' ','_')}_{curr_label.replace(' ','_')}.xlsx",
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    key='dl_pending_revenue_xlsx'
+                )
+
+            with dl_col2:
+                _leads_xlsx = build_pending_leads_excel(
+                    pend_curr, pend_prev,
+                    meta_map_pending, curr_label, prev_label
+                )
+                st.download_button(
+                    label=f"📥 Download {prev_label} + {curr_label} Pending Leads (Excel)",
+                    data=_leads_xlsx,
+                    file_name=f"Pending_Leads_{prev_label.replace(' ','_')}_{curr_label.replace(' ','_')}.xlsx",
+                    mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    key='dl_pending_leads_xlsx'
+                )
             if not pend_prev.empty:
                 dl_p = pend_prev[[
                     'Date','Name','Contact_No','Email_Id',
