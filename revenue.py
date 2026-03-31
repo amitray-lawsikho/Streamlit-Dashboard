@@ -1037,30 +1037,6 @@ def generate_helper_pdf_bytes() -> bytes:
             ("Achievement %",        "Team Total Revenue ÷ Team Total Target × 100."),
         ]), SP(1,4*mm),
 
-        # ── Section 10 — Pending Revenue ──
-        BAN("📊","SECTION 10 — CALLERWISE PENDING REVENUE TAB"), SP(1,3*mm),
-        Paragraph("Auto-loads on tab open. Always shows current month + previous month. Not affected by sidebar filters.", S['body']), SP(1,2*mm),
-        ltable([
-            ("Revenue Pool",             "Sum of Course Price for all booking-fee leads (Full_Installment = 'booking fees') with Fee_paid ≥ ₹999 and positive balance. Excludes drop-sheet leads and students who appear in both months (paid balance)."),
-            ("Revenue Collected",        "Sum of Fee_paid (booking fee already received) for the same leads in the pool."),
-            ("Balance to be Recovered",  "Course Price − Fee_paid for each lead. Only leads with balance > 0 are shown."),
-            ("No. of Leads",             "Count of individual pending-balance leads for this caller/team."),
-            ("Leads >48 HRS",            "Count of leads whose enrollment Date is ≤ today − 3 days (IST). Today and the two preceding calendar days are excluded so only genuinely overdue leads are flagged."),
-            ("Balance >48 HRS",          "Sum of pending balance for leads that qualify as >48 hrs overdue."),
-            ("% Pending >48 HRS",        "Balance >48 HRS ÷ Total Balance × 100 for this row."),
-            ("Previous Month columns",   "Same balance and lead count computed from the previous calendar month's pending leads pool."),
-            ("Grand Balance / Leads",    "Current month balance + previous month balance (and lead counts). Rows with grand balance = 0 are hidden."),
-        ]), SP(1,4*mm),
-        BAN("🚫","SECTION 11 — CALLERWISE DROPPED LEADS"), SP(1,3*mm),
-        Paragraph("Drop leads are sourced from the Drop Leads Google Sheet. Each drop is attributed to the caller who originally enrolled the student (matched by email then phone against the revenue sheet).", S['body']), SP(1,2*mm),
-        ltable([
-            ("Current Month Drops",  "Drop form submissions with a timestamp falling in the current calendar month."),
-            ("Previous Month Drops", "Drop form submissions with a timestamp falling in the previous calendar month."),
-            ("Total Drop Cases",     "Current + Previous month drops for this caller."),
-            ("Attribution Logic",    "Email match first; if no email match, phone match. If neither matches any New Enrollment row, attributed to 'Unknown'."),
-            ("Team / Vertical",      "Pulled from the team sheet using the attributed caller name as the merge key."),
-        ]), SP(1,4*mm),
-
         # ── Glossary ──
         BAN("📖","KEY TERMS GLOSSARY", color=GREY_DARK), SP(1,3*mm),
         btable([
@@ -2549,47 +2525,12 @@ with tab2:
                         start_date, end_date
                     )
 
-                    # ── Pending Revenue Insights (unfiltered, loaded fresh) ──
-                    try:
-                        _c_start, _c_end, _p_start, _p_end = pending_months()
-                        _curr_label_ins = _c_start.strftime("%B %Y")
-                        _prev_label_ins = _p_start.strftime("%B %Y")
-                        _, _, _df_meta_ins = get_metadata()
-                        _meta_map_ins = (_df_meta_ins.sort_values('Month', ascending=False)
-                                         .drop_duplicates(subset=['merge_key'], keep='first')
-                                         [['merge_key', 'Caller Name', 'Team Name', 'Vertical']].copy())
-                        _drop_df_ins  = load_drop_leads()
-                        _excl_e = set(_drop_df_ins['drop_email'].dropna().astype(str).unique()) if not _drop_df_ins.empty else set()
-                        _excl_p = set(_drop_df_ins['drop_phone'].dropna().astype(str).unique()) if not _drop_df_ins.empty else set()
-                        _df_both_ins  = fetch_both_months_rev(_p_start, _c_end)
-
-                        _pending_insight = None
-                        _drop_insight    = None
-
-                        if not _df_both_ins.empty:
-                            _df_curr_ins = _df_both_ins[_df_both_ins['Date'] >= _c_start].copy()
-                            _df_prev_ins = _df_both_ins[(_df_both_ins['Date'] >= _p_start) & (_df_both_ins['Date'] <= _p_end)].copy()
-                            _pc = pending_leads_for_month(_df_curr_ins, _excl_e, _excl_p, _df_both_ins)
-                            _pp = pending_leads_for_month(_df_prev_ins, _excl_e, _excl_p, _df_both_ins)
-                            _cc = caller_agg_pending(_pc, _meta_map_ins)
-                            _cp = caller_agg_pending(_pp, _meta_map_ins)
-                            _comb_ins = merge_curr_prev(_cc, _cp)
-
-                            if not _comb_ins.empty:
-                                _comb_ins = _comb_ins[_comb_ins['grand_bal'] > 0].copy()
-                                if not _comb_ins.empty:
-                                    _top_bal = _comb_ins.sort_values('grand_bal', ascending=False).iloc[0]
-                                    _team_bal = (_comb_ins.groupby('Team Name')['grand_bal'].sum()
-                                                 .sort_values(ascending=False))
-                                    _top_team_bal = _team_bal.index[0] if not _team_bal.empty else '—'
-                                    _top_team_bal_amt = _team_bal.iloc[0] if not _team_bal.empty else 0
-                                    _pending_insight = {
-                                        "type": "warn", "icon": "💰",
-                                        "title": f"Highest Pending Balance — {_top_bal['Caller_name']} ({_top_bal.get('Team Name','—')})",
-                                        "body": (f"{_top_bal['Caller_name']} has the highest combined pending balance of "
-                                                 f"{fmt_inr(_top_bal['grand_bal'])} across {int(_top_bal['grand_leads'])} lead(s) "
-                                                 f"({_curr_label_ins} + {_prev_label_ins}). "
-                                                 f"Top team by pending balance
+                    if insights:
+                        cols_ins = st.columns(2)
+                        for i, ins in enumerate(insights):
+                            with cols_ins[i % 2]:
+                                st.markdown(f"""
+                                <div class="insight-card {ins['type']}">
                                     <div style='display:flex;align-items:center;gap:.4rem;'>
                                         <span class="insight-icon">{ins['icon']}</span>
                                         <span class="insight-title">{ins['title']}</span>
