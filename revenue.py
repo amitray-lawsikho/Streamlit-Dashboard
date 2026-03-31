@@ -1469,7 +1469,7 @@ def render_html_pending_table(combined, mode, curr_label, prev_label, title):
                     row_idx += 1
                     html += (
                         "<tr>"
-                        "<td style='" + ds + "text-align:left;'>" + str(r.get("Caller_name", "—")) + "</td>"
+                        "<td style='" + ds + "text-align:center;'>" + str(r.get("Caller_name", "—")) + "</td>"
                         "<td style='" + ds + "'>" + str(team) + "</td>"
                         "<td style='" + ds + "'>" + fmt_inr(r.get("pool", 0)) + "</td>"
                         "<td style='" + ds + "'>" + fmt_inr(r.get("collected", 0)) + "</td>"
@@ -1599,7 +1599,7 @@ def render_drop_html(drop_agg, curr_label, prev_label):
                 drow = ds_alt if drop_row_idx % 2 == 1 else ds
                 drop_row_idx += 1
                 html += f"""<tr>
-                    <td style='{drow}text-align:left;'>{r['Caller_name']}</td>
+                    <td style='{drow}text-align:center;'>{r['Caller_name']}</td>
                     <td style='{drow}'>{team}</td>
                     <td style='{drow}'>{vert}</td>
                     <td style='{drow}'>{int(r['curr_drops'])}</td>
@@ -1953,10 +1953,15 @@ def build_pending_leads_excel(pend_curr, pend_prev, meta_map_pending, curr_label
         for r_idx, (_, r) in enumerate(df.sort_values('Date').iterrows(), 2):
             fill = ALT_FILL if alt else WHITE_FILL
             alt  = not alt
+            _raw_phone = str(r.get('Contact_No', '') or '').strip().replace(' ', '')
+            try:
+                _phone_val = int(_raw_phone) if _raw_phone.lstrip('+').isdigit() else _raw_phone
+            except:
+                _phone_val = _raw_phone
             vals = [
                 str(r.get('Date', '')),
                 str(r.get('Name', '')),
-                str(r.get('Contact_No', '')),
+                _phone_val,
                 str(r.get('Email_Id', '')),
                 str(r.get('Course', '')),
                 str(r.get('_cn', r.get('Caller_name', '—'))),
@@ -1986,13 +1991,15 @@ def build_pending_leads_excel(pend_curr, pend_prev, meta_map_pending, curr_label
     return buf.getvalue()
 
 
-def build_drop_leads_excel(drop_df, c_start, c_end, p_start, p_end, curr_label, prev_label):
+def build_drop_leads_excel(drop_df, c_start, c_end, p_start, p_end, curr_label, prev_label, meta_map_pending=None):
     """
     Returns bytes of an xlsx with 2 tabs:
       Tab 1 — Current month dropped leads
       Tab 2 — Previous month dropped leads
-    Columns: DATE, EMAIL, PHONE NUMBER, CALLER NAME
+    Columns: DATE, EMAIL, PHONE NUMBER, CALLER NAME, TEAM, VERTICAL
     """
+    if meta_map_pending is None:
+        meta_map_pending = pd.DataFrame()
     from openpyxl import Workbook
     from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
     from openpyxl.utils import get_column_letter
@@ -2011,8 +2018,8 @@ def build_drop_leads_excel(drop_df, c_start, c_end, p_start, p_end, curr_label, 
         bottom=Side(style='thin', color='FED7AA'),
     )
 
-    COLS       = ["DATE", "EMAIL", "PHONE NUMBER", "CALLER NAME"]
-    COL_WIDTHS = [14, 36, 16, 28]
+    COLS       = ["DATE", "EMAIL", "PHONE NUMBER", "CALLER NAME", "TEAM", "VERTICAL"]
+    COL_WIDTHS = [14, 36, 16, 28, 22, 18]
 
     e_col = next((c for c in drop_df.columns if 'email' in c.lower() and ('drop' in c.lower() or 'student' in c.lower())), None)
     p_col = next((c for c in drop_df.columns if 'phone' in c.lower() or ('number' in c.lower() and 'drop' in c.lower())), None)
@@ -2041,11 +2048,18 @@ def build_drop_leads_excel(drop_df, c_start, c_end, p_start, p_end, curr_label, 
             drop_date = r.get('drop_date', '')
             if hasattr(drop_date, 'date'):
                 drop_date = drop_date.date()
+            _dp = str(r.get('drop_phone', '') or '').strip().replace(' ', '')
+            try:
+                _dp_val = int(_dp) if _dp.lstrip('+').isdigit() else _dp
+            except:
+                _dp_val = _dp
             vals = [
                 str(drop_date),
                 str(r.get('drop_email', '')),
-                str(r.get('drop_phone', '')),
+                _dp_val,
                 str(r.get('attributed_caller', '—')),
+                str(r.get('_team', '—')),
+                str(r.get('_vert', '—')),
             ]
             for c_idx, v_ in enumerate(vals, 1):
                 cell = ws.cell(r_idx, c_idx, v_)
@@ -2058,9 +2072,49 @@ def build_drop_leads_excel(drop_df, c_start, c_end, p_start, p_end, curr_label, 
     ws1 = wb.active
     ws1.title = f"{curr_label[:3]} {curr_label[-4:]} Drops"[:31]
 
-    # Attribute caller to each drop row
+    # Attribute caller to each drop row using revenue data
     df_work = drop_df.copy()
     df_work['drop_d'] = pd.to_datetime(df_work['drop_date'], errors='coerce').dt.date
+
+    # Build email/phone → caller attribution from the revenue table
+    try:
+        _rev_attr = fetch_both_months_rev(p_start, c_end)
+        if not _rev_attr.empty:
+            _new_enr_attr = _rev_attr[_rev_attr['is_new']].copy()
+            _email_to_caller = _new_enr_attr.drop_duplicates('Email_Id_norm').set_index('Email_Id_norm')['Caller_name'].to_dict()
+            _phone_to_caller = _new_enr_attr.drop_duplicates('Contact_No_norm').set_index('Contact_No_norm')['Caller_name'].to_dict()
+
+            def _get_caller(row):
+                e = str(row.get('drop_email', '')).strip().lower()
+                p = str(row.get('drop_phone', '')).strip()
+                if e and e in _email_to_caller: return _email_to_caller[e]
+                if p and p in _phone_to_caller: return _phone_to_caller[p]
+                return 'Unknown'
+
+            df_work['attributed_caller'] = df_work.apply(_get_caller, axis=1)
+
+            # Build caller → team/vertical lookup from meta
+            from openpyxl import Workbook as _WB  # already imported above, just ensure scope
+            _meta_lkp_drop = {}
+            if not meta_map_pending.empty:
+                for _, _mr in meta_map_pending.iterrows():
+                    _mk = str(_mr.get('merge_key', '')).strip().lower()
+                    _meta_lkp_drop[_mk] = {
+                        'Team Name': _mr.get('Team Name', '—'),
+                        'Vertical':  _mr.get('Vertical',  '—'),
+                    }
+            df_work['_team'] = df_work['attributed_caller'].apply(
+                lambda c: _meta_lkp_drop.get(str(c).strip().lower(), {}).get('Team Name', '—'))
+            df_work['_vert'] = df_work['attributed_caller'].apply(
+                lambda c: _meta_lkp_drop.get(str(c).strip().lower(), {}).get('Vertical', '—'))
+        else:
+            df_work['attributed_caller'] = 'Unknown'
+            df_work['_team'] = '—'
+            df_work['_vert'] = '—'
+    except Exception:
+        df_work['attributed_caller'] = 'Unknown'
+        df_work['_team'] = '—'
+        df_work['_vert'] = '—'
 
     curr_drops = df_work[(df_work['drop_d'] >= c_start) & (df_work['drop_d'] <= c_end)].copy()
     prev_drops = df_work[(df_work['drop_d'] >= p_start) & (df_work['drop_d'] <= p_end)].copy()
@@ -2818,6 +2872,12 @@ with tab3:
                 (combined['grand_bal'] == 0)
             )].copy()
             combined = combined[combined['grand_bal'] > 0].copy()
+
+            # ── Apply sidebar filters ──
+            if selected_vertical:
+                combined = combined[combined['Vertical'].isin(selected_vertical)].copy()
+            if selected_team:
+                combined = combined[combined['Team Name'].isin(selected_team)].copy()
             
            
 
@@ -2879,6 +2939,12 @@ with tab3:
             if not drop_agg.empty:
                 drop_agg = drop_agg[drop_agg['Team Name'] != 'Others'].copy()
 
+                # ── Apply sidebar filters ──
+                if selected_vertical:
+                    drop_agg = drop_agg[drop_agg['Vertical'].isin(selected_vertical)].copy()
+                if selected_team:
+                    drop_agg = drop_agg[drop_agg['Team Name'].isin(selected_team)].copy()
+
                 st.markdown(render_drop_html(drop_agg, curr_label, prev_label), unsafe_allow_html=True)
             else:
                 st.info("No dropped leads found for current or previous month.")
@@ -2887,10 +2953,10 @@ with tab3:
             if not drop_agg.empty:
                 _drop_xlsx = build_drop_leads_excel(
                     drop_df, c_start, c_end, p_start, p_end,
-                    curr_label, prev_label
+                    curr_label, prev_label, meta_map_pending
                 )
                 st.download_button(
-                    label=f"📥 Download Dropped Leads",
+                    label=f"📥 Download Dropped Leads — {prev_label} + {curr_label}",
                     data=_drop_xlsx,
                     file_name=f"Dropped_Leads_{prev_label.replace(' ','_')}_{curr_label.replace(' ','_')}.xlsx",
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
