@@ -2670,22 +2670,6 @@ with tab3:
                     mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                     key='dl_pending_leads_xlsx'
                 )
-            if not pend_prev.empty:
-                dl_p = pend_prev[[
-                    'Date','Name','Contact_No','Email_Id',
-                    'Course','Caller_name','Course_Price','Fee_paid','balance'
-                ]].copy()
-                dl_p.columns = [
-                    'Date','Name','Contact','Email',
-                    'Course','Caller Name','Course Price','Fee Paid','Balance Amount'
-                ]
-                with dl_col2:
-                    st.download_button(
-                        label=f"📥 Download {prev_label} Pending Leads",
-                        data=dl_p.sort_values('Date').to_csv(index=False).encode('utf-8'),
-                        file_name=f"Pending_{prev_label.replace(' ','_')}.csv",
-                        mime='text/csv', key='dl_pend_prev'
-                    )
 
         # ══ DROPPED LEADS ════════════════════════
         st.markdown("<div style='margin:2rem 0;'></div>", unsafe_allow_html=True)
