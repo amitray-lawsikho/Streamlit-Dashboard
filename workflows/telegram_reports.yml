@@ -1,0 +1,27 @@
+name: Telegram Reports
+
+on:
+  schedule:
+    - cron: '30 3 * * 1-5'  # 9:00 AM IST Monday to Friday
+  workflow_dispatch:          # this adds a manual "Run" button
+
+jobs:
+  send-reports:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install playwright pandas google-cloud-bigquery requests pytz openpyxl
+          playwright install --with-deps chromium
+
+      - name: Run reporter
+        run: python telegram_reporter.py
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          GCP_CREDENTIALS:    ${{ secrets.GCP_SERVICE_ACCOUNT_JSON }}
