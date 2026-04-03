@@ -161,16 +161,16 @@ def show_login_page():
 def show_hub_page():
     st.markdown(PREMIUM_CSS, unsafe_allow_html=True)
     
-    # Premium Hero Section
+    # Premium Hero Section (Synced with dashboards_homepage.py)
     st.markdown("""
     <div class='hub-hero'>
         <div style='display:flex; justify-content:center; gap:20px; margin-bottom:30px;'>
-            <div style='font-size:1.5rem; font-weight:800; color:var(--text-primary);'>LawSikho</div>
+            <div style='font-size:1.8rem; font-weight:900; color:var(--text-primary); letter-spacing:-1px;'>LawSikho</div>
             <div style='width:1px; height:25px; background:var(--text-secondary); opacity:0.3;'></div>
-            <div style='font-size:1.5rem; font-weight:800; color:var(--text-primary);'>Skill Arbitrage</div>
+            <div style='font-size:1.8rem; font-weight:900; color:var(--text-primary); letter-spacing:-1px;'>Skill Arbitrage</div>
         </div>
-        <h1 class='hub-headline'>Central Hub</h1>
-        <p class='hub-sub'>India Learning 📖 India Earning<br><span style='opacity:0.6; font-size:0.9rem;'>Integrated performance analytics for sales and operations.</span></p>
+        <h1 class='hub-headline'>Central Intelligence Hub</h1>
+        <p class='hub-sub'>India Learning 📖 India Earning<br><span style='opacity:0.6; font-size:0.9rem;'>Integrated performance analytics and revenue tracking.</span></p>
     </div>
     """, unsafe_allow_html=True)
 
@@ -178,26 +178,28 @@ def show_hub_page():
     with col1:
         st.markdown("""
         <div class='hub-card'>
-            <div class='hub-icon'>🔔</div>
-            <div class='hub-title'>Calling Metrics</div>
-            <div class='hub-desc'>CDR analysis across Ozonetel & Acefone. Agent level productive hours and leaderboard.</div>
-        </div>
+            <div class='hub-icon'>📞</div>
         """, unsafe_allow_html=True)
-        if st.button("Access Calling Dashboard", key="btn_calling", use_container_width=True):
+        if st.button("Calling Metrics", key="btn_calling", use_container_width=True):
             st.session_state["nav_state"] = "Calling"
             st.rerun()
+        st.markdown("""
+            <div class='hub-desc'>CDR analysis, agent leaderboard and productive hours tracking.</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     with col2:
         st.markdown("""
         <div class='hub-card'>
             <div class='hub-icon'>💰</div>
-            <div class='hub-title'>Revenue Metrics</div>
-            <div class='hub-desc'>Revenue tracking, targets achievement, pending collection and drop leads analysis.</div>
-        </div>
         """, unsafe_allow_html=True)
-        if st.button("Access Revenue Dashboard", key="btn_revenue", use_container_width=True):
+        if st.button("Revenue Metrics", key="btn_revenue", use_container_width=True):
             st.session_state["nav_state"] = "Revenue"
             st.rerun()
+        st.markdown("""
+            <div class='hub-desc'>Revenue targets, pending collection and drop leads analysis.</div>
+        </div>
+        """, unsafe_allow_html=True)
 
     st.sidebar.markdown("---")
     if st.sidebar.button("🔓 Sign Out", use_container_width=True):
@@ -4433,39 +4435,32 @@ else:
         show_hub_page()
     else:
         # Dashboard View Navigation
-        
-        # 1. Sign Out at the VERY TOP
-        if st.sidebar.button("🔓 Sign Out", key="top_signout", use_container_width=True):
-            st.session_state["logged_in"] = False
-            st.session_state["nav_state"] = "Login"
-            st.rerun()
-
-        # 2. Premium Branding Logo in the Middle
         accent_color = "#F97316" if st.session_state["nav_state"] == "Calling" else "#10B981"
+        
+        # 1. Branding Logo (Compact)
         st.sidebar.markdown(f"""
-        <div style='padding:1rem 0; text-align:center; border-top:1px solid rgba(255,255,255,0.1);'>
-            <div style='display:flex; align-items:center; justify-content:center; gap:0; margin-bottom:.2rem;'>
+        <div style='padding:0.5rem 0; text-align:center;'>
+            <div style='display:flex; align-items:center; justify-content:center; gap:0; margin-bottom:.1rem;'>
                 <span style='font-size:1.1rem; font-weight:800; color:var(--text-primary); letter-spacing:-0.5px;'>LawSikho</span>
-                <div style='width:1px; height:16px; margin:0 .5rem; background:{accent_color}; box-shadow:0 0 8px {accent_color}80;'></div>
+                <div style='width:1px; height:16px; margin:0 .4rem; background:{accent_color}; box-shadow:0 0 8px {accent_color}80;'></div>
                 <span style='font-size:1.1rem; font-weight:800; color:var(--text-primary); letter-spacing:-0.5px;'>Skill Arbitrage</span>
             </div>
-            <div style='font-size:0.65rem; font-weight:500; color:var(--text-secondary); letter-spacing:0.5px;'>India Learning &nbsp;📖&nbsp; India Earning</div>
+            <div style='font-size:0.6rem; font-weight:500; color:var(--text-secondary); letter-spacing:0.5px;'>India Learning &nbsp;📖&nbsp; India Earning</div>
         </div>
         """, unsafe_allow_html=True)
         
-        # 3. Combined Navigation Row Below Logo
-        col_nav1, col_nav2 = st.sidebar.columns(2)
-        if col_nav1.button("🏠 Hub", use_container_width=True):
+        # 2. Sequential Navigation (No Columns to save ratio)
+        if st.sidebar.button("🏠 Back to Hub", use_container_width=True):
             st.session_state["nav_state"] = "Hub"
             st.rerun()
-        if col_nav2.button("🚪 Logout", use_container_width=True):
+        if st.sidebar.button("🚪 Sign Out", use_container_width=True):
             st.session_state["logged_in"] = False
             st.session_state["nav_state"] = "Login"
             st.rerun()
             
-        st.sidebar.markdown(f"<hr style='border:none; border-top:2px solid {accent_color}; opacity:0.3; margin:0 0 1rem 0;'>", unsafe_allow_html=True)
+        st.sidebar.markdown(f"<hr style='border:none; border-top:1px solid {accent_color}; opacity:0.3; margin:.5rem 0;'>", unsafe_allow_html=True)
         
-        # 4. Render Active Dashboard
+        # 3. Render Active Dashboard
         if st.session_state["nav_state"] == "Calling":
             run_calling_dashboard()
         elif st.session_state["nav_state"] == "Revenue":
