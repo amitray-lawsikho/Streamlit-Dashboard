@@ -9,6 +9,52 @@ from datetime import datetime, date, time, timedelta
 from google.cloud import bigquery
 from google.oauth2 import service_account
 
+# ══════════════════════════════════════════════════════════════════════════════
+# 1. USER CONFIGURATION & CREDENTIALS
+#    Add more users and passwords below in the dictionary format: "username": "password"
+# ══════════════════════════════════════════════════════════════════════════════
+
+USER_CREDENTIALS = {
+    "amit": "lawsikho@2024",
+    "admin": "password",
+    "guest": "welcome@2024",
+}
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 2. PREMIUM STYLING (GLASSMORPHISM & HUB)
+# ══════════════════════════════════════════════════════════════════════════════
+
+PREMIUM_CSS = """
+<style>
+/* Login Screen Styles */
+.login-header { text-align: center; margin-bottom: 2rem; }
+.brand-title { font-size: 2rem; font-weight: 800; color: #fff; margin-bottom: 0.5rem; letter-spacing: -1px; }
+.brand-subtitle { font-size: 0.85rem; color: rgba(255, 255, 255, 0.4); letter-spacing: 1px; text-transform: uppercase; }
+
+/* Hub Card Styles */
+.hub-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 24px;
+    padding: 2.5rem;
+    transition: all 0.3s ease;
+    text-align: center;
+}
+.hub-card:hover {
+    transform: translateY(-8px);
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(16,185,129,0.3);
+}
+.hub-card-icon { font-size: 3rem; margin-bottom: 1.5rem; }
+.hub-card-title { font-size: 1.6rem; font-weight: 700; color: #fff; margin-bottom: 1rem; }
+.hub-card-desc { color: rgba(255,255,255,0.4); font-size: 0.95rem; line-height: 1.6; margin-bottom: 2rem; }
+</style>
+"""
+
+# ══════════════════════════════════════════════════════════════════════════════
+# 3. GLOBAL CONFIG & CREDENTIALS
+# ══════════════════════════════════════════════════════════════════════════════
+
 # ReportLab imports (used by both dashboards)
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -21,8 +67,6 @@ from reportlab.lib.enums import TA_CENTER
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
-
-# --- GLOBAL CONFIG & CREDENTIALS ---
 
 def get_bq_client():
     if "gcp_service_account" in st.secrets:
@@ -39,32 +83,78 @@ def get_bq_client():
 client = get_bq_client()
 
 # --- LOGIN MODULE ---
-def check_password():
-    def password_entered():
-        if st.session_state["username"] == "amit" and st.session_state["password"] == "lawsikho@2024":
-            st.session_state["password_correct"] = True
-            del st.session_state["password"]
-            del st.session_state["username"]
-        else:
-            st.session_state["password_correct"] = False
+def show_login_page():
+    st.markdown(PREMIUM_CSS, unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("<div style='height: 15vh;'></div>", unsafe_allow_html=True)
+        st.markdown("""
+        <div class='login-header'>
+            <div class='brand-title'>Analytics Hub</div>
+            <div class='brand-subtitle'>LawSikho & Skill Arbitrage</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        with st.form("login_form"):
+            user = st.text_input("Username", placeholder="Enter your username")
+            pwd = st.text_input("Password", type="password", placeholder="Enter your password")
+            submit = st.form_submit_button("Sign In")
+            
+            if submit:
+                if user in USER_CREDENTIALS and USER_CREDENTIALS[user] == pwd:
+                    st.session_state["logged_in"] = True
+                    st.session_state["nav_state"] = "Hub"
+                    st.rerun()
+                else:
+                    st.error("Invalid username or password")
 
-    if "password_correct" not in st.session_state:
-        st.text_input("Username", key="username")
-        st.text_input("Password", type="password", key="password")
-        if st.button("Log in"):
-            password_entered()
-            if not st.session_state.get("password_correct", False):
-                st.error("😕 User not known or password incorrect")
-        return False
-    elif not st.session_state["password_correct"]:
-        st.text_input("Username", key="username")
-        st.text_input("Password", type="password", key="password")
-        if st.button("Log in"):
-            password_entered()
-            if not st.session_state.get("password_correct", False):
-                st.error("😕 User not known or password incorrect")
-        return False
-    return True
+def show_hub_page():
+    st.markdown(PREMIUM_CSS, unsafe_allow_html=True)
+    
+    # Header
+    st.markdown("""
+    <div style='text-align:center; padding: 4rem 2rem 2rem;'>
+        <div style='display:flex; justify-content:center; gap:20px; margin-bottom:30px;'>
+            <div style='font-size:1.5rem; font-weight:800; color:#fff;'>LawSikho</div>
+            <div style='width:1px; height:25px; background:rgba(255,255,255,0.2);'></div>
+            <div style='font-size:1.5rem; font-weight:800; color:#fff;'>Skill Arbitrage</div>
+        </div>
+        <h1 style='font-size:3rem; font-weight:800; color:#fff; letter-spacing:-2px; margin-bottom:1rem;'>Intelligence Hub</h1>
+        <p style='color:rgba(255,255,255,0.4); font-size:1.1rem; max-width:600px; margin:0 auto 3rem;'>Select a specialized dashboard to view real-time performance analytics.</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("""
+        <div class='hub-card'>
+            <div class='hub-card-icon'>📞</div>
+            <div class='hub-card-title'>Calling Metrics</div>
+            <div class='hub-card-desc'>Monitor agent productivity, call durations, and team performance in real-time.</div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Open Calling Dashboard", key="btn_calling", use_container_width=True):
+            st.session_state["nav_state"] = "Calling"
+            st.rerun()
+
+    with col2:
+        st.markdown("""
+        <div class='hub-card'>
+            <div class='hub-card-icon'>💰</div>
+            <div class='hub-card-title'>Revenue Metrics</div>
+            <div class='hub-card-desc'>Track daily enrollments, revenue collection, and advanced pending payment insights.</div>
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("Open Revenue Dashboard", key="btn_revenue", use_container_width=True):
+            st.session_state["nav_state"] = "Revenue"
+            st.rerun()
+
+    # Sign Out Option in Sidebar
+    st.sidebar.markdown("---")
+    if st.sidebar.button("🔓 Sign Out", use_container_width=True):
+        st.session_state["logged_in"] = False
+        st.session_state["nav_state"] = "Login"
+        st.rerun()
 
 # --- DASHBOARD FUNCTIONS ---
 
@@ -3486,20 +3576,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         return options
 
     month_options        = build_month_options(min_d, max_d)
-    st.sidebar.markdown("""
-    <div style='padding:.6rem 0 .4rem; text-align:center;'>
-        <div style='display:flex; align-items:center; justify-content:center; gap:0; margin-bottom:.3rem;'>
-            <span class='brand-name'>LawSikho</span>
-            <div style='width:1px; height:18px; margin:0 .6rem;
-                        background:linear-gradient(180deg,transparent,rgba(16,185,129,.9),transparent);
-                        box-shadow:0 0 6px rgba(16,185,129,.5);'></div>
-            <span class='brand-name'>Skill Arbitrage</span>
-        </div>
-        <div class='brand-tagline'>India Learning 📖 India Earning</div>
-        <div style='font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;
-                    color:var(--text-muted,#6B7280);margin-bottom:.5rem;'>Report Controls</div>
-    </div>
-    """, unsafe_allow_html=True)
+    # Removed redundant logo block here as it's now at the top of the sidebar router.
 
     selected_month_label = st.sidebar.selectbox("🗓️ Month", options=list(reversed(list(month_options.keys()))), key="rev_month_select")
     selected_month_date  = month_options[selected_month_label]
@@ -4307,10 +4384,42 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                 st.info("Drop leads sheet could not be loaded.")
 
 # --- MAIN APP ROUTER ---
-if check_password():
-    st.sidebar.title("Navigation")
-    choice = st.sidebar.selectbox("Go to", ["Calling Metrics", "Revenue Metrics"])
-    if choice == "Calling Metrics":
-        run_calling_dashboard()
+if "logged_in" not in st.session_state:
+    st.session_state["logged_in"] = False
+if "nav_state" not in st.session_state:
+    st.session_state["nav_state"] = "Login"
+
+if not st.session_state["logged_in"]:
+    show_login_page()
+else:
+    # ── Sidebar Setup ──
+    if st.session_state["nav_state"] == "Hub":
+        show_hub_page()
     else:
-        run_revenue_dashboard()
+        # Dashboard View - Show Premium Sidebar Branding
+        st.sidebar.markdown("""
+        <div style='padding:0 0 1rem 0; text-align:center; border-bottom:1px solid rgba(16,185,129,0.2); margin-bottom:1rem;'>
+            <div style='display:flex; align-items:center; justify-content:center; gap:0; margin-bottom:.2rem;'>
+                <span style='font-size:1.1rem; font-weight:800; color:#fff; letter-spacing:-0.5px;'>LawSikho</span>
+                <div style='width:1px; height:16px; margin:0 .5rem; background:rgba(16,185,129,0.5);'></div>
+                <span style='font-size:1.1rem; font-weight:800; color:#fff; letter-spacing:-0.5px;'>Skill Arbitrage</span>
+            </div>
+            <div style='font-size:0.65rem; font-weight:500; color:rgba(255,255,255,0.4); letter-spacing:0.5px;'>India Learning 📖 India Earning</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        if st.sidebar.button("🏠 Back to Hub", use_container_width=True):
+            st.session_state["nav_state"] = "Hub"
+            st.rerun()
+            
+        if st.session_state["nav_state"] == "Calling":
+            run_calling_dashboard()
+        elif st.session_state["nav_state"] == "Revenue":
+            run_revenue_dashboard()
+
+        # Final Sidebar Logout
+        st.sidebar.markdown("---")
+        if st.sidebar.button("🔓 Sign Out", use_container_width=True):
+            st.session_state["logged_in"] = False
+            st.session_state["nav_state"] = "Login"
+            st.rerun()
