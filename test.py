@@ -1232,8 +1232,10 @@ def caller_agg_pending(pending_df, meta_map):
 def merge_curr_prev(curr_df, prev_df):
     prev_slim = pd.DataFrame()
     if not prev_df.empty:
-        prev_slim = prev_df[['Caller_name', 'balance', 'leads']].rename(
-            columns={'balance': 'prev_bal', 'leads': 'prev_leads'})
+        # Carry Team Name + Vertical so prev-only callers don't lose their team
+        prev_slim = prev_df[['Caller_name', 'balance', 'leads', 'Team Name', 'Vertical']].rename(
+            columns={'balance': 'prev_bal', 'leads': 'prev_leads',
+                     'Team Name': '_prev_Team', 'Vertical': '_prev_Vertical'})
     if curr_df.empty and prev_df.empty:
         return pd.DataFrame()
     if curr_df.empty:
@@ -1248,8 +1250,10 @@ def merge_curr_prev(curr_df, prev_df):
         combined['prev_leads'] = 0
     else:
         combined = curr_df.merge(prev_slim, on='Caller_name', how='outer')
-        combined['Team Name'] = combined['Team Name'].fillna('Others')
-        combined['Vertical']  = combined['Vertical'].fillna('Others')
+        # Coalesce: prefer curr team info, fall back to prev team info for prev-only callers
+        combined['Team Name'] = combined['Team Name'].fillna(combined['_prev_Team']).fillna('Others')
+        combined['Vertical']  = combined['Vertical'].fillna(combined['_prev_Vertical']).fillna('Others')
+        combined = combined.drop(columns=['_prev_Team', '_prev_Vertical'], errors='ignore')
     for c in ['pool', 'collected', 'balance', 'leads', 'leads_48', 'bal_48hr', 'prev_bal', 'prev_leads']:
         if c in combined.columns:
             combined[c] = combined[c].fillna(0)
