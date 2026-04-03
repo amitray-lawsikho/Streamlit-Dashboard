@@ -1206,55 +1206,100 @@ def pending_leads_for_month(df_m, excl_emails, excl_phones, df_combined=None):
     p['over_48'] = p['Date'] <= cut48
     return p
 
-def caller_agg_pending(pending_df, meta_map):
+def _raw_caller_agg(pending_df):
+    """Pure groupby aggregation — NO metadata merge. Team info added later in one pass."""
     if pending_df.empty:
         return pd.DataFrame()
     b48 = (pending_df[pending_df['over_48']]
            .groupby('Caller_name')['balance'].sum()
            .rename('bal_48hr').reset_index())
     agg = (pending_df.groupby('Caller_name')
-           .agg(pool     =('Course_Price', 'sum'),   # total course price
-                collected=('Fee_paid',     'sum'),   # enrollment fee paid only
-                balance  =('balance',      'sum'),   # outstanding = Course_Price - Fee_paid
+           .agg(pool     =('Course_Price', 'sum'),
+                collected=('Fee_paid',     'sum'),
+                balance  =('balance',      'sum'),
                 leads    =('balance',      'count'),
                 leads_48 =('over_48',      'sum'))
            .reset_index()
            .merge(b48, on='Caller_name', how='left'))
     agg['bal_48hr'] = agg['bal_48hr'].fillna(0)
     agg['leads_48'] = agg['leads_48'].astype(int)
-    agg['mk']       = agg['Caller_name'].str.strip().str.lower()
-    agg = agg.merge(meta_map.rename(columns={'merge_key': 'mk'}), on='mk', how='left')
-    agg['Caller_name'] = agg['Caller Name'].fillna(agg['Caller_name'])
-    agg['Team Name']   = agg['Team Name'].fillna('Others')
-    agg['Vertical']    = agg['Vertical'].fillna('Others')
     return agg
 
-def merge_curr_prev(curr_df, prev_df):
-    prev_slim = pd.DataFrame()
-    if not prev_df.empty:
-        prev_slim = prev_df[['Caller_name', 'balance', 'leads']].rename(
-            columns={'balance': 'prev_bal', 'leads': 'prev_leads'})
-    if curr_df.empty and prev_df.empty:
+def build_combined_agg(curr_pending, prev_pending, meta_map, df_rev=None):
+    """
+    Mirrors attribute_drops_to_callers exactly:
+      0. (NEW) Re-attribute each pending lead's Caller_name to the ORIGINAL
+         NEW ENROLLMENT CALLER via email/phone lookup from df_rev.
+         This is why DROPPED LEADS always shows correct teams — it uses the
+         new-enrollment caller, not the raw booking-fees row caller.
+      1. Raw-aggregate curr and prev separately (no metadata yet)
+      2. Outer-join on Caller_name
+      3. ONE meta_map merge at the end → correct team for every caller.
+    """
+    # ── Step 0: remap Caller_name to canonical new-enrollment caller ──
+    if df_rev is not None and not df_rev.empty:
+        new_enr = df_rev[df_rev['is_new']].copy()
+        email_to_caller = (new_enr.drop_duplicates('Email_Id_norm')
+                           .set_index('Email_Id_norm')['Caller_name'].to_dict())
+        phone_to_caller = (new_enr.drop_duplicates('Contact_No_norm')
+                           .set_index('Contact_No_norm')['Caller_name'].to_dict())
+
+        def _resolve(row):
+            e = str(row.get('Email_Id_norm', '')).strip().lower()
+            p = str(row.get('Contact_No_norm', '')).strip()
+            if e and e in email_to_caller: return email_to_caller[e]
+            if p and p in phone_to_caller: return phone_to_caller[p]
+            return row['Caller_name']  # fallback: keep original
+
+        def _remap(df):
+            if df.empty: return df
+            df = df.copy()
+            df['Caller_name'] = df.apply(_resolve, axis=1)
+            return df
+
+        curr_pending = _remap(curr_pending)
+        prev_pending = _remap(prev_pending)
+
+    curr_agg = _raw_caller_agg(curr_pending)
+    prev_agg = _raw_caller_agg(prev_pending)
+
+    if curr_agg.empty and prev_agg.empty:
         return pd.DataFrame()
-    if curr_df.empty:
+
+    if not prev_agg.empty:
+        prev_slim = prev_agg[['Caller_name', 'balance', 'leads']].rename(
+            columns={'balance': 'prev_bal', 'leads': 'prev_leads'})
+    else:
+        prev_slim = pd.DataFrame(columns=['Caller_name', 'prev_bal', 'prev_leads'])
+
+    if curr_agg.empty:
         combined = prev_slim.copy()
         for c in ['pool', 'collected', 'balance', 'leads', 'leads_48', 'bal_48hr']:
             combined[c] = 0
-        combined = combined.merge(
-            prev_df[['Caller_name', 'Team Name', 'Vertical']], on='Caller_name', how='left')
     elif prev_slim.empty:
-        combined = curr_df.copy()
+        combined = curr_agg.copy()
         combined['prev_bal']   = 0
         combined['prev_leads'] = 0
     else:
-        combined = curr_df.merge(prev_slim, on='Caller_name', how='outer')
-        combined['Team Name'] = combined['Team Name'].fillna('Others')
-        combined['Vertical']  = combined['Vertical'].fillna('Others')
+        combined = curr_agg.merge(prev_slim, on='Caller_name', how='outer')
+
     for c in ['pool', 'collected', 'balance', 'leads', 'leads_48', 'bal_48hr', 'prev_bal', 'prev_leads']:
-        if c in combined.columns:
-            combined[c] = combined[c].fillna(0)
-    combined['grand_bal']   = combined['balance']  + combined['prev_bal']
+        if c not in combined.columns:
+            combined[c] = 0
+        combined[c] = combined[c].fillna(0)
+
+    combined['grand_bal']   = combined['balance'] + combined['prev_bal']
     combined['grand_leads'] = combined['leads'].astype(int) + combined['prev_leads'].astype(int)
+
+    # Deduplicate meta_map and merge ONCE for ALL callers (curr + prev + both)
+    meta_dedup = (meta_map[['merge_key', 'Caller Name', 'Team Name', 'Vertical']]
+                  .drop_duplicates(subset=['merge_key'], keep='first'))
+    combined['mk'] = combined['Caller_name'].str.strip().str.lower()
+    combined = combined.merge(
+        meta_dedup.rename(columns={'merge_key': 'mk'}), on='mk', how='left')
+    combined['Caller_name'] = combined['Caller Name'].fillna(combined['Caller_name'])
+    combined['Team Name']   = combined['Team Name'].fillna('Others')
+    combined['Vertical']    = combined['Vertical'].fillna('Others')
     return combined
 
 def _pct48(b48, bal):
@@ -2626,12 +2671,10 @@ with tab2:
                             _df_prev_ins = _df_both_ins[(_df_both_ins['Date'] >= _p_start) & (_df_both_ins['Date'] <= _p_end)].copy()
                             _pc = pending_leads_for_month(_df_curr_ins, _excl_e, _excl_p, _df_both_ins)
                             _pp = pending_leads_for_month(_df_prev_ins, _excl_e, _excl_p, _df_both_ins)
-                            _cc = caller_agg_pending(_pc, _meta_map_ins)
-                            _cp = caller_agg_pending(_pp, _meta_map_ins)
-                            _comb_ins = merge_curr_prev(_cc, _cp)
+                            _cc = build_combined_agg(_pc, _pp, _meta_map_ins, _df_both_ins)
 
-                            if not _comb_ins.empty:
-                                _comb_ins = _comb_ins[_comb_ins['grand_bal'] > 0].copy()
+                            if not _cc.empty:
+                                _comb_ins = _cc[_cc['grand_bal'] > 0].copy()
                                 if not _comb_ins.empty:
                                     _top_bal = _comb_ins.sort_values('grand_bal', ascending=False).iloc[0]
                                     _team_bal = (_comb_ins.groupby('Team Name')['grand_bal'].sum()
@@ -2860,9 +2903,8 @@ with tab3:
         pend_curr = pending_leads_for_month(df_curr, excl_emails, excl_phones, df_both)
         pend_prev = pending_leads_for_month(df_prev, excl_emails, excl_phones, df_both)
 
-        curr_cal  = caller_agg_pending(pend_curr, meta_map_pending)
-        prev_cal  = caller_agg_pending(pend_prev, meta_map_pending)
-        combined  = merge_curr_prev(curr_cal, prev_cal)
+        # Build combined agg with ONE meta_map merge (mirrors DROPPED LEADS approach)
+        combined  = build_combined_agg(pend_curr, pend_prev, meta_map_pending, df_both)
 
         # ── Remove Others and zero-balance callers ──
         if not combined.empty:
