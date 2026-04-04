@@ -4570,13 +4570,20 @@ else:
     st.markdown("""
     <style>
     footer { visibility: hidden; }
-    [data-testid="stStatusWidget"]           { display: none !important; }
-    header[data-testid="stHeader"]           { display: none !important; }
-    [data-testid="stToolbar"]                { display: none !important; }
+    [data-testid="stStatusWidget"]            { display: none !important; }
+
+    /* Hide theme switcher and toolbar icons but NOT the sidebar toggle */
+    [data-testid="stToolbar"]                 { display: none !important; }
+    [data-testid="stAppToolbar"]              { display: none !important; }
     [data-testid="stToolbarActionButtonIcon"] { display: none !important; }
-    [data-testid="stAppToolbar"]             { display: none !important; }
-    #MainMenu                                { display: none !important; }
-    .stDeployButton                          { display: none !important; }
+    .stDeployButton                           { display: none !important; }
+    #MainMenu                                 { display: none !important; }
+
+    /* Keep header visible but make it transparent — sidebar toggle lives here */
+    header[data-testid="stHeader"] {
+        background: transparent !important;
+        box-shadow: none !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
