@@ -409,11 +409,6 @@ def run_calling_dashboard():
         min-width: 280px !important;
         max-width: 280px !important;
     }
-    [data-testid="stSidebar"][aria-expanded="false"] {
-        min-width: 0px !important;
-        max-width: 0px !important;
-        overflow: hidden !important;
-    }
     [data-testid="stMainBlockContainer"],
     .block-container {
         max-width: 100% !important;
@@ -1707,17 +1702,15 @@ def run_revenue_dashboard():
     # ADD THIS CSS BLOCK FIRST:
     st.markdown("""
     <style>
-    [data-testid="stSidebar"] {
+    [data-testid="stSidebar"][aria-expanded="true"] {
         min-width: 280px !important;
         max-width: 280px !important;
     }
-    [data-testid="stMainBlockContainer"] {
+    [data-testid="stMainBlockContainer"],
+    .block-container {
         max-width: 100% !important;
         padding-left: 2rem !important;
         padding-right: 2rem !important;
-    }
-    .block-container {
-        max-width: 100% !important;
     }
     </style>
     """, unsafe_allow_html=True)
