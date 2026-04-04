@@ -22,7 +22,15 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 
+
 # --- GLOBAL CONFIG & CREDENTIALS ---
+import streamlit.components.v1 as components
+st.set_page_config(
+    page_title="Analytics Dashboard — LawSikho",
+    page_icon="📊",
+    layout="wide",
+    initial_sidebar_state="collapsed"
+)
 
 def get_bq_client():
     if "gcp_service_account" in st.secrets:
@@ -49,27 +57,634 @@ def check_password():
             st.session_state["password_correct"] = False
 
     if "password_correct" not in st.session_state:
-        st.text_input("Username", key="username")
-        st.text_input("Password", type="password", key="password")
-        if st.button("Log in"):
-            password_entered()
-            if not st.session_state.get("password_correct", False):
-                st.error("😕 User not known or password incorrect")
-        return False
-    elif not st.session_state["password_correct"]:
-        st.text_input("Username", key="username")
-        st.text_input("Password", type="password", key="password")
-        if st.button("Log in"):
-            password_entered()
-            if not st.session_state.get("password_correct", False):
-                st.error("😕 User not known or password incorrect")
-        return False
-    return True
+        st.session_state["password_correct"] = False
+    
+    return st.session_state["password_correct"]
 
 # --- DASHBOARD FUNCTIONS ---
+@st.cache_data(ttl=300, show_spinner=False)
+def get_stats():
+    try:
+        r1 = client.query("""
+            SELECT updated_at_ampm FROM (
+                SELECT updated_at_ampm FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`
+                UNION ALL
+                SELECT updated_at_ampm FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls`
+            ) WHERE updated_at_ampm IS NOT NULL ORDER BY 1 DESC LIMIT 1
+        """).to_dataframe()
+        call_time = str(r1["updated_at_ampm"].iloc[0]) if not r1.empty else "N/A"
+
+        r2 = client.query("""
+            SELECT SUM(c) AS t FROM (
+                SELECT COUNT(*) AS c FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`
+                UNION ALL
+                SELECT COUNT(*) AS c FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls`
+            )
+        """).to_dataframe()
+        call_cnt = "{:,}".format(int(r2["t"].iloc[0])) if not r2.empty else "—"
+
+        r3 = client.query("""
+            SELECT MAX(updated_at_ampm) AS last_updated, COUNT(*) AS cnt
+            FROM `studious-apex-488820-c3.crm_dashboard.revenue_sheet`
+        """).to_dataframe()
+        rev_time = str(r3["last_updated"].iloc[0]) if not r3.empty and r3["last_updated"].iloc[0] else "N/A"
+        rev_cnt  = "{:,}".format(int(r3["cnt"].iloc[0])) if not r3.empty else "0"
+
+        return call_time, call_cnt, rev_time, rev_cnt
+    except:
+        return "N/A", "—", "N/A", "—"
+
+# ADD THIS FUNCTION AFTER get_stats() and BEFORE run_calling_dashboard()
+# ===========================================================================
+
+def show_homepage_with_login():
+    import streamlit.components.v1 as components
+    
+    st.markdown("""
+    <style>
+    footer { visibility: hidden; }
+    #MainMenu { display: none !important; }
+    header[data-testid="stHeader"] { display: none !important; }
+    [data-testid="stStatusWidget"] { display: none !important; }
+    [data-testid="collapsedControl"] { display: none !important; }
+    [data-testid="stSidebarCollapsedControl"] { display: none !important; }
+    [data-testid="stAppViewContainer"],
+    [data-testid="stMain"], .main { background: #0B1120 !important; }
+    .block-container { padding: 2rem 1rem !important; max-width: 100% !important; }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    call_time, call_cnt, rev_time, rev_cnt = get_stats()
+    
+    # Logo URLs - replace with your actual URLs or use fallback text
+    LAWSIKHO_LOGO = "https://via.placeholder.com/150x50/F97316/FFFFFF?text=LawSikho"
+    SKILLARBITRAGE_LOGO = "https://via.placeholder.com/150x50/34D399/FFFFFF?text=SkillArbitrage"
+    
+    html = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
+    <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        background: #0B1120;
+        color: #E2E8F0;
+        min-height: 100vh;
+        overflow-x: hidden;
+    }
+    body {
+        background:
+            radial-gradient(ellipse 80% 50% at 50% -10%, rgba(59,130,246,.12) 0%, transparent 60%),
+            radial-gradient(ellipse 60% 40% at 90% 80%, rgba(249,115,22,.08) 0%, transparent 55%),
+            radial-gradient(ellipse 50% 35% at 10% 90%, rgba(139,92,246,.06) 0%, transparent 50%),
+            #0B1120;
+    }
+    body::before {
+        content: "";
+        position: fixed; inset: 0;
+        background-image:
+            linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px);
+        background-size: 48px 48px;
+        pointer-events: none; z-index: 0;
+    }
+    .page { position: relative; z-index: 1; }
+    .hero {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        padding: 3rem 2rem 2rem;
+    }
+    .logo-block {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0;
+        margin-bottom: 1.2rem;
+    }
+    .logo-side {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0 2rem;
+    }
+    .logo-img {
+        height: 46px;
+        width: auto;
+        object-fit: contain;
+        mix-blend-mode: lighten;
+        filter: brightness(1.25) contrast(1.1) saturate(.95);
+    }
+    .logo-fallback {
+        font-size: 1.3rem;
+        font-weight: 700;
+        color: #fff;
+    }
+    .logo-glow-sep {
+        width: 1px;
+        height: 52px;
+        background: linear-gradient(180deg,
+            transparent 0%,
+            rgba(249,115,22,.8) 35%,
+            rgba(251,146,60,.9) 50%,
+            rgba(249,115,22,.8) 65%,
+            transparent 100%);
+        box-shadow: 0 0 8px rgba(249,115,22,.6), 0 0 20px rgba(249,115,22,.3);
+        border-radius: 1px;
+    }
+    .hero-tagline {
+        font-family: 'Fira Code', monospace;
+        font-size: .78rem;
+        color: rgba(255,255,255,.38);
+        letter-spacing: 1.5px;
+        margin-bottom: 2.5rem;
+    }
+    .hero-eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: .5rem;
+        font-family: 'Fira Code', monospace;
+        font-size: .68rem;
+        letter-spacing: 2.5px;
+        text-transform: uppercase;
+        color: #F97316;
+        background: rgba(249,115,22,.08);
+        border: 1px solid rgba(249,115,22,.18);
+        border-radius: 100px;
+        padding: .3rem 1rem;
+        margin-bottom: 1.4rem;
+    }
+    .eyebrow-dot {
+        width: 5px; height: 5px;
+        background: #F97316;
+        border-radius: 50%;
+        box-shadow: 0 0 6px #F97316;
+        animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50%       { opacity: .5; transform: scale(1.4); }
+    }
+    .hero-headline {
+        font-family: 'Playfair Display', serif;
+        font-size: clamp(2.2rem, 5vw, 3.8rem);
+        font-weight: 800;
+        line-height: 1.08;
+        color: #FFFFFF;
+        letter-spacing: -1.5px;
+        margin-bottom: .8rem;
+    }
+    .hero-headline .accent {
+        background: linear-gradient(125deg, #F97316 0%, #FB923C 40%, #FBBF24 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        display: inline-block;
+    }
+    .hero-sub {
+        font-size: 1.1rem;
+        font-weight: 300;
+        color: rgba(255,255,255,.42);
+        margin-bottom: 2.5rem;
+        max-width: 560px;
+    }
+    .login-section {
+        max-width: 420px;
+        margin: 0 auto 3rem;
+        background: rgba(255,255,255,.04);
+        border: 1px solid rgba(255,255,255,.09);
+        border-radius: 20px;
+        padding: 2.5rem 2rem;
+        backdrop-filter: blur(12px);
+    }
+    .login-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.4rem;
+        font-weight: 600;
+        color: #fff;
+        text-align: center;
+        margin-bottom: 1.8rem;
+    }
+    .stats-row {
+        display: flex;
+        justify-content: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+        padding: 0 2rem;
+        margin-bottom: 3rem;
+    }
+    .stat-card {
+        display: flex;
+        align-items: center;
+        gap: .85rem;
+        background: rgba(255,255,255,.04);
+        border: 1px solid rgba(255,255,255,.08);
+        border-radius: 16px;
+        padding: .9rem 1.4rem;
+        min-width: 260px;
+        flex: 1;
+        max-width: 340px;
+        backdrop-filter: blur(12px);
+        transition: all .2s;
+    }
+    .stat-card:hover { transform: translateY(-2px); }
+    .stat-card.sc-call:hover {
+        border-color: rgba(249,115,22,.22);
+        background: rgba(249,115,22,.04);
+    }
+    .stat-card.sc-rev:hover {
+        border-color: rgba(52,211,153,.22);
+        background: rgba(52,211,153,.04);
+    }
+    .stat-icon-wrap {
+        width: 38px; height: 38px;
+        border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: .95rem; flex-shrink: 0;
+    }
+    .si-call { background: rgba(249,115,22,.14); }
+    .si-rev  { background: rgba(52,211,153,.12); }
+    .si-lead { background: rgba(139,92,246,.12); }
+    .stat-info { display: flex; flex-direction: column; gap: 2px; }
+    .stat-lbl {
+        font-family: 'Fira Code', monospace;
+        font-size: .58rem;
+        text-transform: uppercase;
+        color: rgba(255,255,255,.3);
+    }
+    .stat-val {
+        font-family: 'Fira Code', monospace;
+        font-size: .8rem;
+        color: rgba(255,255,255,.82);
+        white-space: nowrap;
+    }
+    .stat-sub {
+        font-family: 'Fira Code', monospace;
+        font-size: .58rem;
+        color: rgba(255,255,255,.2);
+    }
+    .pill-live, .pill-wip {
+        margin-left: auto;
+        font-family: 'Fira Code', monospace;
+        font-size: .55rem;
+        letter-spacing: .8px;
+        text-transform: uppercase;
+        border-radius: 20px;
+        padding: 2px 8px;
+    }
+    .pill-live {
+        color: #34D399;
+        background: rgba(52,211,153,.1);
+        border: 1px solid rgba(52,211,153,.18);
+    }
+    .pill-wip {
+        color: #FBBF24;
+        background: rgba(251,191,36,.1);
+        border: 1px solid rgba(251,191,36,.18);
+    }
+    .dashboards-section {
+        padding: 0 2rem 4rem;
+        max-width: 1120px;
+        margin: 0 auto;
+    }
+    .section-head {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .section-line {
+        flex: 1;
+        height: 1px;
+        background: rgba(255,255,255,.07);
+    }
+    .section-lbl {
+        font-family: 'Fira Code', monospace;
+        font-size: .65rem;
+        letter-spacing: 2.5px;
+        text-transform: uppercase;
+        color: rgba(255,255,255,.25);
+    }
+    .cards-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.25rem;
+    }
+    @media (max-width: 900px) { .cards-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 1200px) and (min-width: 901px) { .cards-grid { grid-template-columns: repeat(2, 1fr); } }
+    .dcard {
+        background: rgba(255,255,255,.035);
+        border: 1px solid rgba(255,255,255,.09);
+        border-radius: 20px;
+        padding: 1.8rem 1.7rem 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: .75rem;
+        transition: transform .25s, box-shadow .25s, border-color .25s;
+    }
+    .dcard:hover { transform: translateY(-5px); }
+    .dcard.wip { opacity: .55; }
+    .dcard-call { border-top: 2px solid rgba(249,115,22,.4); }
+    .dcard-rev  { border-top: 2px solid rgba(52,211,153,.35); }
+    .dcard-lead { border-top: 2px solid rgba(139,92,246,.3); }
+    .dcard-call:hover {
+        border-color: #F97316;
+        background: rgba(249,115,22,.04);
+        box-shadow: 0 20px 60px rgba(249,115,22,.1);
+    }
+    .dcard-rev:hover {
+        border-color: #34D399;
+        background: rgba(52,211,153,.04);
+        box-shadow: 0 20px 60px rgba(52,211,153,.08);
+    }
+    .dcard-header {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+    }
+    .dcard-icon { font-size: 1.8rem; }
+    .dcard-wip-badge {
+        font-family: 'Fira Code', monospace;
+        font-size: .55rem;
+        text-transform: uppercase;
+        color: #FBBF24;
+        background: rgba(251,191,36,.08);
+        border: 1px solid rgba(251,191,36,.18);
+        border-radius: 8px;
+        padding: 3px 9px;
+    }
+    .dcard-title {
+        font-family: 'Playfair Display', serif;
+        font-size: 1.2rem;
+        font-weight: 600;
+        color: #fff;
+    }
+    .dcard-desc {
+        font-size: .8rem;
+        color: rgba(255,255,255,.42);
+        line-height: 1.7;
+    }
+    .dcard-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: .4rem;
+        margin-top: .2rem;
+    }
+    .dtag {
+        font-family: 'Fira Code', monospace;
+        font-size: .58rem;
+        color: rgba(255,255,255,.32);
+        background: rgba(255,255,255,.05);
+        border: 1px solid rgba(255,255,255,.08);
+        border-radius: 6px;
+        padding: 2px 9px;
+        text-transform: uppercase;
+    }
+    .site-footer {
+        border-top: 1px solid rgba(255,255,255,.06);
+        padding: 2rem;
+        text-align: center;
+    }
+    .footer-top {
+        font-family: 'Fira Code', monospace;
+        font-size: .68rem;
+        color: rgba(255,255,255,.35);
+        margin-bottom: .5rem;
+    }
+    .footer-bottom {
+        font-family: 'Fira Code', monospace;
+        font-size: .62rem;
+        color: rgba(255,255,255,.18);
+    }
+    .footer-dot {
+        display: inline-block;
+        width: 3px;
+        height: 3px;
+        background: rgba(249,115,22,.5);
+        border-radius: 50%;
+        margin: 0 .5rem;
+    }
+    </style>
+    </head>
+    <body>
+    <div class="page">
+      <div class="hero">
+        <div class="logo-block">
+          <div class="logo-side">
+            <span class="logo-fallback">LawSikho</span>
+          </div>
+          <div class="logo-glow-sep"></div>
+          <div class="logo-side">
+            <span class="logo-fallback">Skill Arbitrage</span>
+          </div>
+        </div>
+        <div class="hero-tagline">India Learning &nbsp;📖&nbsp; India Earning</div>
+        <div class="hero-eyebrow">
+          <span class="eyebrow-dot"></span>
+          Internal Analytics Hub
+        </div>
+        <div class="hero-headline">
+          All your dashboards,<br><span class="accent">at one place</span>
+        </div>
+        <div class="hero-sub">
+          Real-time insights across Leads, Revenue &amp; Calling
+        </div>
+      </div>
+      
+      <div class="login-section">
+        <div class="login-title">🔐 Sign In to Continue</div>
+      </div>
+      
+      <div class="stats-row">
+        <div class="stat-card sc-call">
+          <div class="stat-icon-wrap si-call">🔔</div>
+          <div class="stat-info">
+            <span class="stat-lbl">Calling Data</span>
+            <span class="stat-val">""" + call_time + """</span>
+            <span class="stat-sub">""" + call_cnt + """ records</span>
+          </div>
+          <span class="pill-live">● Live</span>
+        </div>
+        <div class="stat-card sc-rev">
+          <div class="stat-icon-wrap si-rev">💰</div>
+          <div class="stat-info">
+            <span class="stat-lbl">Revenue Data</span>
+            <span class="stat-val">""" + rev_time + """</span>
+            <span class="stat-sub">""" + rev_cnt + """ records</span>
+          </div>
+          <span class="pill-live">● Live</span>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon-wrap si-lead">📊</div>
+          <div class="stat-info">
+            <span class="stat-lbl">Lead Data</span>
+            <span class="stat-val" style="color:rgba(255,255,255,.28);">Under Development</span>
+            <span class="stat-sub">Pipeline coming soon</span>
+          </div>
+          <span class="pill-wip">🚧 WIP</span>
+        </div>
+      </div>
+      
+      <div class="dashboards-section">
+        <div class="section-head">
+          <div class="section-line"></div>
+          <span class="section-lbl">Dashboards</span>
+          <div class="section-line"></div>
+        </div>
+        <div class="cards-grid">
+          <div class="dcard dcard-call">
+            <div class="dcard-header">
+              <div class="dcard-icon">🔔</div>
+            </div>
+            <div class="dcard-title">Calling Metrics</div>
+            <div class="dcard-desc">
+              Full CDR analysis across Ozonetel, Acefone &amp; Manual calls.
+              Agent-level performance, break tracking, productive hours &amp; team leaderboards.
+            </div>
+            <div class="dcard-tags">
+              <span class="dtag">Ozonetel</span>
+              <span class="dtag">Acefone</span>
+              <span class="dtag">Manual</span>
+              <span class="dtag">Teams</span>
+            </div>
+          </div>
+          <div class="dcard dcard-rev">
+            <div class="dcard-header">
+              <div class="dcard-icon">💰</div>
+            </div>
+            <div class="dcard-title">Revenue Metrics</div>
+            <div class="dcard-desc">
+              Enrollment revenue, target achievement &amp; caller-level breakdown.
+              Course performance, source mix &amp; team leaderboards.
+            </div>
+            <div class="dcard-tags">
+              <span class="dtag">Enrollments</span>
+              <span class="dtag">Targets</span>
+              <span class="dtag">Achievement</span>
+              <span class="dtag">Teams</span>
+            </div>
+          </div>
+          <div class="dcard dcard-lead wip">
+            <div class="dcard-header">
+              <div class="dcard-icon">📊</div>
+              <span class="dcard-wip-badge">🚧 Coming Soon</span>
+            </div>
+            <div class="dcard-title">Lead Metrics</div>
+            <div class="dcard-desc">
+              Currently under development.
+            </div>
+            <div class="dcard-tags">
+              <span class="dtag">Fresh</span>
+              <span class="dtag">Breached</span>
+              <span class="dtag">Less Dialled</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="site-footer">
+        <div class="footer-top">
+          For Internal Use of Sales and Operations Team Only
+          <span class="footer-dot"></span>
+          All Rights Reserved
+        </div>
+        <div class="footer-bottom">
+          Developed and Designed by Amit Ray
+          <span class="footer-dot"></span>
+          Reach out for Support and Queries
+        </div>
+      </div>
+    </div>
+    </body>
+    </html>
+    """
+    
+    components.html(html, height=1400, scrolling=True)
+    
+    # Login form positioned over the login section
+    st.markdown("""
+    <style>
+    .login-container {
+        max-width: 420px;
+        margin: -580px auto 0;
+        position: relative;
+        z-index: 1000;
+    }
+    .stTextInput > div > div > input {
+        background: rgba(255,255,255,.08) !important;
+        border: 1px solid rgba(255,255,255,.12) !important;
+        color: #fff !important;
+        border-radius: 12px !important;
+        padding: 12px 16px !important;
+        font-size: 0.95rem !important;
+    }
+    .stTextInput > div > div > input:focus {
+        border-color: #F97316 !important;
+        box-shadow: 0 0 0 2px rgba(249,115,22,.15) !important;
+    }
+    .stTextInput label {
+        color: rgba(255,255,255,.5) !important;
+        font-size: 0.85rem !important;
+        font-weight: 500 !important;
+    }
+    .stButton > button {
+        width: 100% !important;
+        background: linear-gradient(135deg, #F97316, #FB923C) !important;
+        color: #fff !important;
+        border: none !important;
+        border-radius: 12px !important;
+        padding: 12px !important;
+        font-size: 0.95rem !important;
+        font-weight: 600 !important;
+        margin-top: 8px !important;
+    }
+    .stButton > button:hover {
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 24px rgba(249,115,22,.3) !important;
+    }
+    </style>
+    <div class="login-container">
+    """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        username = st.text_input("Username", key="username")
+    with col2:
+        password = st.text_input("Password", type="password", key="password")
+    
+    if st.button("Sign In", key="login_btn"):
+        if username == "amit" and password == "lawsikho@2024":
+            st.session_state["password_correct"] = True
+            st.rerun()
+        else:
+            st.error("😕 User not known or password incorrect")
+    
+    st.markdown("</div>", unsafe_allow_html=True)
+
 
 def run_calling_dashboard():
-    # VERBATIM INJECTION FROM calling_data.py
+    # ADD THIS CSS BLOCK FIRST:
+    st.markdown("""
+    <style>
+    [data-testid="stSidebar"] {
+        min-width: 280px !important;
+        max-width: 280px !important;
+    }
+    [data-testid="stMainBlockContainer"] {
+        max-width: 100% !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+    }
+    .block-container {
+        max-width: 100% !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRT73ztvPNZSvIu5WLxo-3WQ76JMAnt4P9dITd4EAbjSvuDytfgvdfri1WPXotCjm_Etnb80_Q7S-wf/pub?gid=0&single=true&output=csv"
 
     # --- PROFESSIONAL WARM THEME ---
@@ -1358,6 +1973,23 @@ def run_calling_dashboard():
 
 
 def run_revenue_dashboard():
+    # ADD THIS CSS BLOCK FIRST:
+    st.markdown("""
+    <style>
+    [data-testid="stSidebar"] {
+        min-width: 280px !important;
+        max-width: 280px !important;
+    }
+    [data-testid="stMainBlockContainer"] {
+        max-width: 100% !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+    }
+    .block-container {
+        max-width: 100% !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
     # ─────────────────────────────────────────────
     # 1. CREDENTIALS & CONFIG
     # ─────────────────────────────────────────────
@@ -4307,9 +4939,66 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                 st.info("Drop leads sheet could not be loaded.")
 
 # --- MAIN APP ROUTER ---
-if check_password():
-    st.sidebar.title("Navigation")
-    choice = st.sidebar.selectbox("Go to", ["Calling Metrics", "Revenue Metrics"])
+if not check_password():
+    # Show homepage with login
+    show_homepage_with_login()
+else:
+    # User is logged in - show dashboards
+    
+    # Global CSS for logged-in state
+    st.markdown("""
+    <style>
+    /* Hide default Streamlit elements */
+    footer { visibility: hidden; }
+    [data-testid="stStatusWidget"] { display: none !important; }
+    header[data-testid="stHeader"] { background: transparent !important; }
+    
+    /* Sidebar styling */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0B1120 0%, #1a1f35 100%) !important;
+        border-right: 1px solid rgba(249,115,22,.15) !important;
+    }
+    [data-testid="stSidebar"] .stSelectbox label {
+        display: none !important;
+    }
+    [data-testid="stSidebar"] [data-baseweb="select"] > div {
+        background: rgba(255,255,255,.06) !important;
+        border: 1px solid rgba(255,255,255,.1) !important;
+        border-radius: 10px !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Sidebar header with logos
+    st.sidebar.markdown("""
+    <div style='text-align:center; padding:1.5rem 0.5rem 1rem; border-bottom: 1px solid rgba(255,255,255,.08);'>
+        <div style='font-size:1.1rem; font-weight:700; color:#F97316; letter-spacing:-0.5px; margin-bottom:0.3rem;'>
+            LawSikho · Skill Arbitrage
+        </div>
+        <div style='font-size:0.65rem; color:rgba(255,255,255,.35); letter-spacing:1px; font-family:monospace;'>
+            India Learning 📖 India Earning
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Navigation dropdown header
+    st.sidebar.markdown("""
+    <div style='padding:1rem 0 0.6rem;'>
+        <div style='font-size:0.7rem; color:rgba(255,255,255,.5); text-transform:uppercase; 
+                    letter-spacing:1.5px; font-weight:600; text-align:center;'>
+            Go to
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Navigation selectbox
+    choice = st.sidebar.selectbox(
+        "",
+        ["Calling Metrics", "Revenue Metrics"],
+        label_visibility="collapsed"
+    )
+    
+    # Render selected dashboard
     if choice == "Calling Metrics":
         run_calling_dashboard()
     else:
