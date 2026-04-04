@@ -29,7 +29,7 @@ st.set_page_config(
     page_title="Analytics Dashboard — LawSikho",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 def get_bq_client():
@@ -519,15 +519,18 @@ def run_calling_dashboard():
     # ADD THIS CSS BLOCK FIRST:
     st.markdown("""
     <style>
-    /* ── Lock sidebar open: hide collapse/expand toggle buttons ── */
-    [data-testid="stSidebarCollapseButton"]      { display: none !important; }
-    [data-testid="collapsedControl"]             { display: none !important; }
-    [data-testid="stSidebarCollapsedControl"]    { display: none !important; }
-    
-    /* ── Hide theme switcher (hamburger menu) ── */
-    #MainMenu                                    { display: none !important; }
-    header[data-testid="stHeader"] button[kind="headerNoPadding"],
-    [data-testid="stToolbarActions"]             { display: none !important; }
+    [data-testid="stSidebar"] {
+        min-width: 280px !important;
+        max-width: 280px !important;
+    }
+    [data-testid="stMainBlockContainer"] {
+        max-width: 100% !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+    }
+    .block-container {
+        max-width: 100% !important;
+    }
     </style>
     """, unsafe_allow_html=True)
     CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRT73ztvPNZSvIu5WLxo-3WQ76JMAnt4P9dITd4EAbjSvuDytfgvdfri1WPXotCjm_Etnb80_Q7S-wf/pub?gid=0&single=true&output=csv"
@@ -1821,17 +1824,21 @@ def run_calling_dashboard():
 
 
 def run_revenue_dashboard():
+    # ADD THIS CSS BLOCK FIRST:
     st.markdown("""
     <style>
-    /* ── Lock sidebar open: hide collapse/expand toggle buttons ── */
-    [data-testid="stSidebarCollapseButton"]      { display: none !important; }
-    [data-testid="collapsedControl"]             { display: none !important; }
-    [data-testid="stSidebarCollapsedControl"]    { display: none !important; }
-    
-    /* ── Hide theme switcher (hamburger menu) ── */
-    #MainMenu                                    { display: none !important; }
-    header[data-testid="stHeader"] button[kind="headerNoPadding"],
-    [data-testid="stToolbarActions"]             { display: none !important; }
+    [data-testid="stSidebar"] {
+        min-width: 280px !important;
+        max-width: 280px !important;
+    }
+    [data-testid="stMainBlockContainer"] {
+        max-width: 100% !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+    }
+    .block-container {
+        max-width: 100% !important;
+    }
     </style>
     """, unsafe_allow_html=True)
     # ─────────────────────────────────────────────
@@ -4781,13 +4788,8 @@ else:
     st.markdown("""
     <style>
     footer { visibility: hidden; }
-    [data-testid="stStatusWidget"]            { display: none !important; }
-    header[data-testid="stHeader"]            { background: transparent !important; }
-    [data-testid="stSidebarCollapseButton"]   { display: none !important; }
-    [data-testid="collapsedControl"]          { display: none !important; }
-    [data-testid="stSidebarCollapsedControl"] { display: none !important; }
-    #MainMenu                                 { display: none !important; }
-    [data-testid="stToolbarActions"]          { display: none !important; }
+    [data-testid="stStatusWidget"] { display: none !important; }
+    header[data-testid="stHeader"] { background: transparent !important; }
     </style>
     """, unsafe_allow_html=True)
 
