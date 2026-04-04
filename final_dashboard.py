@@ -42,7 +42,20 @@ def get_bq_client():
             return bigquery.Client()
         return None
 
-client = get_bq_client()
+@st.cache_resource
+def get_cached_bq_client():
+    if "gcp_service_account" in st.secrets:
+        info = dict(st.secrets["gcp_service_account"])
+        credentials = service_account.Credentials.from_service_account_info(info)
+        return bigquery.Client(credentials=credentials, project=info["project_id"])
+    else:
+        SERVICE_ACCOUNT_FILE = "C:\\Users\\AMIT GAMING\\.gemini\\antigravity\\secrets\\bigquery_key.json"
+        if os.path.exists(SERVICE_ACCOUNT_FILE):
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = SERVICE_ACCOUNT_FILE
+            return bigquery.Client()
+        return None
+
+client = get_cached_bq_client()
 
 # --- LOGIN MODULE ---
 # --- USER CREDENTIALS ---
@@ -683,7 +696,7 @@ def run_calling_dashboard():
         verticals = sorted(df_meta['Vertical'].dropna().unique())
         return teams, verticals, df_meta
 
-    @st.cache_data(ttl=120, show_spinner=False)
+    @st.cache_data(ttl=600, show_spinner=False)
     def get_global_last_update():
         query = """
         WITH combined AS (
@@ -699,7 +712,7 @@ def run_calling_dashboard():
         except:
             return "N/A"
 
-    @st.cache_data(ttl=120, show_spinner=False)
+    @st.cache_data(ttl=600, show_spinner=False)
     def get_available_dates():
         query = """
         SELECT MIN(min_d) as min_date, MAX(max_d) as max_date FROM (
@@ -1983,7 +1996,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         df_meta['merge_key'] = df_meta['Caller Name'].str.strip().str.lower()
         return teams, verticals, df_meta
 
-    @st.cache_data(ttl=120, show_spinner=False)
+    @st.cache_data(ttl=600, show_spinner=False)
     def get_last_update():
         query = f"""
             SELECT updated_at_ampm FROM `{REV_TABLE_ID}`
@@ -1996,7 +2009,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         except:
             return "N/A"
 
-    @st.cache_data(ttl=120, show_spinner=False)
+    @st.cache_data(ttl=600, show_spinner=False)
     def get_available_dates():
         query = f"SELECT MIN(Date) as min_date, MAX(Date) as max_date FROM `{REV_TABLE_ID}`"
         try:
@@ -4407,21 +4420,29 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
 
 
     with tab3:
+        with tab3:
         c_start, c_end, p_start, p_end = pending_months()
         curr_label = c_start.strftime("%B %Y")
         prev_label = p_start.strftime("%B %Y")
-
-
-        with st.spinner("Loading pending revenue data…"):
-            _, _, df_meta_all = get_metadata()
-            meta_map_pending  = (df_meta_all.sort_values('Month', ascending=False)
-                                 .drop_duplicates(subset=['merge_key'], keep='first')
-                                 [['merge_key', 'Caller Name', 'Team Name', 'Vertical']].copy())
-
-            drop_df    = load_drop_leads()
-            excl_emails = set(drop_df['drop_email'].dropna().astype(str).unique()) if not drop_df.empty else set()
-            excl_phones = set(drop_df['drop_phone'].dropna().astype(str).unique()) if not drop_df.empty else set()
-            df_both     = fetch_both_months_rev(p_start, c_end)
+    
+        # Only load when tab is explicitly visited — track with session state
+        _tab3_key = f"pending_loaded_{c_start}_{p_start}"
+        if _tab3_key not in st.session_state:
+            st.session_state[_tab3_key] = False
+    
+        if not st.session_state[_tab3_key]:
+            if st.button("📊 Load Pending Revenue Data", key="load_pending_btn"):
+                st.session_state[_tab3_key] = True
+                st.rerun()
+            else:
+                st.markdown("""
+                <div style='text-align:center;padding:4rem 1rem;opacity:.6;'>
+                    <div style='font-size:3rem;margin-bottom:1rem;'>📊</div>
+                    <div style='font-size:.9rem;font-weight:600;'>Click <b>Load Pending Revenue Data</b> to load this tab</div>
+                </div>""", unsafe_allow_html=True)
+        else:
+            with st.spinner("Loading pending revenue data…"):
+                _, _, df_meta_all = get_metadata()
 
         if df_both.empty:
             st.warning("No revenue data found.")
