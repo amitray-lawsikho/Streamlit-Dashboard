@@ -580,14 +580,11 @@ def run_calling_dashboard():
         width: 100%; font-family: 'DM Sans', sans-serif !important;
         font-weight: 600 !important; font-size: .82rem !important;
         border-radius: var(--radius-sm); transition: var(--transition);
-    }
-    [data-testid="stSidebar"] .stButton>button:first-child {
-        background: linear-gradient(135deg, #EA580C, #DC2626) !important;
+        background: linear-gradient(135deg, #431407, #7c1d1d) !important;
         color: #fff !important; border: none !important;
     }
-    [data-testid="stSidebar"] .stButton>button:last-child {
-        background: linear-gradient(135deg, #B45309, #EA580C) !important;
-        color: #fff !important; border: none !important;
+    [data-testid="stSidebar"] .stButton>button:hover {
+        opacity: .88 !important; transform: translateY(-1px) !important;
     }
 
     .stDownloadButton>button {
@@ -1881,13 +1878,13 @@ div[data-testid="stDataFrame"] thead tr th {
     font-weight: 600 !important; font-size: .82rem !important;
     border-radius: var(--radius-sm); transition: var(--transition);
 }
-[data-testid="stSidebar"] .stButton>button:first-child {
+
+[data-testid="stSidebar"] .stButton>button {
     background: linear-gradient(135deg, #059669, #065f46) !important;
     color: #fff !important; border: none !important;
 }
-[data-testid="stSidebar"] .stButton>button:last-child {
-    background: linear-gradient(135deg, #0F766E, #064e3b) !important;
-    color: #fff !important; border: none !important;
+[data-testid="stSidebar"] .stButton>button:hover {
+    opacity: .88 !important; transform: translateY(-1px) !important;
 }
 
 hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !important; }
@@ -4574,7 +4571,11 @@ else:
     _lc   = "#F97316" if _prev == "Calling Metrics" else "#10B981"
     _sc   = "rgba(249,115,22,.9)" if _prev == "Calling Metrics" else "rgba(16,185,129,.9)"
     _shc  = "rgba(249,115,22,.5)" if _prev == "Calling Metrics" else "rgba(16,185,129,.5)"
-
+    
+    if st.sidebar.button("🚪 Sign Out", key="signout_btn"):
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
     # 1. Logo — always first in sidebar
     st.sidebar.markdown(f"""
     <div style='padding:.7rem 0 .5rem; text-align:center; border-bottom:1px solid rgba(128,128,128,.15);'>
