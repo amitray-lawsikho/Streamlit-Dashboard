@@ -4570,12 +4570,16 @@ if not check_password():
     # Show homepage with login
     show_homepage_with_login()
 else:
-    # Global CSS for logged-in state
+    # Global CSS for logged-in state — dark theme locked, no switcher
     st.markdown("""
     <style>
     footer { visibility: hidden; }
-    [data-testid="stStatusWidget"] { display: none !important; }
-    header[data-testid="stHeader"] { background: transparent !important; }
+    [data-testid="stStatusWidget"]  { display: none !important; }
+
+    /* Hide the entire top toolbar — this removes the theme switcher */
+    header[data-testid="stHeader"]  { display: none !important; }
+    [data-testid="stToolbar"]       { display: none !important; }
+    #MainMenu                        { display: none !important; }
     </style>
     """, unsafe_allow_html=True)
 
