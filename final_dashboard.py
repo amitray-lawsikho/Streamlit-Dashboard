@@ -971,7 +971,7 @@ def run_calling_dashboard():
                 })
 
         return insights
-
+    @st.cache_data(show_spinner=False)
     def generate_calling_helper_pdf_bytes() -> bytes:
         
         buffer = io.BytesIO()
@@ -1586,7 +1586,7 @@ def run_calling_dashboard():
     # TAB 3 — INSIGHTS (auto-populated from session state)
     # ══════════════════════════════════════════════
 
-    with tab3:
+    
         if 'insights_df' in st.session_state and 'insights_report' in st.session_state:
             df_ins       = st.session_state['insights_df']
             report_df_all = st.session_state['insights_report']
@@ -2505,7 +2505,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                     })
 
         return insights[:6]
-
+    @st.cache_data(show_spinner=False)
     def generate_helper_pdf_bytes() -> bytes:
         buffer = io.BytesIO()
 
@@ -4424,7 +4424,6 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         curr_label = c_start.strftime("%B %Y")
         prev_label = p_start.strftime("%B %Y")
     
-        # Only load when tab is explicitly visited — track with session state
         _tab3_key = f"pending_loaded_{c_start}_{p_start}"
         if _tab3_key not in st.session_state:
             st.session_state[_tab3_key] = False
@@ -4439,86 +4438,92 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                     <div style='font-size:3rem;margin-bottom:1rem;'>📊</div>
                     <div style='font-size:.9rem;font-weight:600;'>Click <b>Load Pending Revenue Data</b> to load this tab</div>
                 </div>""", unsafe_allow_html=True)
+    
         else:
+            # ── ALL existing tab3 code goes here, indented one level ──
             with st.spinner("Loading pending revenue data…"):
                 _, _, df_meta_all = get_metadata()
-
-        if df_both.empty:
-            st.warning("No revenue data found.")
-        else:
-            df_curr   = df_both[df_both['Date'] >= c_start].copy()
-            df_prev   = df_both[(df_both['Date'] >= p_start) & (df_both['Date'] <= p_end)].copy()
-
-            pend_curr = pending_leads_for_month(df_curr, excl_emails, excl_phones, df_both)
-            pend_prev = pending_leads_for_month(df_prev, excl_emails, excl_phones, df_both)
-
-            # Build combined agg with ONE meta_map merge (mirrors DROPPED LEADS approach)
-            combined  = build_combined_agg(pend_curr, pend_prev, meta_map_pending, df_both)
-
-            # ── Remove Others and zero-balance callers ──
-            if not combined.empty:
-                combined = combined[~(
-                    (combined['Team Name'] == 'Others') &
-                    (combined['Vertical'] == 'Others') &
-                    (combined['grand_bal'] == 0)
-                )].copy()
-                combined = combined[combined['grand_bal'] > 0].copy()
-
-                # ── Apply sidebar filters ──
-                if selected_vertical:
-                    combined = combined[combined['Vertical'].isin(selected_vertical)].copy()
-                if selected_team:
-                    combined = combined[combined['Team Name'].isin(selected_team)].copy()
-
-            if combined.empty:
-                st.info("No pending leads found.")
+                meta_map_pending  = (df_meta_all.sort_values('Month', ascending=False)
+                                     .drop_duplicates(subset=['merge_key'], keep='first')
+                                     [['merge_key', 'Caller Name', 'Team Name', 'Vertical']].copy())
+    
+                drop_df    = load_drop_leads()
+                excl_emails = set(drop_df['drop_email'].dropna().astype(str).unique()) if not drop_df.empty else set()
+                excl_phones = set(drop_df['drop_phone'].dropna().astype(str).unique()) if not drop_df.empty else set()
+                df_both     = fetch_both_months_rev(p_start, c_end)
+    
+            if df_both.empty:
+                st.warning("No revenue data found.")
             else:
-                st.markdown(render_html_pending_table(
-                    combined, 'team', curr_label, prev_label,
-                    f"TEAMWISE PENDING REVENUE {prev_label.upper()} + {curr_label.upper()}"
-                ), unsafe_allow_html=True)
-
-                st.markdown("<div style='margin:2rem 0;'></div>", unsafe_allow_html=True)
-
-                st.markdown(render_html_pending_table(
-                    combined, 'caller', curr_label, prev_label,
-                    f"CALLERWISE PENDING REVENUE {prev_label.upper()} + {curr_label.upper()}"
-                ), unsafe_allow_html=True)
-
-                # ── Downloads ──
-                st.markdown("<div style='margin:1rem 0;'></div>", unsafe_allow_html=True)
-                dl_col1, dl_col2 = st.columns(2)
-
-                with dl_col1:
-                    _pending_xlsx = build_pending_excel(
-                        combined, pend_curr, pend_prev,
-                        meta_map_pending, curr_label, prev_label
-                    )
-                    st.download_button(
-                        label=f"📥 Download Teamwise + Callerwise Pending Revenue",
-                        data=_pending_xlsx,
-                        file_name=f"Pending_Revenue_{prev_label.replace(' ','_')}_{curr_label.replace(' ','_')}.xlsx",
-                        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                        key='dl_pending_revenue_xlsx'
-                    )
-
-                with dl_col2:
-                    _leads_xlsx = build_pending_leads_excel(
-                        pend_curr, pend_prev,
-                        meta_map_pending, curr_label, prev_label
-                    )
-                    st.download_button(
-                        label=f"📥 Download {prev_label} + {curr_label} Pending Leads",
-                        data=_leads_xlsx,
-                        file_name=f"Pending_Leads_{prev_label.replace(' ','_')}_{curr_label.replace(' ','_')}.xlsx",
-                        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                        key='dl_pending_leads_xlsx'
-                    )
-
+                df_curr   = df_both[df_both['Date'] >= c_start].copy()
+                df_prev   = df_both[(df_both['Date'] >= p_start) & (df_both['Date'] <= p_end)].copy()
+    
+                pend_curr = pending_leads_for_month(df_curr, excl_emails, excl_phones, df_both)
+                pend_prev = pending_leads_for_month(df_prev, excl_emails, excl_phones, df_both)
+    
+                combined  = build_combined_agg(pend_curr, pend_prev, meta_map_pending, df_both)
+    
+                if not combined.empty:
+                    combined = combined[~(
+                        (combined['Team Name'] == 'Others') &
+                        (combined['Vertical'] == 'Others') &
+                        (combined['grand_bal'] == 0)
+                    )].copy()
+                    combined = combined[combined['grand_bal'] > 0].copy()
+    
+                    if selected_vertical:
+                        combined = combined[combined['Vertical'].isin(selected_vertical)].copy()
+                    if selected_team:
+                        combined = combined[combined['Team Name'].isin(selected_team)].copy()
+    
+                if combined.empty:
+                    st.info("No pending leads found.")
+                else:
+                    st.markdown(render_html_pending_table(
+                        combined, 'team', curr_label, prev_label,
+                        f"TEAMWISE PENDING REVENUE {prev_label.upper()} + {curr_label.upper()}"
+                    ), unsafe_allow_html=True)
+    
+                    st.markdown("<div style='margin:2rem 0;'></div>", unsafe_allow_html=True)
+    
+                    st.markdown(render_html_pending_table(
+                        combined, 'caller', curr_label, prev_label,
+                        f"CALLERWISE PENDING REVENUE {prev_label.upper()} + {curr_label.upper()}"
+                    ), unsafe_allow_html=True)
+    
+                    st.markdown("<div style='margin:1rem 0;'></div>", unsafe_allow_html=True)
+                    dl_col1, dl_col2 = st.columns(2)
+    
+                    with dl_col1:
+                        _pending_xlsx = build_pending_excel(
+                            combined, pend_curr, pend_prev,
+                            meta_map_pending, curr_label, prev_label
+                        )
+                        st.download_button(
+                            label=f"📥 Download Teamwise + Callerwise Pending Revenue",
+                            data=_pending_xlsx,
+                            file_name=f"Pending_Revenue_{prev_label.replace(' ','_')}_{curr_label.replace(' ','_')}.xlsx",
+                            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            key='dl_pending_revenue_xlsx'
+                        )
+    
+                    with dl_col2:
+                        _leads_xlsx = build_pending_leads_excel(
+                            pend_curr, pend_prev,
+                            meta_map_pending, curr_label, prev_label
+                        )
+                        st.download_button(
+                            label=f"📥 Download {prev_label} + {curr_label} Pending Leads",
+                            data=_leads_xlsx,
+                            file_name=f"Pending_Leads_{prev_label.replace(' ','_')}_{curr_label.replace(' ','_')}.xlsx",
+                            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            key='dl_pending_leads_xlsx'
+                        )
+    
             # ══ DROPPED LEADS ════════════════════════
             st.markdown("<div style='margin:2rem 0;'></div>", unsafe_allow_html=True)
             section_header(f"🚫 CALLERWISE DROPPED LEADS — {prev_label} + {curr_label}")
-
+    
             if not drop_df.empty and not df_both.empty:
                 drop_agg = attribute_drops_to_callers(
                     drop_df, df_both, meta_map_pending,
@@ -4527,32 +4532,13 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                 )
                 if not drop_agg.empty:
                     drop_agg = drop_agg[drop_agg['Team Name'] != 'Others'].copy()
-
-                    # ── Apply sidebar filters ──
+    
                     if selected_vertical:
                         drop_agg = drop_agg[drop_agg['Vertical'].isin(selected_vertical)].copy()
                     if selected_team:
                         drop_agg = drop_agg[drop_agg['Team Name'].isin(selected_team)].copy()
-
-                    st.markdown(render_drop_html(drop_agg, curr_label, prev_label), unsafe_allow_html=True)
-                else:
-                    st.info("No dropped leads found for current or previous month.")
-
-                # ── Drop leads download ──
-                if not drop_agg.empty:
-                    _drop_xlsx = build_drop_leads_excel(
-                        drop_df, c_start, c_end, p_start, p_end,
-                        curr_label, prev_label, meta_map_pending
-                    )
-                    st.download_button(
-                        label=f"📥 Download Dropped Leads — {prev_label} + {curr_label}",
-                        data=_drop_xlsx,
-                        file_name=f"Dropped_Leads_{prev_label.replace(' ','_')}_{curr_label.replace(' ','_')}.xlsx",
-                        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                        key='dl_drop_leads_xlsx'
-                    )
-            else:
-                st.info("Drop leads sheet could not be loaded.")
+    
+                    st.markdown(render_drop_html(drop_agg, curr_label
 
 # --- MAIN APP ROUTER ---
 if not check_password():
