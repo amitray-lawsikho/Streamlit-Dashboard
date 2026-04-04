@@ -47,10 +47,23 @@ def get_bq_client():
 client = get_bq_client()
 
 # --- LOGIN MODULE ---
+# --- USER CREDENTIALS ---
+
+AUTHORIZED_USERS = {
+    "amit": "lawsikho@2024",
+    "admin": "admin@2024",
+    "sales": "sales@2024",
+}
+
 def check_password():
     def password_entered():
-        if st.session_state["username"] == "admin" and st.session_state["password"] == "password":
+        username = st.session_state.get("username", "").strip()
+        password = st.session_state.get("password", "")
+        
+        # Check if username exists and password matches
+        if username in AUTHORIZED_USERS and AUTHORIZED_USERS[username] == password:
             st.session_state["password_correct"] = True
+            st.session_state["current_user"] = username  # Store logged-in username
             del st.session_state["password"]
             del st.session_state["username"]
         else:
@@ -60,6 +73,7 @@ def check_password():
         st.session_state["password_correct"] = False
     
     return st.session_state["password_correct"]
+
 
 # --- DASHBOARD FUNCTIONS ---
 @st.cache_data(ttl=300, show_spinner=False)
@@ -611,9 +625,10 @@ def show_homepage_with_login():
     <style>
     .login-container {
         max-width: 420px;
-        margin: -580px auto 0;
+        margin: -350px auto 0;
         position: relative;
         z-index: 1000;
+        padding: 0 1rem;
     }
     .stTextInput > div > div > input {
         background: rgba(255,255,255,.08) !important;
@@ -1446,49 +1461,6 @@ def run_calling_dashboard():
     # ─────────────────────────────────────────────
     # SIDEBAR & UI
     # ─────────────────────────────────────────────
-
-    st.sidebar.markdown("""
-    <div style='padding:.6rem 0 .4rem; text-align:center;'>
-        <div style='display:flex; align-items:center; justify-content:center; gap:0; margin-bottom:.3rem;'>
-            <span class='brand-name'>LawSikho</span>
-            <div style='width:1px; height:18px; margin:0 .6rem;
-                        background:linear-gradient(180deg,transparent,rgba(249,115,22,.9),transparent);
-                        box-shadow:0 0 6px rgba(249,115,22,.5);'></div>
-            <span class='brand-name'>Skill Arbitrage</span>
-        </div>
-        <div class='brand-tagline'>India Learning 📖 India Earning</div>
-        <div style='font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;
-                    color:var(--text-muted,#6B7280);margin-bottom:.5rem;'>Report Controls</div>
-    </div>
-    """, unsafe_allow_html=True)
-    min_d, max_d = get_available_dates()
-    selected_dates = st.sidebar.date_input(
-        "📅 Date Range", value=(max_d, max_d),
-        min_value=min_d, max_value=max_d, format="DD-MM-YYYY"
-    )
-    if isinstance(selected_dates, tuple) and len(selected_dates) == 2:
-        start_date, end_date = selected_dates
-    else:
-        start_date = end_date = selected_dates if not isinstance(selected_dates, tuple) else selected_dates[0]
-
-    teams, verticals, df_team_mapping = get_metadata()
-    selected_vertical = st.sidebar.multiselect("👑 Filter by Vertical", options=verticals)
-    selected_team     = st.sidebar.multiselect("👥 Filter by Team",       options=teams)
-    search_query      = st.sidebar.text_input("👤 Search By Name")
-
-    st.sidebar.markdown("<div style='margin:.5rem 0'></div>", unsafe_allow_html=True)
-    gen_dynamic = st.sidebar.button("🚀 Generate Dynamic Report")
-    st.sidebar.markdown("<div style='margin:.3rem 0'></div>", unsafe_allow_html=True)
-    gen_static  = st.sidebar.button("📅 Generate Duration Report")
-
-    st.sidebar.markdown("""
-    <hr style='border:none; border-top:1px solid #F97316; opacity:.4; margin:.6rem 0;'>
-    <div style='font-size:.72rem; color:var(--text-muted,#6B7280); font-weight:500; letter-spacing:0.3px;'>
-        <span style='font-size:.65rem; opacity:.75; display:block; margin-bottom:.5rem;'>For Internal Use of Sales and Operations Team Only.<br>All Rights Reserved.</span>
-        DESIGNED BY: <b>AMIT RAY</b><br>
-        <a href="mailto:amitray@lawsikho.com" style="color:#F97316; text-decoration:none;">amitray@lawsikho.com</a>
-    </div>
-    """, unsafe_allow_html=True)
 
     st.sidebar.download_button(
         label="📖 Metrics Guide (PDF)",
@@ -4953,27 +4925,40 @@ else:
     [data-testid="stStatusWidget"] { display: none !important; }
     header[data-testid="stHeader"] { background: transparent !important; }
     
-    /* Sidebar styling */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0B1120 0%, #1a1f35 100%) !important;
-        border-right: 1px solid rgba(249,115,22,.15) !important;
-    }
+    /* Sidebar styling - let Streamlit handle background for theme compatibility */
     [data-testid="stSidebar"] .stSelectbox label {
         display: none !important;
-    }
-    [data-testid="stSidebar"] [data-baseweb="select"] > div {
-        background: rgba(255,255,255,.06) !important;
-        border: 1px solid rgba(255,255,255,.1) !important;
-        border-radius: 10px !important;
     }
     </style>
     """, unsafe_allow_html=True)
     
-    # Sidebar header with logos
-    st.sidebar.markdown("""
-    <div style='text-align:center; padding:1.5rem 0.5rem 1rem; border-bottom: 1px solid rgba(255,255,255,.08);'>
-        <div style='font-size:1.1rem; font-weight:700; color:#F97316; letter-spacing:-0.5px; margin-bottom:0.3rem;'>
-            LawSikho · Skill Arbitrage
+    # Sidebar header with logos (color changes based on selected dashboard)
+    # Determine color based on selected dashboard
+    choice = st.sidebar.selectbox(
+        "",
+        ["Calling Metrics", "Revenue Metrics"],
+        label_visibility="collapsed",
+        key="dashboard_choice"
+    )
+    
+    # Set color based on selection
+    if choice == "Calling Metrics":
+        logo_color = "#F97316"  # Orange for Calling
+        separator_color = "rgba(249,115,22,.9)"
+        shadow_color = "rgba(249,115,22,.5)"
+    else:
+        logo_color = "#10B981"  # Green for Revenue
+        separator_color = "rgba(16,185,129,.9)"
+        shadow_color = "rgba(16,185,129,.5)"
+    
+    st.sidebar.markdown(f"""
+    <div style='padding:.6rem 0 .4rem; text-align:center; border-bottom: 1px solid rgba(255,255,255,.08);'>
+        <div style='display:flex; align-items:center; justify-content:center; gap:0; margin-bottom:.3rem;'>
+            <span style='font-size:1rem; font-weight:700; color:{logo_color}; letter-spacing:-0.5px;'>LawSikho</span>
+            <div style='width:1px; height:18px; margin:0 .6rem;
+                        background:linear-gradient(180deg,transparent,{separator_color},transparent);
+                        box-shadow:0 0 6px {shadow_color};'></div>
+            <span style='font-size:1rem; font-weight:700; color:{logo_color}; letter-spacing:-0.5px;'>Skill Arbitrage</span>
         </div>
         <div style='font-size:0.65rem; color:rgba(255,255,255,.35); letter-spacing:1px; font-family:monospace;'>
             India Learning 📖 India Earning
@@ -4990,13 +4975,6 @@ else:
         </div>
     </div>
     """, unsafe_allow_html=True)
-    
-    # Navigation selectbox
-    choice = st.sidebar.selectbox(
-        "",
-        ["Calling Metrics", "Revenue Metrics"],
-        label_visibility="collapsed"
-    )
     
     # Render selected dashboard
     if choice == "Calling Metrics":
