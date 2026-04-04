@@ -1209,15 +1209,6 @@ def run_calling_dashboard():
         key="dl_calling_helper_pdf"
     )
     
-    st.sidebar.markdown("""
-    <hr style='border:none; border-top:1px solid rgba(249,115,22,.3); margin:.4rem 0 .3rem;'>
-    <div style='font-size:.68rem; color:var(--text-muted,#6B7280); line-height:1.6;'>
-        For Internal Use of Sales and Operations Team Only.<br>
-        All Rights Reserved.<br>
-        DESIGNED BY: <b>AMIT RAY</b><br>
-        <a href="mailto:amitray@lawsikho.com" style="color:#F97316; text-decoration:none;">amitray@lawsikho.com</a>
-    </div>
-    """, unsafe_allow_html=True)
 
 
     # ─────────────────────────────────────────────
@@ -3792,16 +3783,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         mime="application/pdf",
         key="dl_helper_pdf"
     )
-    
-    st.sidebar.markdown("""
-    <hr style='border:none; border-top:1px solid rgba(16,185,129,.3); margin:.4rem 0 .3rem;'>
-    <div style='font-size:.68rem; color:var(--text-muted,#6B7280); line-height:1.6;'>
-        For Internal Use of Sales and Operations Team Only.<br>
-        All Rights Reserved.<br>
-        DESIGNED BY: <b>AMIT RAY</b><br>
-        <a href="mailto:amitray@lawsikho.com" style="color:#10B981; text-decoration:none;">amitray@lawsikho.com</a>
-    </div>
-    """, unsafe_allow_html=True)
+  
 
     # ─────────────────────────────────────────────
     # HEADER BANNER
