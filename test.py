@@ -129,43 +129,34 @@ def show_homepage_with_login():
     /* Center the login column */
     [data-testid="stHorizontalBlock"] { gap: 0 !important; }
 
-    /* Card container around the login col */
+    /* Card container around login col */
     div[data-testid="column"]:nth-child(2) > div:first-child {
-        background: rgba(255,255,255,.05) !important;
-        border: 1px solid rgba(255,255,255,.12) !important;
+        border: 1px solid rgba(128,128,128,.2) !important;
         border-radius: 16px !important;
         padding: 1.6rem 1.8rem 1.8rem !important;
         margin: 0 auto !important;
     }
 
-    /* Input boxes — forced dark slate so text is always visible in any Streamlit theme */
-    [data-testid="stTextInput"] > div > div > input {
-        background: #1e293b !important;
-        border: 1px solid rgba(148,163,184,.25) !important;
-        color: #f1f5f9 !important;
-        border-radius: 10px !important;
-        padding: 10px 14px !important;
-        font-size: 0.9rem !important;
-        caret-color: #F97316 !important;
-    }
-    [data-testid="stTextInput"] > div > div > input::placeholder { color: rgba(241,245,249,.35) !important; }
-    [data-testid="stTextInput"] > div > div > input:focus {
-        border-color: #F97316 !important;
-        box-shadow: 0 0 0 2px rgba(249,115,22,.2) !important;
-    }
-    [data-testid="stTextInput"] label { color: rgba(241,245,249,.55) !important; font-size: 0.8rem !important; }
-
-    /* Sign In button */
-    [data-testid="column"]:nth-child(2) .stButton > button {
+    /* Sign In button — orange, white text always, no background flip on hover */
+    div[data-testid="column"]:nth-child(2) .stButton > button {
         width: 100% !important;
         background: linear-gradient(135deg, #F97316, #FB923C) !important;
-        color: #fff !important;
+        color: #ffffff !important;
         border: none !important;
         border-radius: 10px !important;
         padding: 11px !important;
         font-size: 0.9rem !important;
         font-weight: 600 !important;
-        transition: all .2s !important;
+        transition: opacity .2s, transform .2s !important;
+    }
+    div[data-testid="column"]:nth-child(2) .stButton > button:hover,
+    div[data-testid="column"]:nth-child(2) .stButton > button:active,
+    div[data-testid="column"]:nth-child(2) .stButton > button:focus {
+        background: linear-gradient(135deg, #EA580C, #F97316) !important;
+        color: #ffffff !important;
+        opacity: .92 !important;
+        transform: translateY(-1px) !important;
+        border: none !important;
     }
     [data-testid="column"]:nth-child(2) .stButton > button:hover {
         transform: translateY(-2px) !important;
@@ -1152,15 +1143,14 @@ def run_calling_dashboard():
     selected_vertical = st.sidebar.multiselect("👑 Filter by Vertical", options=verticals, key="call_vert_filter")
     search_query      = st.sidebar.text_input("👤 Search Caller Name",                     key="call_search")
 
-    st.sidebar.markdown("<div style='margin:.5rem 0'></div>", unsafe_allow_html=True)
     gen_dynamic = st.sidebar.button("🚀 Generate Dynamic Report",  key="call_gen_dynamic")
-    st.sidebar.markdown("<div style='margin:.3rem 0'></div>", unsafe_allow_html=True)
     gen_static  = st.sidebar.button("📅 Generate Duration Report", key="call_gen_static")
 
     st.sidebar.markdown("""
-    <hr style='border:none; border-top:1px solid #F97316; opacity:.4; margin:.6rem 0;'>
-    <div style='font-size:.72rem; color:var(--text-muted,#6B7280); font-weight:500; letter-spacing:0.3px;'>
-        <span style='font-size:.65rem; opacity:.75; display:block; margin-bottom:.5rem;'>For Internal Use of Sales and Operations Team Only.<br>All Rights Reserved.</span>
+    <hr style='border:none; border-top:1px solid rgba(249,115,22,.3); margin:.4rem 0 .3rem;'>
+    <div style='font-size:.68rem; color:var(--text-muted,#6B7280); line-height:1.6;'>
+        For Internal Use of Sales and Operations Team Only.<br>
+        All Rights Reserved.<br>
         DESIGNED BY: <b>AMIT RAY</b><br>
         <a href="mailto:amitray@lawsikho.com" style="color:#F97316; text-decoration:none;">amitray@lawsikho.com</a>
     </div>
@@ -3835,18 +3825,18 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
     selected_team     = st.sidebar.multiselect("👥 Filter by Team",     options=teams_meta, key="rev_team_multiselect")
     search_query      = st.sidebar.text_input("👤 Search Caller Name", key="rev_search_input")
 
-    st.sidebar.markdown("<div style='margin:.5rem 0'></div>", unsafe_allow_html=True)
-    gen_report   = st.sidebar.button("💰 Generate Revenue Report", key="rev_gen_btn")
-    st.sidebar.markdown("<div style='margin:.3rem 0'></div>", unsafe_allow_html=True)
+    gen_report = st.sidebar.button("💰 Generate Revenue Report", key="rev_gen_btn")
 
     st.sidebar.markdown("""
-    <hr style='border:none; border-top:1px solid #10B981; opacity:.4; margin:.6rem 0;'>
-    <div style='font-size:.72rem; color:var(--text-muted,#6B7280); font-weight:500; letter-spacing:0.3px;'>
-        <span style='font-size:.65rem; opacity:.75; display:block; margin-bottom:.5rem;'>For Internal Use of Sales and Operations Team Only.<br>All Rights Reserved.</span>
+    <hr style='border:none; border-top:1px solid rgba(16,185,129,.3); margin:.4rem 0 .3rem;'>
+    <div style='font-size:.68rem; color:var(--text-muted,#6B7280); line-height:1.6;'>
+        For Internal Use of Sales and Operations Team Only.<br>
+        All Rights Reserved.<br>
         DESIGNED BY: <b>AMIT RAY</b><br>
         <a href="mailto:amitray@lawsikho.com" style="color:#10B981; text-decoration:none;">amitray@lawsikho.com</a>
     </div>
     """, unsafe_allow_html=True)
+
     st.sidebar.download_button(
         label="📖 Metrics Guide (PDF)",
         data=generate_helper_pdf_bytes(),
@@ -4636,17 +4626,25 @@ else:
                         box-shadow:0 0 5px {_shc};'></div>
             <span style='font-size:.95rem; font-weight:700; color:{_lc}; letter-spacing:-.4px;'>Skill Arbitrage</span>
         </div>
-        <div style='font-size:.6rem; opacity:.4; letter-spacing:1px; font-family:monospace;'>
+        <div style='font-size:.6rem; color:{_lc}; letter-spacing:1px; font-family:monospace; font-weight:600;'>
             India Learning 📖 India Earning
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # 2. Navigation — native label so it themes automatically
+    # 2. Navigation header — styled identical to "REPORT CONTROLS"
+    st.sidebar.markdown("""
+    <div style='padding:.5rem 0 .2rem; text-align:center;'>
+        <div style='font-size:.72rem; font-weight:700; text-transform:uppercase;
+                    letter-spacing:1px; color:var(--text-muted,#6B7280);'>Navigation</div>
+    </div>
+    """, unsafe_allow_html=True)
+
     choice = st.sidebar.selectbox(
-        "Go to",
+        "Navigation",
         ["Calling Metrics", "Revenue Metrics"],
-        key="dashboard_choice"
+        key="dashboard_choice",
+        label_visibility="collapsed"
     )
 
     # Render selected dashboard (sidebar Report Controls come from inside each function)
