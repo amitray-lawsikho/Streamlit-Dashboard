@@ -126,124 +126,277 @@ def show_homepage_with_login():
     [data-testid="stMain"], .main { background: #0B1120 !important; }
     .block-container { padding: 0 !important; max-width: 100% !important; }
 
-    /* ── Login form theming — works in both light and dark ── */
-    .login-wrap {
-        max-width: 420px;
-        margin: 0 auto;
-        padding: 0 1.5rem 2.5rem;
+    /* ── Login card shell ── */
+    .login-outer {
+        display: flex;
+        justify-content: center;
+        background: #0B1120;
+        padding: 0 1rem 0;
     }
-    .login-wrap .stTextInput > div > div > input {
-        background: rgba(255,255,255,.1) !important;
-        border: 1px solid rgba(255,255,255,.18) !important;
+    .login-inner {
+        width: 100%;
+        max-width: 360px;
+        background: rgba(255,255,255,.05);
+        border: 1px solid rgba(255,255,255,.10);
+        border-top: none;
+        border-radius: 0 0 20px 20px;
+        padding: 0 1.6rem 1.8rem;
+    }
+
+    /* ── Inputs — always white text since they sit on dark bg ── */
+    .login-inner .stTextInput > div > div > input {
+        background: rgba(255,255,255,.08) !important;
+        border: 1px solid rgba(255,255,255,.15) !important;
         color: #FFFFFF !important;
-        border-radius: 12px !important;
-        padding: 12px 16px !important;
-        font-size: 0.95rem !important;
+        border-radius: 10px !important;
+        padding: 10px 14px !important;
+        font-size: 0.9rem !important;
         caret-color: #F97316 !important;
     }
-    .login-wrap .stTextInput > div > div > input::placeholder {
-        color: rgba(255,255,255,.4) !important;
+    .login-inner .stTextInput > div > div > input::placeholder {
+        color: rgba(255,255,255,.35) !important;
     }
-    .login-wrap .stTextInput > div > div > input:focus {
+    .login-inner .stTextInput > div > div > input:focus {
         border-color: #F97316 !important;
         box-shadow: 0 0 0 2px rgba(249,115,22,.2) !important;
-        outline: none !important;
     }
-    .login-wrap .stTextInput label {
-        color: rgba(255,255,255,.6) !important;
-        font-size: 0.82rem !important;
+    .login-inner .stTextInput label {
+        color: rgba(255,255,255,.55) !important;
+        font-size: 0.78rem !important;
         font-weight: 500 !important;
     }
-    .login-wrap .stButton > button {
+    .login-inner .stButton > button {
         width: 100% !important;
         background: linear-gradient(135deg, #F97316, #FB923C) !important;
         color: #fff !important;
         border: none !important;
-        border-radius: 12px !important;
-        padding: 12px !important;
-        font-size: 0.95rem !important;
+        border-radius: 10px !important;
+        padding: 11px !important;
+        font-size: 0.9rem !important;
         font-weight: 600 !important;
-        margin-top: 8px !important;
+        margin-top: 6px !important;
         transition: all .2s !important;
     }
-    .login-wrap .stButton > button:hover {
+    .login-inner .stButton > button:hover {
         transform: translateY(-2px) !important;
         box-shadow: 0 8px 24px rgba(249,115,22,.35) !important;
     }
-    .login-wrap .stAlert {
-        background: rgba(239,68,68,.15) !important;
-        border: 1px solid rgba(239,68,68,.3) !important;
-        color: #FCA5A5 !important;
-        border-radius: 10px !important;
+    .login-inner .stAlert {
+        font-size: 0.78rem !important;
+        margin-top: 6px !important;
+    }
+    /* prevent Streamlit from adding its own padding around the columns */
+    .login-inner [data-testid="stHorizontalBlock"] {
+        gap: 0 !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
     call_time, call_cnt, rev_time, rev_cnt = get_stats()
 
-    # ── TOP HTML: hero + login card shell ──
-    html_top = f"""
-    <!DOCTYPE html><html lang="en"><head>
+    # ── TOP HTML: hero + top half of login card ──
+    html_top = f"""<!DOCTYPE html><html lang="en"><head>
     <meta charset="UTF-8"/>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
     <style>
     *{{box-sizing:border-box;margin:0;padding:0;}}
     html,body{{font-family:'Plus Jakarta Sans',sans-serif;background:#0B1120;color:#E2E8F0;overflow-x:hidden;}}
-    body{{
-        background:
-            radial-gradient(ellipse 80% 50% at 50% -10%,rgba(59,130,246,.12) 0%,transparent 60%),
-            radial-gradient(ellipse 60% 40% at 90% 80%,rgba(249,115,22,.08) 0%,transparent 55%),
-            radial-gradient(ellipse 50% 35% at 10% 90%,rgba(139,92,246,.06) 0%,transparent 50%),
-            #0B1120;
-    }}
-    body::before{{
-        content:"";position:fixed;inset:0;
-        background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
-        background-size:48px 48px;pointer-events:none;z-index:0;
-    }}
+    body{{background:
+        radial-gradient(ellipse 80% 50% at 50% -10%,rgba(59,130,246,.12) 0%,transparent 60%),
+        radial-gradient(ellipse 60% 40% at 90% 80%,rgba(249,115,22,.08) 0%,transparent 55%),
+        #0B1120;}}
+    body::before{{content:"";position:fixed;inset:0;
+        background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),
+            linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
+        background-size:48px 48px;pointer-events:none;z-index:0;}}
     .page{{position:relative;z-index:1;}}
-    .hero{{display:flex;flex-direction:column;align-items:center;text-align:center;padding:3rem 2rem 0;}}
-    .logo-block{{display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:1.2rem;}}
-    .logo-side{{display:flex;align-items:center;justify-content:center;padding:0 2rem;}}
-    .logo-fallback{{font-size:1.3rem;font-weight:700;color:#fff;}}
-    .logo-glow-sep{{width:1px;height:52px;background:linear-gradient(180deg,transparent 0%,rgba(249,115,22,.8) 35%,rgba(251,146,60,.9) 50%,rgba(249,115,22,.8) 65%,transparent 100%);box-shadow:0 0 8px rgba(249,115,22,.6),0 0 20px rgba(249,115,22,.3);border-radius:1px;}}
-    .hero-tagline{{font-family:'Fira Code',monospace;font-size:.78rem;color:rgba(255,255,255,.38);letter-spacing:1.5px;margin-bottom:2.5rem;}}
-    .hero-eyebrow{{display:inline-flex;align-items:center;gap:.5rem;font-family:'Fira Code',monospace;font-size:.68rem;letter-spacing:2.5px;text-transform:uppercase;color:#F97316;background:rgba(249,115,22,.08);border:1px solid rgba(249,115,22,.18);border-radius:100px;padding:.3rem 1rem;margin-bottom:1.4rem;}}
-    .eyebrow-dot{{width:5px;height:5px;background:#F97316;border-radius:50%;box-shadow:0 0 6px #F97316;animation:pulse 2s ease-in-out infinite;}}
+    .hero{{display:flex;flex-direction:column;align-items:center;text-align:center;padding:3rem 2rem 2rem;}}
+    .logo-block{{display:flex;align-items:center;justify-content:center;margin-bottom:1.1rem;}}
+    .logo-side{{padding:0 1.8rem;font-size:1.25rem;font-weight:700;color:#fff;}}
+    .logo-sep{{width:1px;height:50px;background:linear-gradient(180deg,transparent,rgba(249,115,22,.85),transparent);
+        box-shadow:0 0 8px rgba(249,115,22,.5);}}
+    .eyebrow{{display:inline-flex;align-items:center;gap:.5rem;font-family:'Fira Code',monospace;font-size:.66rem;
+        letter-spacing:2.5px;text-transform:uppercase;color:#F97316;background:rgba(249,115,22,.08);
+        border:1px solid rgba(249,115,22,.18);border-radius:100px;padding:.28rem 1rem;margin-bottom:1.3rem;}}
+    .dot{{width:5px;height:5px;background:#F97316;border-radius:50%;box-shadow:0 0 6px #F97316;
+        animation:pulse 2s ease-in-out infinite;}}
     @keyframes pulse{{0%,100%{{opacity:1;transform:scale(1);}}50%{{opacity:.5;transform:scale(1.4);}}}}
-    .hero-headline{{font-family:'Playfair Display',serif;font-size:clamp(2.2rem,5vw,3.8rem);font-weight:800;line-height:1.08;color:#FFFFFF;letter-spacing:-1.5px;margin-bottom:.8rem;}}
-    .hero-headline .accent{{background:linear-gradient(125deg,#F97316 0%,#FB923C 40%,#FBBF24 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;display:inline-block;}}
-    .hero-sub{{font-size:1.1rem;font-weight:300;color:rgba(255,255,255,.42);margin-bottom:0;max-width:560px;}}
-    /* login card shell */
-    .login-card-shell{{
-        max-width:420px;margin:2rem auto 0;
-        background:rgba(255,255,255,.04);
-        border:1px solid rgba(255,255,255,.09);
-        border-radius:20px;
-        padding:2rem 2rem 0;
-        backdrop-filter:blur(12px);
+    .tagline{{font-family:'Fira Code',monospace;font-size:.76rem;color:rgba(255,255,255,.35);
+        letter-spacing:1.5px;margin-bottom:2.2rem;}}
+    .headline{{font-family:'Playfair Display',serif;font-size:clamp(2rem,5vw,3.6rem);
+        font-weight:800;line-height:1.09;color:#fff;letter-spacing:-1.5px;margin-bottom:.7rem;}}
+    .accent{{background:linear-gradient(125deg,#F97316,#FB923C 40%,#FBBF24);
+        -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}}
+    .sub{{font-size:1rem;font-weight:300;color:rgba(255,255,255,.4);margin-bottom:2rem;max-width:520px;}}
+    /* top half of login card — rounded top, open bottom */
+    .login-top{{
+        max-width:360px;margin:0 auto;
+        background:rgba(255,255,255,.05);
+        border:1px solid rgba(255,255,255,.10);
+        border-bottom:none;
+        border-radius:20px 20px 0 0;
+        padding:1.6rem 1.6rem .6rem;
+        text-align:center;
     }}
-    .login-title{{font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:600;color:#fff;text-align:center;margin-bottom:1.2rem;}}
+    .login-title{{font-family:'Playfair Display',serif;font-size:1.25rem;font-weight:600;color:#fff;}}
     </style>
     </head><body><div class="page">
       <div class="hero">
         <div class="logo-block">
-          <div class="logo-side"><span class="logo-fallback">LawSikho</span></div>
-          <div class="logo-glow-sep"></div>
-          <div class="logo-side"><span class="logo-fallback">Skill Arbitrage</span></div>
+          <div class="logo-side">LawSikho</div>
+          <div class="logo-sep"></div>
+          <div class="logo-side">Skill Arbitrage</div>
         </div>
-        <div class="hero-tagline">India Learning &nbsp;📖&nbsp; India Earning</div>
-        <div class="hero-eyebrow"><span class="eyebrow-dot"></span>Internal Analytics Hub</div>
-        <div class="hero-headline">All your dashboards,<br><span class="accent">at one place</span></div>
-        <div class="hero-sub">Real-time insights across Leads, Revenue &amp; Calling</div>
+        <div class="tagline">India Learning &nbsp;📖&nbsp; India Earning</div>
+        <div class="eyebrow"><span class="dot"></span>Internal Analytics Hub</div>
+        <div class="headline">All your dashboards,<br><span class="accent">at one place</span></div>
+        <div class="sub">Real-time insights across Leads, Revenue &amp; Calling</div>
+        <div class="login-top">
+          <div class="login-title">🔐 Sign In to Continue</div>
+        </div>
       </div>
-      <div class="login-card-shell">
-        <div class="login-title">🔐 Sign In to Continue</div>
-      </div>
-    </div></body></html>
-    """
-    components.html(html_top, height=560, scrolling=False)
+    </div></body></html>"""
 
+    components.html(html_top, height=520, scrolling=False)
+
+    # ── Streamlit login form: sits flush below the card top ──
+    st.markdown('<div class="login-outer"><div class="login-inner">', unsafe_allow_html=True)
+
+    username = st.text_input("Username", key="lg_username", placeholder="Enter username")
+    password = st.text_input("Password", type="password", key="lg_password", placeholder="Enter password")
+
+    if st.button("Sign In →", key="lg_btn"):
+        uname = st.session_state.get("lg_username", "").strip()
+        pwd   = st.session_state.get("lg_password", "")
+        if uname in AUTHORIZED_USERS and AUTHORIZED_USERS[uname] == pwd:
+            st.session_state["password_correct"] = True
+            st.session_state["current_user"] = uname
+            st.rerun()
+        else:
+            st.error("😕 Username or password is incorrect.")
+
+    st.markdown('</div></div>', unsafe_allow_html=True)
+
+    # ── BOTTOM HTML: stats + dashboard cards + footer ──
+    html_bottom = f"""<!DOCTYPE html><html lang="en"><head>
+    <meta charset="UTF-8"/>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
+    <style>
+    *{{box-sizing:border-box;margin:0;padding:0;}}
+    html,body{{font-family:'Plus Jakarta Sans',sans-serif;background:#0B1120;color:#E2E8F0;}}
+    .stats-row{{display:flex;justify-content:center;gap:1rem;flex-wrap:wrap;padding:2.5rem 2rem 1.5rem;}}
+    .stat-card{{display:flex;align-items:center;gap:.85rem;background:rgba(255,255,255,.04);
+        border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:.9rem 1.4rem;
+        min-width:240px;flex:1;max-width:320px;backdrop-filter:blur(12px);transition:all .2s;}}
+    .stat-card:hover{{transform:translateY(-2px);}}
+    .stat-card.sc-call:hover{{border-color:rgba(249,115,22,.22);background:rgba(249,115,22,.04);}}
+    .stat-card.sc-rev:hover{{border-color:rgba(52,211,153,.22);background:rgba(52,211,153,.04);}}
+    .si{{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0;}}
+    .si-o{{background:rgba(249,115,22,.14);}} .si-g{{background:rgba(52,211,153,.12);}} .si-p{{background:rgba(139,92,246,.12);}}
+    .stat-info{{display:flex;flex-direction:column;gap:2px;}}
+    .slbl{{font-family:'Fira Code',monospace;font-size:.56rem;text-transform:uppercase;color:rgba(255,255,255,.3);}}
+    .sval{{font-family:'Fira Code',monospace;font-size:.78rem;color:rgba(255,255,255,.82);white-space:nowrap;}}
+    .ssub{{font-family:'Fira Code',monospace;font-size:.56rem;color:rgba(255,255,255,.2);}}
+    .pill-l,.pill-w{{margin-left:auto;font-family:'Fira Code',monospace;font-size:.54rem;
+        letter-spacing:.8px;text-transform:uppercase;border-radius:20px;padding:2px 8px;}}
+    .pill-l{{color:#34D399;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.18);}}
+    .pill-w{{color:#FBBF24;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.18);}}
+    .dash-section{{padding:0 2rem 4rem;max-width:1100px;margin:0 auto;}}
+    .sec-head{{display:flex;align-items:center;gap:1rem;margin-bottom:2rem;}}
+    .sec-line{{flex:1;height:1px;background:rgba(255,255,255,.07);}}
+    .sec-lbl{{font-family:'Fira Code',monospace;font-size:.63rem;letter-spacing:2.5px;
+        text-transform:uppercase;color:rgba(255,255,255,.22);}}
+    .cards{{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem;}}
+    @media(max-width:900px){{.cards{{grid-template-columns:1fr;}}}}
+    @media(max-width:1200px) and (min-width:901px){{.cards{{grid-template-columns:repeat(2,1fr);}}}}
+    .dc{{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.09);border-radius:18px;
+        padding:1.7rem 1.6rem 1.4rem;display:flex;flex-direction:column;gap:.7rem;
+        transition:transform .25s,box-shadow .25s,border-color .25s;}}
+    .dc:hover{{transform:translateY(-5px);}}
+    .dc.wip{{opacity:.52;}}
+    .dc-o{{border-top:2px solid rgba(249,115,22,.4);}}
+    .dc-g{{border-top:2px solid rgba(52,211,153,.35);}}
+    .dc-p{{border-top:2px solid rgba(139,92,246,.3);}}
+    .dc-o:hover{{border-color:#F97316;background:rgba(249,115,22,.04);box-shadow:0 18px 55px rgba(249,115,22,.1);}}
+    .dc-g:hover{{border-color:#34D399;background:rgba(52,211,153,.04);box-shadow:0 18px 55px rgba(52,211,153,.08);}}
+    .dc-hdr{{display:flex;align-items:flex-start;justify-content:space-between;}}
+    .dc-icon{{font-size:1.7rem;}}
+    .wip-badge{{font-family:'Fira Code',monospace;font-size:.52rem;text-transform:uppercase;
+        color:#FBBF24;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.18);
+        border-radius:7px;padding:3px 8px;}}
+    .dc-title{{font-family:'Playfair Display',serif;font-size:1.15rem;font-weight:600;color:#fff;}}
+    .dc-desc{{font-size:.78rem;color:rgba(255,255,255,.4);line-height:1.7;}}
+    .dc-tags{{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.15rem;}}
+    .dtag{{font-family:'Fira Code',monospace;font-size:.56rem;color:rgba(255,255,255,.28);
+        background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
+        border-radius:5px;padding:2px 8px;text-transform:uppercase;}}
+    .footer{{border-top:1px solid rgba(255,255,255,.06);padding:1.8rem 2rem;text-align:center;}}
+    .f1{{font-family:'Fira Code',monospace;font-size:.66rem;color:rgba(255,255,255,.32);margin-bottom:.4rem;}}
+    .f2{{font-family:'Fira Code',monospace;font-size:.6rem;color:rgba(255,255,255,.16);}}
+    .fdot{{display:inline-block;width:3px;height:3px;background:rgba(249,115,22,.45);border-radius:50%;margin:0 .5rem;vertical-align:middle;}}
+    </style>
+    </head><body>
+    <div class="stats-row">
+      <div class="stat-card sc-call">
+        <div class="si si-o">🔔</div>
+        <div class="stat-info">
+          <span class="slbl">Calling Data</span>
+          <span class="sval">{call_time}</span>
+          <span class="ssub">{call_cnt} records</span>
+        </div><span class="pill-l">● Live</span>
+      </div>
+      <div class="stat-card sc-rev">
+        <div class="si si-g">💰</div>
+        <div class="stat-info">
+          <span class="slbl">Revenue Data</span>
+          <span class="sval">{rev_time}</span>
+          <span class="ssub">{rev_cnt} records</span>
+        </div><span class="pill-l">● Live</span>
+      </div>
+      <div class="stat-card">
+        <div class="si si-p">📊</div>
+        <div class="stat-info">
+          <span class="slbl">Lead Data</span>
+          <span class="sval" style="color:rgba(255,255,255,.25);">Under Development</span>
+          <span class="ssub">Pipeline coming soon</span>
+        </div><span class="pill-w">🚧 WIP</span>
+      </div>
+    </div>
+    <div class="dash-section">
+      <div class="sec-head">
+        <div class="sec-line"></div>
+        <span class="sec-lbl">Dashboards</span>
+        <div class="sec-line"></div>
+      </div>
+      <div class="cards">
+        <div class="dc dc-o">
+          <div class="dc-hdr"><div class="dc-icon">🔔</div></div>
+          <div class="dc-title">Calling Metrics</div>
+          <div class="dc-desc">Full CDR analysis across Ozonetel, Acefone &amp; Manual calls. Agent-level performance, break tracking, productive hours &amp; team leaderboards.</div>
+          <div class="dc-tags"><span class="dtag">Ozonetel</span><span class="dtag">Acefone</span><span class="dtag">Manual</span><span class="dtag">Teams</span></div>
+        </div>
+        <div class="dc dc-g">
+          <div class="dc-hdr"><div class="dc-icon">💰</div></div>
+          <div class="dc-title">Revenue Metrics</div>
+          <div class="dc-desc">Enrollment revenue, target achievement &amp; caller-level breakdown. Course performance, source mix &amp; team leaderboards.</div>
+          <div class="dc-tags"><span class="dtag">Enrollments</span><span class="dtag">Targets</span><span class="dtag">Achievement</span><span class="dtag">Teams</span></div>
+        </div>
+        <div class="dc dc-p wip">
+          <div class="dc-hdr"><div class="dc-icon">📊</div><span class="wip-badge">🚧 Coming Soon</span></div>
+          <div class="dc-title">Lead Metrics</div>
+          <div class="dc-desc">Currently under development.</div>
+          <div class="dc-tags"><span class="dtag">Fresh</span><span class="dtag">Breached</span><span class="dtag">Less Dialled</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="footer">
+      <div class="f1">For Internal Use of Sales and Operations Team Only<span class="fdot"></span>All Rights Reserved</div>
+      <div class="f2">Developed and Designed by Amit Ray<span class="fdot"></span>Reach out for Support and Queries</div>
+    </div>
+    </body></html>"""
+
+    components.html(html_bottom, height=780, scrolling=False)
+    
     # ── Streamlit login form (renders directly below the hero card) ──
     with st.container():
         st.markdown('<div class="login-wrap">', unsafe_allow_html=True)
