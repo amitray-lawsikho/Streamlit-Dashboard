@@ -405,17 +405,20 @@ def run_calling_dashboard():
     # ADD THIS CSS BLOCK FIRST:
     st.markdown("""
     <style>
-    [data-testid="stSidebar"] {
+    [data-testid="stSidebar"][aria-expanded="true"] {
         min-width: 280px !important;
         max-width: 280px !important;
     }
-    [data-testid="stMainBlockContainer"] {
+    [data-testid="stSidebar"][aria-expanded="false"] {
+        min-width: 0px !important;
+        max-width: 0px !important;
+        overflow: hidden !important;
+    }
+    [data-testid="stMainBlockContainer"],
+    .block-container {
         max-width: 100% !important;
         padding-left: 2rem !important;
         padding-right: 2rem !important;
-    }
-    .block-container {
-        max-width: 100% !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -4574,12 +4577,13 @@ else:
     st.markdown("""
     <style>
     footer { visibility: hidden; }
-    [data-testid="stStatusWidget"]  { display: none !important; }
-
-    /* Hide the entire top toolbar — this removes the theme switcher */
-    header[data-testid="stHeader"]  { display: none !important; }
-    [data-testid="stToolbar"]       { display: none !important; }
-    #MainMenu                        { display: none !important; }
+    [data-testid="stStatusWidget"]           { display: none !important; }
+    header[data-testid="stHeader"]           { display: none !important; }
+    [data-testid="stToolbar"]                { display: none !important; }
+    [data-testid="stToolbarActionButtonIcon"] { display: none !important; }
+    [data-testid="stAppToolbar"]             { display: none !important; }
+    #MainMenu                                { display: none !important; }
+    .stDeployButton                          { display: none !important; }
     </style>
     """, unsafe_allow_html=True)
 
