@@ -1,8 +1,10 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import os
 import pytz
 import io
+import re
 from datetime import datetime, date, time, timedelta
 from google.cloud import bigquery
 from google.oauth2 import service_account
@@ -22,6 +24,7 @@ from openpyxl.utils import get_column_letter
 
 
 # --- GLOBAL CONFIG & CREDENTIALS ---
+import streamlit.components.v1 as components
 st.set_page_config(
     page_title="Analytics Dashboard — LawSikho",
     page_icon="📊",
@@ -111,6 +114,7 @@ def get_stats():
 def show_homepage_with_login():
     import streamlit.components.v1 as components
 
+    
     # ── Full-page dark background + input styling ──
     st.markdown("""
     <style>
@@ -235,7 +239,117 @@ def show_homepage_with_login():
     }
     </style>
     """, unsafe_allow_html=True)
+    components.html("""
+    <script>
+    (function() {
+        const CSS = `
+            div[data-testid="column"]:nth-child(2),
+            div[data-testid="column"]:nth-child(2) > div,
+            div[data-testid="column"]:nth-child(2) > div > div,
+            div[data-testid="column"]:nth-child(2) [data-testid="stVerticalBlock"],
+            div[data-testid="column"]:nth-child(2) [data-testid="stVerticalBlockBorderWrapper"] {
+                background-color: #0f172a !important;
+            }
+            div[data-testid="column"]:nth-child(2) > div:first-child {
+                background-color: #0f172a !important;
+                border: 1px solid rgba(255,255,255,.12) !important;
+                border-radius: 16px !important;
+                padding: 1.6rem 1.8rem 1.8rem !important;
+            }
+            div[data-testid="column"]:nth-child(2) [data-baseweb="input"],
+            div[data-testid="column"]:nth-child(2) [data-baseweb="base-input"] {
+                background-color: #1e293b !important;
+                border-color: rgba(148,163,184,.28) !important;
+                border-radius: 10px !important;
+            }
+            div[data-testid="column"]:nth-child(2) [data-baseweb="input"]:focus-within,
+            div[data-testid="column"]:nth-child(2) [data-baseweb="base-input"]:focus-within {
+                border-color: #F97316 !important;
+                box-shadow: 0 0 0 2px rgba(249,115,22,.2) !important;
+            }
+            div[data-testid="column"]:nth-child(2) [data-baseweb="input"] input,
+            div[data-testid="column"]:nth-child(2) [data-baseweb="base-input"] input,
+            div[data-testid="column"]:nth-child(2) input[type="text"],
+            div[data-testid="column"]:nth-child(2) input[type="password"],
+            div[data-testid="column"]:nth-child(2) input {
+                background-color: #1e293b !important;
+                color: #f1f5f9 !important;
+                -webkit-text-fill-color: #f1f5f9 !important;
+                caret-color: #F97316 !important;
+                border: none !important;
+            }
+            div[data-testid="column"]:nth-child(2) input::placeholder {
+                color: rgba(241,245,249,.32) !important;
+                -webkit-text-fill-color: rgba(241,245,249,.32) !important;
+            }
+            div[data-testid="column"]:nth-child(2) input:-webkit-autofill,
+            div[data-testid="column"]:nth-child(2) input:-webkit-autofill:hover,
+            div[data-testid="column"]:nth-child(2) input:-webkit-autofill:focus,
+            div[data-testid="column"]:nth-child(2) input:-webkit-autofill:active {
+                -webkit-box-shadow: 0 0 0px 1000px #1e293b inset !important;
+                box-shadow: 0 0 0px 1000px #1e293b inset !important;
+                -webkit-text-fill-color: #f1f5f9 !important;
+                caret-color: #F97316 !important;
+            }
+            div[data-testid="column"]:nth-child(2) label,
+            div[data-testid="column"]:nth-child(2) label p {
+                color: rgba(241,245,249,.55) !important;
+                font-size: 0.8rem !important;
+            }
+            div[data-testid="column"]:nth-child(2) [data-baseweb="input"] button,
+            div[data-testid="column"]:nth-child(2) [data-baseweb="base-input"] button {
+                background-color: transparent !important;
+                color: rgba(241,245,249,.45) !important;
+                border: none !important;
+            }
+            div[data-testid="column"]:nth-child(2) .stButton > button {
+                width: 100% !important;
+                background: linear-gradient(135deg, #F97316, #EA580C) !important;
+                color: #ffffff !important;
+                -webkit-text-fill-color: #ffffff !important;
+                border: none !important;
+                border-radius: 10px !important;
+                padding: 11px !important;
+                font-size: 0.9rem !important;
+                font-weight: 600 !important;
+                box-shadow: none !important;
+                outline: none !important;
+            }
+            div[data-testid="column"]:nth-child(2) .stButton > button:hover,
+            div[data-testid="column"]:nth-child(2) .stButton > button:active,
+            div[data-testid="column"]:nth-child(2) .stButton > button:focus {
+                background: linear-gradient(135deg, #EA580C, #C2410C) !important;
+                color: #ffffff !important;
+                -webkit-text-fill-color: #ffffff !important;
+                border: none !important;
+                outline: none !important;
+                box-shadow: 0 4px 16px rgba(249,115,22,.3) !important;
+            }
+        `;
 
+        function stamp() {
+            try {
+                const doc = window.parent.document;
+                let el = doc.getElementById('__lp_dark__');
+                if (!el) {
+                    el = doc.createElement('style');
+                    el.id = '__lp_dark__';
+                    doc.head.appendChild(el);
+                }
+                el.textContent = CSS;
+            } catch(e) {}
+        }
+
+        stamp();
+
+        try {
+            const mo = new MutationObserver(stamp);
+            mo.observe(window.parent.document.documentElement, { attributes: true });
+            mo.observe(window.parent.document.head, { childList: true, subtree: true });
+        } catch(e) {}
+    })();
+    </script>
+    """, height=0, scrolling=False)
     call_time, call_cnt, rev_time, rev_cnt = get_stats()
 
     # ── HERO HTML ──
@@ -968,6 +1082,15 @@ def run_calling_dashboard():
         return insights
 
     def generate_calling_helper_pdf_bytes() -> bytes:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.lib.units import mm
+        from reportlab.lib.styles import ParagraphStyle
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+        from reportlab.platypus import Flowable
+        from reportlab.lib.enums import TA_CENTER
+        import io
+
         buffer = io.BytesIO()
         ORANGE_DARK=colors.HexColor("#7c2d12"); ORANGE_MID=colors.HexColor("#431407")
         ORANGE_PALE=colors.HexColor("#FEF3E8"); ORANGE_ROW=colors.HexColor("#FFF8F3")
@@ -2518,6 +2641,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
 
         GREEN_DARK  = colors.HexColor("#064e3b")
         GREEN_MID   = colors.HexColor("#065f46")
+        GREEN_LIGHT = colors.HexColor("#10B981")
         GREEN_PALE  = colors.HexColor("#DCFCE7")
         GREEN_ROW   = colors.HexColor("#F0FDF4")
         GREY_DARK   = colors.HexColor("#374151")
@@ -2983,8 +3107,64 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
     def _pct48(b48, bal):
         return f"{round(b48 / bal * 100)}%" if bal and bal > 0 else "0%"
 
+    def _make_pending_row(name, team, vert, r, row_type, curr_label, prev_label):
+        return {
+            '_rt'                 : row_type,
+            'NAME'                : name,
+            'TEAM'                : team,
+            'VERTICAL'            : vert,
+            f'REVENUE POOL ({curr_label})'  : fmt_inr(r.get('pool', 0)),
+            f'COLLECTED ({curr_label})'     : fmt_inr(r.get('collected', 0)),
+            f'BALANCE ({curr_label})'       : fmt_inr(r.get('balance', 0)),
+            f'LEADS ({curr_label})'         : int(r.get('leads', 0)),
+            '>48HR LEADS'                   : int(r.get('leads_48', 0)),
+            '>48HR BALANCE'                 : fmt_inr(r.get('bal_48hr', 0)),
+            '% PENDING >48HR'               : _pct48(r.get('bal_48hr', 0), r.get('balance', 0)),
+            f'BALANCE ({prev_label})'       : fmt_inr(r.get('prev_bal', 0)),
+            f'LEADS ({prev_label})'         : int(r.get('prev_leads', 0)),
+            'GRAND BALANCE'                 : fmt_inr(r.get('grand_bal', 0)),
+            'GRAND LEADS'                   : int(r.get('grand_leads', 0)),
+        }
 
+    def build_pending_display(combined_df, mode, curr_label, prev_label):
+        rows   = []
+        g_sums = {k: 0 for k in ['pool','collected','balance','leads','leads_48','bal_48hr','prev_bal','prev_leads','grand_bal','grand_leads']}
 
+        for vert in sorted(combined_df['Vertical'].fillna('Others').unique()):
+            v_df   = combined_df[combined_df['Vertical'].fillna('Others') == vert]
+            v_sums = {k: 0 for k in g_sums}
+
+            for team in sorted(v_df['Team Name'].fillna('Others').unique()):
+                t_df   = v_df[v_df['Team Name'].fillna('Others') == team]
+                t_sums = {k: 0 for k in g_sums}
+
+                if mode == 'caller':
+                    for _, r in t_df.sort_values('balance', ascending=False).iterrows():
+                        d = {k: r.get(k, 0) for k in g_sums}
+                        rows.append(_make_pending_row(r.get('Caller_name','—'), team, vert, d, 'data', curr_label, prev_label))
+                        for k in g_sums:
+                            t_sums[k] += d[k]
+                else:
+                    for k in ['pool','collected','balance','leads','leads_48','bal_48hr','prev_bal','prev_leads','grand_bal','grand_leads']:
+                        t_sums[k] = t_df[k].sum() if k in t_df.columns else 0
+
+                rows.append(_make_pending_row(f"{team} Total", vert, vert, t_sums, 'team_total', curr_label, prev_label))
+                for k in g_sums:
+                    v_sums[k] += t_sums[k]
+
+            rows.append(_make_pending_row(f"{vert} Total", '—', '—', v_sums, 'vertical_total', curr_label, prev_label))
+            for k in g_sums:
+                g_sums[k] += v_sums[k]
+
+        rows.append(_make_pending_row('Grand Total', '—', '—', g_sums, 'grand_total', curr_label, prev_label))
+        return pd.DataFrame(rows)
+
+    def style_pending_row(row):
+        rt = row.get('_rt', 'data')
+        if rt == 'grand_total':    return ['font-weight:700;background-color:#1e3a5f;color:#FFFFFF;'] * len(row)
+        if rt == 'vertical_total': return ['font-weight:700;background-color:#064e3b;color:#FFFFFF;'] * len(row)
+        if rt == 'team_total':     return ['font-weight:700;background-color:#374151;color:#FFFFFF;'] * len(row)
+        return [''] * len(row)
 
     def attribute_drops_to_callers(drop_df, df_rev, meta_map, c_start, c_end, p_start, p_end, curr_label, prev_label):
         if drop_df.empty or df_rev.empty:
@@ -3022,6 +3202,30 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         combined['Vertical']    = combined['Vertical'].fillna('Others')
         return combined.sort_values('total_drops', ascending=False).reset_index(drop=True)
 
+    def build_drop_display(drop_agg, curr_label, prev_label):
+        rows = []
+        g_c = g_p = g_t = 0
+        for vert in sorted(drop_agg['Vertical'].fillna('Others').unique()):
+            v_df = drop_agg[drop_agg['Vertical'].fillna('Others') == vert]
+            vc = vp = vt = 0
+            for team in sorted(v_df['Team Name'].fillna('Others').unique()):
+                t_df = v_df[v_df['Team Name'].fillna('Others') == team]
+                tc = tp = tt = 0
+                for _, r in t_df.sort_values('total_drops', ascending=False).iterrows():
+                    rows.append({'_rt': 'data', 'CALLER NAME': r['Caller_name'], 'TEAM': team, 'VERTICAL': vert,
+                                 f'{curr_label} DROPS': int(r['curr_drops']),
+                                 f'{prev_label} DROPS': int(r['prev_drops']),
+                                 'TOTAL DROPS': int(r['total_drops'])})
+                    tc += r['curr_drops']; tp += r['prev_drops']; tt += r['total_drops']
+                rows.append({'_rt': 'team_total', 'CALLER NAME': f'{team} Total', 'TEAM': '—', 'VERTICAL': vert,
+                             f'{curr_label} DROPS': int(tc), f'{prev_label} DROPS': int(tp), 'TOTAL DROPS': int(tt)})
+                vc += tc; vp += tp; vt += tt
+            rows.append({'_rt': 'vertical_total', 'CALLER NAME': f'{vert} Total', 'TEAM': '—', 'VERTICAL': '—',
+                         f'{curr_label} DROPS': int(vc), f'{prev_label} DROPS': int(vp), 'TOTAL DROPS': int(vt)})
+            g_c += vc; g_p += vp; g_t += vt
+        rows.append({'_rt': 'grand_total', 'CALLER NAME': 'Grand Total', 'TEAM': '—', 'VERTICAL': '—',
+                     f'{curr_label} DROPS': int(g_c), f'{prev_label} DROPS': int(g_p), 'TOTAL DROPS': int(g_t)})
+        return pd.DataFrame(rows)
 
     def render_html_pending_table(combined, mode, curr_label, prev_label, title):
         hdr_style  = "background:#064e3b;color:#fff;font-size:.72rem;font-weight:700;text-transform:uppercase;padding:8px 6px;text-align:center;border:1px solid #065f46;"
@@ -3273,6 +3477,9 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
           Tab 2 — Callerwise Pending Revenue
         All monetary values are raw integers (no K/L formatting).
         """
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
         HDR_FILL   = PatternFill("solid", start_color="064e3b", end_color="064e3b")
         TEAM_FILL  = PatternFill("solid", start_color="1f2937", end_color="1f2937")
         VERT_FILL  = PatternFill("solid", start_color="064e3b", end_color="064e3b")
@@ -3507,6 +3714,9 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         Returns bytes of an xlsx with 2 tabs — one per month — with full lead details
         including Caller Name, Team Name, Vertical, Course Price, Revenue Collected, Balance.
         """
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
         HDR_FILL  = PatternFill("solid", start_color="064e3b", end_color="064e3b")
         ALT_FILL  = PatternFill("solid", start_color="f0fdf4", end_color="f0fdf4")
         WHITE_FILL= PatternFill("solid", start_color="ffffff", end_color="ffffff")
@@ -3615,6 +3825,9 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         """
         if meta_map_pending is None:
             meta_map_pending = pd.DataFrame()
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+        from openpyxl.utils import get_column_letter
 
         HDR_FILL   = PatternFill("solid", start_color="7c2d12", end_color="7c2d12")
         ALT_FILL   = PatternFill("solid", start_color="fff7ed", end_color="fff7ed")
@@ -3706,6 +3919,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                 df_work['attributed_caller'] = df_work.apply(_get_caller, axis=1)
 
                 # Build caller → team/vertical lookup from meta
+                from openpyxl import Workbook as _WB  # already imported above, just ensure scope
                 _meta_lkp_drop = {}
                 if not meta_map_pending.empty:
                     for _, _mr in meta_map_pending.iterrows():
