@@ -29,7 +29,7 @@ st.set_page_config(
     page_title="Analytics Dashboard — LawSikho",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"
 )
 
 def get_bq_client():
@@ -114,7 +114,6 @@ def get_stats():
 def show_homepage_with_login():
     import streamlit.components.v1 as components
 
-    
     # ── Full-page dark background + input styling ──
     st.markdown("""
     <style>
@@ -239,117 +238,7 @@ def show_homepage_with_login():
     }
     </style>
     """, unsafe_allow_html=True)
-    components.html("""
-    <script>
-    (function() {
-        const CSS = `
-            div[data-testid="column"]:nth-child(2),
-            div[data-testid="column"]:nth-child(2) > div,
-            div[data-testid="column"]:nth-child(2) > div > div,
-            div[data-testid="column"]:nth-child(2) [data-testid="stVerticalBlock"],
-            div[data-testid="column"]:nth-child(2) [data-testid="stVerticalBlockBorderWrapper"] {
-                background-color: #0f172a !important;
-            }
-            div[data-testid="column"]:nth-child(2) > div:first-child {
-                background-color: #0f172a !important;
-                border: 1px solid rgba(255,255,255,.12) !important;
-                border-radius: 16px !important;
-                padding: 1.6rem 1.8rem 1.8rem !important;
-            }
-            div[data-testid="column"]:nth-child(2) [data-baseweb="input"],
-            div[data-testid="column"]:nth-child(2) [data-baseweb="base-input"] {
-                background-color: #1e293b !important;
-                border-color: rgba(148,163,184,.28) !important;
-                border-radius: 10px !important;
-            }
-            div[data-testid="column"]:nth-child(2) [data-baseweb="input"]:focus-within,
-            div[data-testid="column"]:nth-child(2) [data-baseweb="base-input"]:focus-within {
-                border-color: #F97316 !important;
-                box-shadow: 0 0 0 2px rgba(249,115,22,.2) !important;
-            }
-            div[data-testid="column"]:nth-child(2) [data-baseweb="input"] input,
-            div[data-testid="column"]:nth-child(2) [data-baseweb="base-input"] input,
-            div[data-testid="column"]:nth-child(2) input[type="text"],
-            div[data-testid="column"]:nth-child(2) input[type="password"],
-            div[data-testid="column"]:nth-child(2) input {
-                background-color: #1e293b !important;
-                color: #f1f5f9 !important;
-                -webkit-text-fill-color: #f1f5f9 !important;
-                caret-color: #F97316 !important;
-                border: none !important;
-            }
-            div[data-testid="column"]:nth-child(2) input::placeholder {
-                color: rgba(241,245,249,.32) !important;
-                -webkit-text-fill-color: rgba(241,245,249,.32) !important;
-            }
-            div[data-testid="column"]:nth-child(2) input:-webkit-autofill,
-            div[data-testid="column"]:nth-child(2) input:-webkit-autofill:hover,
-            div[data-testid="column"]:nth-child(2) input:-webkit-autofill:focus,
-            div[data-testid="column"]:nth-child(2) input:-webkit-autofill:active {
-                -webkit-box-shadow: 0 0 0px 1000px #1e293b inset !important;
-                box-shadow: 0 0 0px 1000px #1e293b inset !important;
-                -webkit-text-fill-color: #f1f5f9 !important;
-                caret-color: #F97316 !important;
-            }
-            div[data-testid="column"]:nth-child(2) label,
-            div[data-testid="column"]:nth-child(2) label p {
-                color: rgba(241,245,249,.55) !important;
-                font-size: 0.8rem !important;
-            }
-            div[data-testid="column"]:nth-child(2) [data-baseweb="input"] button,
-            div[data-testid="column"]:nth-child(2) [data-baseweb="base-input"] button {
-                background-color: transparent !important;
-                color: rgba(241,245,249,.45) !important;
-                border: none !important;
-            }
-            div[data-testid="column"]:nth-child(2) .stButton > button {
-                width: 100% !important;
-                background: linear-gradient(135deg, #F97316, #EA580C) !important;
-                color: #ffffff !important;
-                -webkit-text-fill-color: #ffffff !important;
-                border: none !important;
-                border-radius: 10px !important;
-                padding: 11px !important;
-                font-size: 0.9rem !important;
-                font-weight: 600 !important;
-                box-shadow: none !important;
-                outline: none !important;
-            }
-            div[data-testid="column"]:nth-child(2) .stButton > button:hover,
-            div[data-testid="column"]:nth-child(2) .stButton > button:active,
-            div[data-testid="column"]:nth-child(2) .stButton > button:focus {
-                background: linear-gradient(135deg, #EA580C, #C2410C) !important;
-                color: #ffffff !important;
-                -webkit-text-fill-color: #ffffff !important;
-                border: none !important;
-                outline: none !important;
-                box-shadow: 0 4px 16px rgba(249,115,22,.3) !important;
-            }
-        `;
 
-        function stamp() {
-            try {
-                const doc = window.parent.document;
-                let el = doc.getElementById('__lp_dark__');
-                if (!el) {
-                    el = doc.createElement('style');
-                    el.id = '__lp_dark__';
-                    doc.head.appendChild(el);
-                }
-                el.textContent = CSS;
-            } catch(e) {}
-        }
-
-        stamp();
-
-        try {
-            const mo = new MutationObserver(stamp);
-            mo.observe(window.parent.document.documentElement, { attributes: true });
-            mo.observe(window.parent.document.head, { childList: true, subtree: true });
-        } catch(e) {}
-    })();
-    </script>
-    """, height=0, scrolling=False)
     call_time, call_cnt, rev_time, rev_cnt = get_stats()
 
     # ── HERO HTML ──
@@ -519,15 +408,18 @@ def run_calling_dashboard():
     # ADD THIS CSS BLOCK FIRST:
     st.markdown("""
     <style>
-    /* ── Lock sidebar open: hide collapse/expand toggle buttons ── */
-    [data-testid="stSidebarCollapseButton"]      { display: none !important; }
-    [data-testid="collapsedControl"]             { display: none !important; }
-    [data-testid="stSidebarCollapsedControl"]    { display: none !important; }
-    
-    /* ── Hide theme switcher (hamburger menu) ── */
-    #MainMenu                                    { display: none !important; }
-    header[data-testid="stHeader"] button[kind="headerNoPadding"],
-    [data-testid="stToolbarActions"]             { display: none !important; }
+    [data-testid="stSidebar"] {
+        min-width: 280px !important;
+        max-width: 280px !important;
+    }
+    [data-testid="stMainBlockContainer"] {
+        max-width: 100% !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+    }
+    .block-container {
+        max-width: 100% !important;
+    }
     </style>
     """, unsafe_allow_html=True)
     CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRT73ztvPNZSvIu5WLxo-3WQ76JMAnt4P9dITd4EAbjSvuDytfgvdfri1WPXotCjm_Etnb80_Q7S-wf/pub?gid=0&single=true&output=csv"
@@ -1821,17 +1713,21 @@ def run_calling_dashboard():
 
 
 def run_revenue_dashboard():
+    # ADD THIS CSS BLOCK FIRST:
     st.markdown("""
     <style>
-    /* ── Lock sidebar open: hide collapse/expand toggle buttons ── */
-    [data-testid="stSidebarCollapseButton"]      { display: none !important; }
-    [data-testid="collapsedControl"]             { display: none !important; }
-    [data-testid="stSidebarCollapsedControl"]    { display: none !important; }
-    
-    /* ── Hide theme switcher (hamburger menu) ── */
-    #MainMenu                                    { display: none !important; }
-    header[data-testid="stHeader"] button[kind="headerNoPadding"],
-    [data-testid="stToolbarActions"]             { display: none !important; }
+    [data-testid="stSidebar"] {
+        min-width: 280px !important;
+        max-width: 280px !important;
+    }
+    [data-testid="stMainBlockContainer"] {
+        max-width: 100% !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+    }
+    .block-container {
+        max-width: 100% !important;
+    }
     </style>
     """, unsafe_allow_html=True)
     # ─────────────────────────────────────────────
@@ -4781,13 +4677,8 @@ else:
     st.markdown("""
     <style>
     footer { visibility: hidden; }
-    [data-testid="stStatusWidget"]            { display: none !important; }
-    header[data-testid="stHeader"]            { background: transparent !important; }
-    [data-testid="stSidebarCollapseButton"]   { display: none !important; }
-    [data-testid="collapsedControl"]          { display: none !important; }
-    [data-testid="stSidebarCollapsedControl"] { display: none !important; }
-    #MainMenu                                 { display: none !important; }
-    [data-testid="stToolbarActions"]          { display: none !important; }
+    [data-testid="stStatusWidget"] { display: none !important; }
+    header[data-testid="stHeader"] { background: transparent !important; }
     </style>
     """, unsafe_allow_html=True)
 
