@@ -1201,6 +1201,14 @@ def run_calling_dashboard():
     gen_dynamic = st.sidebar.button("🚀 Generate Dynamic Report",  key="call_gen_dynamic")
     gen_static  = st.sidebar.button("📅 Generate Duration Report", key="call_gen_static")
 
+    st.sidebar.download_button(
+        label="📖 Metrics Guide (PDF)",
+        data=generate_calling_helper_pdf_bytes(),
+        file_name="Calling_Metrics_Logic_Guide.pdf",
+        mime="application/pdf",
+        key="dl_calling_helper_pdf"
+    )
+    
     st.sidebar.markdown("""
     <hr style='border:none; border-top:1px solid rgba(249,115,22,.3); margin:.4rem 0 .3rem;'>
     <div style='font-size:.68rem; color:var(--text-muted,#6B7280); line-height:1.6;'>
@@ -1210,14 +1218,6 @@ def run_calling_dashboard():
         <a href="mailto:amitray@lawsikho.com" style="color:#F97316; text-decoration:none;">amitray@lawsikho.com</a>
     </div>
     """, unsafe_allow_html=True)
-
-    st.sidebar.download_button(
-        label="📖 Metrics Guide (PDF)",
-        data=generate_calling_helper_pdf_bytes(),
-        file_name="Calling_Metrics_Logic_Guide.pdf",
-        mime="application/pdf",
-        key="dl_calling_helper_pdf"
-    )
 
 
     # ─────────────────────────────────────────────
@@ -3785,6 +3785,14 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
 
     gen_report = st.sidebar.button("💰 Generate Revenue Report", key="rev_gen_btn")
 
+    st.sidebar.download_button(
+        label="📖 Metrics Guide (PDF)",
+        data=generate_helper_pdf_bytes(),
+        file_name="Revenue_Metrics_Logic_Guide.pdf",
+        mime="application/pdf",
+        key="dl_helper_pdf"
+    )
+    
     st.sidebar.markdown("""
     <hr style='border:none; border-top:1px solid rgba(16,185,129,.3); margin:.4rem 0 .3rem;'>
     <div style='font-size:.68rem; color:var(--text-muted,#6B7280); line-height:1.6;'>
@@ -3794,14 +3802,6 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         <a href="mailto:amitray@lawsikho.com" style="color:#10B981; text-decoration:none;">amitray@lawsikho.com</a>
     </div>
     """, unsafe_allow_html=True)
-
-    st.sidebar.download_button(
-        label="📖 Metrics Guide (PDF)",
-        data=generate_helper_pdf_bytes(),
-        file_name="Revenue_Metrics_Logic_Guide.pdf",
-        mime="application/pdf",
-        key="dl_helper_pdf"
-    )
 
     # ─────────────────────────────────────────────
     # HEADER BANNER
