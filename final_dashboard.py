@@ -404,10 +404,6 @@ def run_calling_dashboard():
     # ADD THIS CSS BLOCK FIRST:
     st.markdown("""
     <style>
-    [data-testid="stSidebar"] {
-        min-width: 280px !important;
-        max-width: 280px !important;
-    }
     [data-testid="stMainBlockContainer"] {
         max-width: 100% !important;
         padding-left: 2rem !important;
@@ -1704,10 +1700,6 @@ def run_revenue_dashboard():
     # ADD THIS CSS BLOCK FIRST:
     st.markdown("""
     <style>
-    [data-testid="stSidebar"] {
-        min-width: 280px !important;
-        max-width: 280px !important;
-    }
     [data-testid="stMainBlockContainer"] {
         max-width: 100% !important;
         padding-left: 2rem !important;
