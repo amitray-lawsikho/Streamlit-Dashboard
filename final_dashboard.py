@@ -1586,7 +1586,7 @@ def run_calling_dashboard():
     # TAB 3 — INSIGHTS (auto-populated from session state)
     # ══════════════════════════════════════════════
 
-    
+    with tab3:
         if 'insights_df' in st.session_state and 'insights_report' in st.session_state:
             df_ins       = st.session_state['insights_df']
             report_df_all = st.session_state['insights_report']
