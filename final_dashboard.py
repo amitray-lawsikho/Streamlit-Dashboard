@@ -4440,14 +4440,13 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                 </div>""", unsafe_allow_html=True)
     
         else:
-            # ── ALL existing tab3 code goes here, indented one level ──
             with st.spinner("Loading pending revenue data…"):
                 _, _, df_meta_all = get_metadata()
                 meta_map_pending  = (df_meta_all.sort_values('Month', ascending=False)
                                      .drop_duplicates(subset=['merge_key'], keep='first')
                                      [['merge_key', 'Caller Name', 'Team Name', 'Vertical']].copy())
     
-                drop_df    = load_drop_leads()
+                drop_df     = load_drop_leads()
                 excl_emails = set(drop_df['drop_email'].dropna().astype(str).unique()) if not drop_df.empty else set()
                 excl_phones = set(drop_df['drop_phone'].dropna().astype(str).unique()) if not drop_df.empty else set()
                 df_both     = fetch_both_months_rev(p_start, c_end)
@@ -4500,7 +4499,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                             meta_map_pending, curr_label, prev_label
                         )
                         st.download_button(
-                            label=f"📥 Download Teamwise + Callerwise Pending Revenue",
+                            label="📥 Download Teamwise + Callerwise Pending Revenue",
                             data=_pending_xlsx,
                             file_name=f"Pending_Revenue_{prev_label.replace(' ','_')}_{curr_label.replace(' ','_')}.xlsx",
                             mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -4520,25 +4519,45 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                             key='dl_pending_leads_xlsx'
                         )
     
-            # ══ DROPPED LEADS ════════════════════════
-            st.markdown("<div style='margin:2rem 0;'></div>", unsafe_allow_html=True)
-            section_header(f"🚫 CALLERWISE DROPPED LEADS — {prev_label} + {curr_label}")
+                # ══ DROPPED LEADS — inside else: so drop_df and df_both are always defined ══
+                st.markdown("<div style='margin:2rem 0;'></div>", unsafe_allow_html=True)
+                section_header(f"🚫 CALLERWISE DROPPED LEADS — {prev_label} + {curr_label}")
     
-            if not drop_df.empty and not df_both.empty:
-                drop_agg = attribute_drops_to_callers(
-                    drop_df, df_both, meta_map_pending,
-                    c_start, c_end, p_start, p_end,
-                    curr_label, prev_label
-                )
-                if not drop_agg.empty:
-                    drop_agg = drop_agg[drop_agg['Team Name'] != 'Others'].copy()
+                if not drop_df.empty and not df_both.empty:
+                    drop_agg = attribute_drops_to_callers(
+                        drop_df, df_both, meta_map_pending,
+                        c_start, c_end, p_start, p_end,
+                        curr_label, prev_label
+                    )
+                    if not drop_agg.empty:
+                        drop_agg = drop_agg[drop_agg['Team Name'] != 'Others'].copy()
     
-                    if selected_vertical:
-                        drop_agg = drop_agg[drop_agg['Vertical'].isin(selected_vertical)].copy()
-                    if selected_team:
-                        drop_agg = drop_agg[drop_agg['Team Name'].isin(selected_team)].copy()
+                        if selected_vertical:
+                            drop_agg = drop_agg[drop_agg['Vertical'].isin(selected_vertical)].copy()
+                        if selected_team:
+                            drop_agg = drop_agg[drop_agg['Team Name'].isin(selected_team)].copy()
     
-                    st.markdown(render_drop_html(drop_agg, curr_label
+                        st.markdown(
+                            render_drop_html(drop_agg, curr_label, prev_label),
+                            unsafe_allow_html=True
+                        )
+                    else:
+                        st.info("No dropped leads found for current or previous month.")
+    
+                    if not drop_agg.empty:
+                        _drop_xlsx = build_drop_leads_excel(
+                            drop_df, c_start, c_end, p_start, p_end,
+                            curr_label, prev_label, meta_map_pending
+                        )
+                        st.download_button(
+                            label=f"📥 Download Dropped Leads — {prev_label} + {curr_label}",
+                            data=_drop_xlsx,
+                            file_name=f"Dropped_Leads_{prev_label.replace(' ','_')}_{curr_label.replace(' ','_')}.xlsx",
+                            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            key='dl_drop_leads_xlsx'
+                        )
+                else:
+                    st.info("Drop leads sheet could not be loaded.")
 
 # --- MAIN APP ROUTER ---
 if not check_password():
