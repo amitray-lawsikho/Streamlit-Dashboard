@@ -124,7 +124,7 @@ def show_homepage_with_login():
     [data-testid="stSidebarCollapsedControl"] { display: none !important; }
     [data-testid="stAppViewContainer"],
     [data-testid="stMain"], .main { background: #0B1120 !important; }
-    .block-container { padding: 0 !important; max-width: 100% !important; }
+    .block-container { padding: 0 !important; max-width: 100% !important; margin-bottom: 0 !important; }
 
     /* Center the login column */
     [data-testid="stHorizontalBlock"] { gap: 0 !important; }
@@ -138,22 +138,22 @@ def show_homepage_with_login():
         margin: 0 auto !important;
     }
 
-    /* Input boxes — dark themed, always readable */
+    /* Input boxes — forced dark slate so text is always visible in any Streamlit theme */
     [data-testid="stTextInput"] > div > div > input {
-        background: rgba(255,255,255,.08) !important;
-        border: 1px solid rgba(255,255,255,.15) !important;
-        color: #FFFFFF !important;
+        background: #1e293b !important;
+        border: 1px solid rgba(148,163,184,.25) !important;
+        color: #f1f5f9 !important;
         border-radius: 10px !important;
         padding: 10px 14px !important;
         font-size: 0.9rem !important;
         caret-color: #F97316 !important;
     }
-    [data-testid="stTextInput"] > div > div > input::placeholder { color: rgba(255,255,255,.35) !important; }
+    [data-testid="stTextInput"] > div > div > input::placeholder { color: rgba(241,245,249,.35) !important; }
     [data-testid="stTextInput"] > div > div > input:focus {
         border-color: #F97316 !important;
         box-shadow: 0 0 0 2px rgba(249,115,22,.2) !important;
     }
-    [data-testid="stTextInput"] label { color: rgba(255,255,255,.55) !important; font-size: 0.8rem !important; }
+    [data-testid="stTextInput"] label { color: rgba(241,245,249,.55) !important; font-size: 0.8rem !important; }
 
     /* Sign In button */
     [data-testid="column"]:nth-child(2) .stButton > button {
@@ -337,7 +337,7 @@ def show_homepage_with_login():
       <div class="f2">Developed and Designed by Amit Ray<span class="fd"></span>Reach out for Support and Queries</div>
     </div>
     </body></html>"""
-    components.html(html_bottom, height=760, scrolling=False)
+    components.html(html_bottom, height=640, scrolling=False)
 
 def run_calling_dashboard():
     # ADD THIS CSS BLOCK FIRST:
@@ -1129,17 +1129,9 @@ def run_calling_dashboard():
     max_date = pd.Timestamp(max_date_raw).date()
 
     st.sidebar.markdown("""
-    <div style='padding:.6rem 0 .4rem; text-align:center;'>
-        <div style='display:flex; align-items:center; justify-content:center; gap:0; margin-bottom:.3rem;'>
-            <span class='brand-name'>LawSikho</span>
-            <div style='width:1px; height:18px; margin:0 .6rem;
-                        background:linear-gradient(180deg,transparent,rgba(249,115,22,.9),transparent);
-                        box-shadow:0 0 6px rgba(249,115,22,.5);'></div>
-            <span class='brand-name'>Skill Arbitrage</span>
-        </div>
-        <div class='brand-tagline'>India Learning 📖 India Earning</div>
-        <div style='font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;
-                    color:var(--text-muted,#6B7280);margin-bottom:.5rem;'>Report Controls</div>
+    <div style='padding:.5rem 0 .4rem; text-align:center;'>
+        <div style='font-size:.72rem; font-weight:700; text-transform:uppercase;
+                    letter-spacing:1px; color:var(--text-muted,#6B7280);'>Report Controls</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -3803,17 +3795,9 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
 
     month_options        = build_month_options(min_d, max_d)
     st.sidebar.markdown("""
-    <div style='padding:.6rem 0 .4rem; text-align:center;'>
-        <div style='display:flex; align-items:center; justify-content:center; gap:0; margin-bottom:.3rem;'>
-            <span class='brand-name'>LawSikho</span>
-            <div style='width:1px; height:18px; margin:0 .6rem;
-                        background:linear-gradient(180deg,transparent,rgba(16,185,129,.9),transparent);
-                        box-shadow:0 0 6px rgba(16,185,129,.5);'></div>
-            <span class='brand-name'>Skill Arbitrage</span>
-        </div>
-        <div class='brand-tagline'>India Learning 📖 India Earning</div>
-        <div style='font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:1px;
-                    color:var(--text-muted,#6B7280);margin-bottom:.5rem;'>Report Controls</div>
+    <div style='padding:.5rem 0 .4rem; text-align:center;'>
+        <div style='font-size:.72rem; font-weight:700; text-transform:uppercase;
+                    letter-spacing:1px; color:var(--text-muted,#6B7280);'>Report Controls</div>
     </div>
     """, unsafe_allow_html=True)
 
@@ -4627,68 +4611,45 @@ if not check_password():
     # Show homepage with login
     show_homepage_with_login()
 else:
-    # User is logged in - show dashboards
-    
     # Global CSS for logged-in state
     st.markdown("""
     <style>
-    /* Hide default Streamlit elements */
     footer { visibility: hidden; }
     [data-testid="stStatusWidget"] { display: none !important; }
     header[data-testid="stHeader"] { background: transparent !important; }
-    
-    /* Sidebar styling - let Streamlit handle background for theme compatibility */
-    [data-testid="stSidebar"] .stSelectbox label {
-        display: none !important;
-    }
     </style>
     """, unsafe_allow_html=True)
-    
-    # Sidebar header with logos (color changes based on selected dashboard)
-    # Determine color based on selected dashboard
-    choice = st.sidebar.selectbox(
-        "",
-        ["Calling Metrics", "Revenue Metrics"],
-        label_visibility="collapsed",
-        key="dashboard_choice"
-    )
-    
-    # Set color based on selection
-    if choice == "Calling Metrics":
-        logo_color = "#F97316"  # Orange for Calling
-        separator_color = "rgba(249,115,22,.9)"
-        shadow_color = "rgba(249,115,22,.5)"
-    else:
-        logo_color = "#10B981"  # Green for Revenue
-        separator_color = "rgba(16,185,129,.9)"
-        shadow_color = "rgba(16,185,129,.5)"
-    
+
+    # ── Read previous choice first so logo color is correct before selectbox renders ──
+    _prev = st.session_state.get("dashboard_choice", "Calling Metrics")
+    _lc   = "#F97316" if _prev == "Calling Metrics" else "#10B981"
+    _sc   = "rgba(249,115,22,.9)" if _prev == "Calling Metrics" else "rgba(16,185,129,.9)"
+    _shc  = "rgba(249,115,22,.5)" if _prev == "Calling Metrics" else "rgba(16,185,129,.5)"
+
+    # 1. Logo — always first in sidebar
     st.sidebar.markdown(f"""
-    <div style='padding:.6rem 0 .4rem; text-align:center; border-bottom: 1px solid rgba(255,255,255,.08);'>
-        <div style='display:flex; align-items:center; justify-content:center; gap:0; margin-bottom:.3rem;'>
-            <span style='font-size:1rem; font-weight:700; color:{logo_color}; letter-spacing:-0.5px;'>LawSikho</span>
-            <div style='width:1px; height:18px; margin:0 .6rem;
-                        background:linear-gradient(180deg,transparent,{separator_color},transparent);
-                        box-shadow:0 0 6px {shadow_color};'></div>
-            <span style='font-size:1rem; font-weight:700; color:{logo_color}; letter-spacing:-0.5px;'>Skill Arbitrage</span>
+    <div style='padding:.7rem 0 .5rem; text-align:center; border-bottom:1px solid rgba(128,128,128,.15);'>
+        <div style='display:flex; align-items:center; justify-content:center; margin-bottom:.25rem;'>
+            <span style='font-size:.95rem; font-weight:700; color:{_lc}; letter-spacing:-.4px;'>LawSikho</span>
+            <div style='width:1px; height:16px; margin:0 .55rem;
+                        background:linear-gradient(180deg,transparent,{_sc},transparent);
+                        box-shadow:0 0 5px {_shc};'></div>
+            <span style='font-size:.95rem; font-weight:700; color:{_lc}; letter-spacing:-.4px;'>Skill Arbitrage</span>
         </div>
-        <div style='font-size:0.65rem; color:rgba(255,255,255,.35); letter-spacing:1px; font-family:monospace;'>
+        <div style='font-size:.6rem; opacity:.4; letter-spacing:1px; font-family:monospace;'>
             India Learning 📖 India Earning
         </div>
     </div>
     """, unsafe_allow_html=True)
-    
-    # Navigation dropdown header
-    st.sidebar.markdown("""
-    <div style='padding:1rem 0 0.6rem;'>
-        <div style='font-size:0.7rem; color:rgba(255,255,255,.5); text-transform:uppercase; 
-                    letter-spacing:1.5px; font-weight:600; text-align:center;'>
-            Go to
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Render selected dashboard
+
+    # 2. Navigation — native label so it themes automatically
+    choice = st.sidebar.selectbox(
+        "Go to",
+        ["Calling Metrics", "Revenue Metrics"],
+        key="dashboard_choice"
+    )
+
+    # Render selected dashboard (sidebar Report Controls come from inside each function)
     if choice == "Calling Metrics":
         run_calling_dashboard()
     else:
