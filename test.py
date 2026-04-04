@@ -288,7 +288,7 @@ def show_homepage_with_login():
         st.markdown("""
         <div style="text-align:center;margin-bottom:1rem;">
             <span style="font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:600;color:#fff;">
-                🔐 Sign In to Continue
+                🔐 LOG IN / SIGN IN
             </span>
         </div>
         """, unsafe_allow_html=True)
