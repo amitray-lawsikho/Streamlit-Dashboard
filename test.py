@@ -50,8 +50,8 @@ client = get_bq_client()
 # --- USER CREDENTIALS ---
 
 AUTHORIZED_USERS = {
-    "amit": "lawsikho@2024",
-    "admin": "admin@2024",
+    "amit": "password",
+    "admin": "password",
     "sales": "sales@2024",
 }
 
