@@ -127,62 +127,79 @@ def show_homepage_with_login():
     .block-container { padding: 0 !important; max-width: 100% !important; margin-bottom: 0 !important; }
     [data-testid="stHorizontalBlock"] { gap: 0 !important; }
 
-    /* ── Force the entire middle login column dark — overrides light theme completely ── */
-    div[data-testid="column"]:nth-child(2) {
-        background: #0f172a !important;
-        border-radius: 16px !important;
-        padding: 0 !important;
+    /* ── Force every layer of the login column dark ── */
+    div[data-testid="column"]:nth-child(2),
+    div[data-testid="column"]:nth-child(2) > div,
+    div[data-testid="column"]:nth-child(2) > div > div,
+    div[data-testid="column"]:nth-child(2) [data-testid="stVerticalBlock"],
+    div[data-testid="column"]:nth-child(2) [data-testid="stVerticalBlockBorderWrapper"] {
+        background-color: #0f172a !important;
     }
     div[data-testid="column"]:nth-child(2) > div:first-child {
-        background: #0f172a !important;
+        background-color: #0f172a !important;
         border: 1px solid rgba(255,255,255,.12) !important;
         border-radius: 16px !important;
         padding: 1.6rem 1.8rem 1.8rem !important;
     }
 
-    /* ── All input states forced dark — covers light theme overrides ── */
-    div[data-testid="column"]:nth-child(2) [data-testid="stTextInput"] input,
-    div[data-testid="column"]:nth-child(2) [data-testid="stTextInput"] input:hover,
-    div[data-testid="column"]:nth-child(2) [data-testid="stTextInput"] input:focus,
-    div[data-testid="column"]:nth-child(2) [data-testid="stTextInput"] input:active,
-    div[data-testid="column"]:nth-child(2) [data-testid="stTextInput"] input:-webkit-autofill,
-    div[data-testid="column"]:nth-child(2) [data-testid="stTextInput"] input:-webkit-autofill:hover,
-    div[data-testid="column"]:nth-child(2) [data-testid="stTextInput"] input:-webkit-autofill:focus {
+    /* ── BaseUI input container (what Streamlit's theme actually targets) ── */
+    div[data-testid="column"]:nth-child(2) [data-baseweb="input"],
+    div[data-testid="column"]:nth-child(2) [data-baseweb="base-input"] {
         background-color: #1e293b !important;
-        -webkit-box-shadow: 0 0 0px 1000px #1e293b inset !important;
-        box-shadow: 0 0 0px 1000px #1e293b inset !important;
+        border-color: rgba(148,163,184,.3) !important;
+        border-radius: 10px !important;
+    }
+    div[data-testid="column"]:nth-child(2) [data-baseweb="input"]:focus-within,
+    div[data-testid="column"]:nth-child(2) [data-baseweb="base-input"]:focus-within {
+        border-color: #F97316 !important;
+        box-shadow: 0 0 0 2px rgba(249,115,22,.2) !important;
+    }
+
+    /* ── The actual input element — every state ── */
+    div[data-testid="column"]:nth-child(2) [data-baseweb="input"] input,
+    div[data-testid="column"]:nth-child(2) [data-baseweb="base-input"] input,
+    div[data-testid="column"]:nth-child(2) input[type="text"],
+    div[data-testid="column"]:nth-child(2) input[type="password"],
+    div[data-testid="column"]:nth-child(2) input {
+        background-color: #1e293b !important;
         color: #f1f5f9 !important;
         -webkit-text-fill-color: #f1f5f9 !important;
-        border: 1px solid rgba(148,163,184,.25) !important;
-        border-radius: 10px !important;
-        padding: 10px 14px !important;
-        font-size: 0.9rem !important;
+        caret-color: #F97316 !important;
+        border: none !important;
+    }
+    div[data-testid="column"]:nth-child(2) input::placeholder {
+        color: rgba(241,245,249,.32) !important;
+        -webkit-text-fill-color: rgba(241,245,249,.32) !important;
+    }
+
+    /* ── Chrome/Safari autofill override (the inset shadow trick) ── */
+    div[data-testid="column"]:nth-child(2) input:-webkit-autofill,
+    div[data-testid="column"]:nth-child(2) input:-webkit-autofill:hover,
+    div[data-testid="column"]:nth-child(2) input:-webkit-autofill:focus,
+    div[data-testid="column"]:nth-child(2) input:-webkit-autofill:active {
+        -webkit-box-shadow: 0 0 0px 1000px #1e293b inset !important;
+        box-shadow: 0 0 0px 1000px #1e293b inset !important;
+        -webkit-text-fill-color: #f1f5f9 !important;
         caret-color: #F97316 !important;
     }
-    div[data-testid="column"]:nth-child(2) [data-testid="stTextInput"] input:focus {
-        border-color: #F97316 !important;
-        outline: none !important;
-    }
-    div[data-testid="column"]:nth-child(2) [data-testid="stTextInput"] input::placeholder {
-        color: rgba(241,245,249,.35) !important;
-        -webkit-text-fill-color: rgba(241,245,249,.35) !important;
-    }
-    div[data-testid="column"]:nth-child(2) [data-testid="stTextInput"] label {
+
+    /* ── Labels ── */
+    div[data-testid="column"]:nth-child(2) label,
+    div[data-testid="column"]:nth-child(2) label p {
         color: rgba(241,245,249,.55) !important;
         font-size: 0.8rem !important;
     }
-    /* Eye icon in password field */
-    div[data-testid="column"]:nth-child(2) [data-testid="stTextInput"] button {
+
+    /* ── Eye icon button in password field ── */
+    div[data-testid="column"]:nth-child(2) [data-baseweb="input"] button,
+    div[data-testid="column"]:nth-child(2) [data-baseweb="base-input"] button {
+        background-color: transparent !important;
         color: rgba(241,245,249,.5) !important;
-        background: transparent !important;
         border: none !important;
     }
 
-    /* ── Sign In button — stays orange, white text, never flips ── */
-    div[data-testid="column"]:nth-child(2) .stButton > button,
-    div[data-testid="column"]:nth-child(2) .stButton > button:hover,
-    div[data-testid="column"]:nth-child(2) .stButton > button:active,
-    div[data-testid="column"]:nth-child(2) .stButton > button:focus {
+    /* ── Sign In button — orange always, white text always ── */
+    div[data-testid="column"]:nth-child(2) .stButton > button {
         width: 100% !important;
         background: linear-gradient(135deg, #F97316, #EA580C) !important;
         color: #ffffff !important;
@@ -192,10 +209,32 @@ def show_homepage_with_login():
         padding: 11px !important;
         font-size: 0.9rem !important;
         font-weight: 600 !important;
+        box-shadow: none !important;
     }
-    div[data-testid="column"]:nth-child(2) .stButton > button:hover {
-        opacity: .9 !important;
+    div[data-testid="column"]:nth-child(2) .stButton > button:hover,
+    div[data-testid="column"]:nth-child(2) .stButton > button:active,
+    div[data-testid="column"]:nth-child(2) .stButton > button:focus {
+        background: linear-gradient(135deg, #EA580C, #C2410C) !important;
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+        border: none !important;
+        outline: none !important;
+        box-shadow: 0 4px 16px rgba(249,115,22,.35) !important;
         transform: translateY(-1px) !important;
+    }
+
+    /* ── Streamlit light-theme specific override (belt and braces) ── */
+    [data-theme="light"] div[data-testid="column"]:nth-child(2) [data-baseweb="input"],
+    [data-theme="light"] div[data-testid="column"]:nth-child(2) [data-baseweb="base-input"],
+    [data-theme="light"] div[data-testid="column"]:nth-child(2) input {
+        background-color: #1e293b !important;
+        color: #f1f5f9 !important;
+        -webkit-text-fill-color: #f1f5f9 !important;
+    }
+    [data-theme="light"] div[data-testid="column"]:nth-child(2),
+    [data-theme="light"] div[data-testid="column"]:nth-child(2) > div,
+    [data-theme="light"] div[data-testid="column"]:nth-child(2) [data-testid="stVerticalBlock"] {
+        background-color: #0f172a !important;
     }
     </style>
     """, unsafe_allow_html=True)
