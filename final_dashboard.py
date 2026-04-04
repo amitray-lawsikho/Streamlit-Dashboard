@@ -4578,7 +4578,7 @@ else:
     st.sidebar.markdown("""
     <div style='padding:.5rem 0 .2rem; text-align:center;'>
         <div style='font-size:.72rem; font-weight:700; text-transform:uppercase;
-                    letter-spacing:1px; color:var(--text-muted,#6B7280);'>Navigation</div>
+                    letter-spacing:1px; color:var(--text-muted,#6B7280);'>Report Navigation</div>
     </div>
     """, unsafe_allow_html=True)
 
