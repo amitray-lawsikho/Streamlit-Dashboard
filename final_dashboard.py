@@ -48,9 +48,9 @@ client = get_bq_client()
 # --- USER CREDENTIALS ---
 
 AUTHORIZED_USERS = {
-    "amit": "password",
-    "admin": "password",
-    "sales": "password",
+    "rinku@lawsikho.in": "Addictive@123",
+    "amit@lawsikho.in": "Seekun@12345",
+    "parul@lawsikho.in": "Addictive@123",
 }
 
 def check_password():
