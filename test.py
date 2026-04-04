@@ -49,7 +49,7 @@ client = get_bq_client()
 # --- LOGIN MODULE ---
 def check_password():
     def password_entered():
-        if st.session_state["username"] == "amit" and st.session_state["password"] == "lawsikho@2024":
+        if st.session_state["username"] == "admin" and st.session_state["password"] == "password":
             st.session_state["password_correct"] = True
             del st.session_state["password"]
             del st.session_state["username"]
