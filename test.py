@@ -48,9 +48,9 @@ client = get_bq_client()
 # --- USER CREDENTIALS ---
 
 AUTHORIZED_USERS = {
-    "amit": "lawsikho@2024",
-    "admin": "admin@2024",
-    "sales": "sales@2024",
+    "rinku@lawsikho.in": "Addictive@123",
+    "amitray@lawsikho.in": "Seekun@12345",
+    "parul.nagar@lawsikho.in ": "Addictive@123",
 }
 
 def check_password():
@@ -404,10 +404,6 @@ def run_calling_dashboard():
     # ADD THIS CSS BLOCK FIRST:
     st.markdown("""
     <style>
-    [data-testid="stSidebar"] {
-        min-width: 280px !important;
-        max-width: 280px !important;
-    }
     [data-testid="stMainBlockContainer"] {
         max-width: 100% !important;
         padding-left: 2rem !important;
@@ -584,14 +580,11 @@ def run_calling_dashboard():
         width: 100%; font-family: 'DM Sans', sans-serif !important;
         font-weight: 600 !important; font-size: .82rem !important;
         border-radius: var(--radius-sm); transition: var(--transition);
-    }
-    [data-testid="stSidebar"] .stButton>button:first-child {
-        background: linear-gradient(135deg, #EA580C, #DC2626) !important;
+        background: linear-gradient(135deg, #431407, #7c1d1d) !important;
         color: #fff !important; border: none !important;
     }
-    [data-testid="stSidebar"] .stButton>button:last-child {
-        background: linear-gradient(135deg, #B45309, #EA580C) !important;
-        color: #fff !important; border: none !important;
+    [data-testid="stSidebar"] .stButton>button:hover {
+        opacity: .88 !important; transform: translateY(-1px) !important;
     }
 
     .stDownloadButton>button {
@@ -1208,16 +1201,6 @@ def run_calling_dashboard():
     gen_dynamic = st.sidebar.button("🚀 Generate Dynamic Report",  key="call_gen_dynamic")
     gen_static  = st.sidebar.button("📅 Generate Duration Report", key="call_gen_static")
 
-    st.sidebar.markdown("""
-    <hr style='border:none; border-top:1px solid rgba(249,115,22,.3); margin:.4rem 0 .3rem;'>
-    <div style='font-size:.68rem; color:var(--text-muted,#6B7280); line-height:1.6;'>
-        For Internal Use of Sales and Operations Team Only.<br>
-        All Rights Reserved.<br>
-        DESIGNED BY: <b>AMIT RAY</b><br>
-        <a href="mailto:amitray@lawsikho.com" style="color:#F97316; text-decoration:none;">amitray@lawsikho.com</a>
-    </div>
-    """, unsafe_allow_html=True)
-
     st.sidebar.download_button(
         label="📖 Metrics Guide (PDF)",
         data=generate_calling_helper_pdf_bytes(),
@@ -1225,6 +1208,7 @@ def run_calling_dashboard():
         mime="application/pdf",
         key="dl_calling_helper_pdf"
     )
+    
 
 
     # ─────────────────────────────────────────────
@@ -1704,10 +1688,6 @@ def run_revenue_dashboard():
     # ADD THIS CSS BLOCK FIRST:
     st.markdown("""
     <style>
-    [data-testid="stSidebar"] {
-        min-width: 280px !important;
-        max-width: 280px !important;
-    }
     [data-testid="stMainBlockContainer"] {
         max-width: 100% !important;
         padding-left: 2rem !important;
@@ -1889,13 +1869,13 @@ div[data-testid="stDataFrame"] thead tr th {
     font-weight: 600 !important; font-size: .82rem !important;
     border-radius: var(--radius-sm); transition: var(--transition);
 }
-[data-testid="stSidebar"] .stButton>button:first-child {
+
+[data-testid="stSidebar"] .stButton>button {
     background: linear-gradient(135deg, #059669, #065f46) !important;
     color: #fff !important; border: none !important;
 }
-[data-testid="stSidebar"] .stButton>button:last-child {
-    background: linear-gradient(135deg, #0F766E, #064e3b) !important;
-    color: #fff !important; border: none !important;
+[data-testid="stSidebar"] .stButton>button:hover {
+    opacity: .88 !important; transform: translateY(-1px) !important;
 }
 
 hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !important; }
@@ -3796,16 +3776,6 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
 
     gen_report = st.sidebar.button("💰 Generate Revenue Report", key="rev_gen_btn")
 
-    st.sidebar.markdown("""
-    <hr style='border:none; border-top:1px solid rgba(16,185,129,.3); margin:.4rem 0 .3rem;'>
-    <div style='font-size:.68rem; color:var(--text-muted,#6B7280); line-height:1.6;'>
-        For Internal Use of Sales and Operations Team Only.<br>
-        All Rights Reserved.<br>
-        DESIGNED BY: <b>AMIT RAY</b><br>
-        <a href="mailto:amitray@lawsikho.com" style="color:#10B981; text-decoration:none;">amitray@lawsikho.com</a>
-    </div>
-    """, unsafe_allow_html=True)
-
     st.sidebar.download_button(
         label="📖 Metrics Guide (PDF)",
         data=generate_helper_pdf_bytes(),
@@ -3813,6 +3783,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         mime="application/pdf",
         key="dl_helper_pdf"
     )
+  
 
     # ─────────────────────────────────────────────
     # HEADER BANNER
@@ -4582,7 +4553,11 @@ else:
     _lc   = "#F97316" if _prev == "Calling Metrics" else "#10B981"
     _sc   = "rgba(249,115,22,.9)" if _prev == "Calling Metrics" else "rgba(16,185,129,.9)"
     _shc  = "rgba(249,115,22,.5)" if _prev == "Calling Metrics" else "rgba(16,185,129,.5)"
-
+    
+    if st.sidebar.button("🚪 Sign Out", key="signout_btn"):
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
     # 1. Logo — always first in sidebar
     st.sidebar.markdown(f"""
     <div style='padding:.7rem 0 .5rem; text-align:center; border-bottom:1px solid rgba(128,128,128,.15);'>
@@ -4603,7 +4578,7 @@ else:
     st.sidebar.markdown("""
     <div style='padding:.5rem 0 .2rem; text-align:center;'>
         <div style='font-size:.72rem; font-weight:700; text-transform:uppercase;
-                    letter-spacing:1px; color:var(--text-muted,#6B7280);'>Navigation</div>
+                    letter-spacing:1px; color:var(--text-muted,#6B7280);'>Dashboards Navigation</div>
     </div>
     """, unsafe_allow_html=True)
 
