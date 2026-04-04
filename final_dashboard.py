@@ -4420,7 +4420,6 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
 
 
     with tab3:
-        with tab3:
         c_start, c_end, p_start, p_end = pending_months()
         curr_label = c_start.strftime("%B %Y")
         prev_label = p_start.strftime("%B %Y")
