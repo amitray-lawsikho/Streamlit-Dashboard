@@ -125,42 +125,77 @@ def show_homepage_with_login():
     [data-testid="stAppViewContainer"],
     [data-testid="stMain"], .main { background: #0B1120 !important; }
     .block-container { padding: 0 !important; max-width: 100% !important; margin-bottom: 0 !important; }
-
-    /* Center the login column */
     [data-testid="stHorizontalBlock"] { gap: 0 !important; }
 
-    /* Card container around login col */
+    /* ── Force the entire middle login column dark — overrides light theme completely ── */
+    div[data-testid="column"]:nth-child(2) {
+        background: #0f172a !important;
+        border-radius: 16px !important;
+        padding: 0 !important;
+    }
     div[data-testid="column"]:nth-child(2) > div:first-child {
-        border: 1px solid rgba(128,128,128,.2) !important;
+        background: #0f172a !important;
+        border: 1px solid rgba(255,255,255,.12) !important;
         border-radius: 16px !important;
         padding: 1.6rem 1.8rem 1.8rem !important;
-        margin: 0 auto !important;
     }
 
-    /* Sign In button — orange, white text always, no background flip on hover */
-    div[data-testid="column"]:nth-child(2) .stButton > button {
+    /* ── All input states forced dark — covers light theme overrides ── */
+    div[data-testid="column"]:nth-child(2) [data-testid="stTextInput"] input,
+    div[data-testid="column"]:nth-child(2) [data-testid="stTextInput"] input:hover,
+    div[data-testid="column"]:nth-child(2) [data-testid="stTextInput"] input:focus,
+    div[data-testid="column"]:nth-child(2) [data-testid="stTextInput"] input:active,
+    div[data-testid="column"]:nth-child(2) [data-testid="stTextInput"] input:-webkit-autofill,
+    div[data-testid="column"]:nth-child(2) [data-testid="stTextInput"] input:-webkit-autofill:hover,
+    div[data-testid="column"]:nth-child(2) [data-testid="stTextInput"] input:-webkit-autofill:focus {
+        background-color: #1e293b !important;
+        -webkit-box-shadow: 0 0 0px 1000px #1e293b inset !important;
+        box-shadow: 0 0 0px 1000px #1e293b inset !important;
+        color: #f1f5f9 !important;
+        -webkit-text-fill-color: #f1f5f9 !important;
+        border: 1px solid rgba(148,163,184,.25) !important;
+        border-radius: 10px !important;
+        padding: 10px 14px !important;
+        font-size: 0.9rem !important;
+        caret-color: #F97316 !important;
+    }
+    div[data-testid="column"]:nth-child(2) [data-testid="stTextInput"] input:focus {
+        border-color: #F97316 !important;
+        outline: none !important;
+    }
+    div[data-testid="column"]:nth-child(2) [data-testid="stTextInput"] input::placeholder {
+        color: rgba(241,245,249,.35) !important;
+        -webkit-text-fill-color: rgba(241,245,249,.35) !important;
+    }
+    div[data-testid="column"]:nth-child(2) [data-testid="stTextInput"] label {
+        color: rgba(241,245,249,.55) !important;
+        font-size: 0.8rem !important;
+    }
+    /* Eye icon in password field */
+    div[data-testid="column"]:nth-child(2) [data-testid="stTextInput"] button {
+        color: rgba(241,245,249,.5) !important;
+        background: transparent !important;
+        border: none !important;
+    }
+
+    /* ── Sign In button — stays orange, white text, never flips ── */
+    div[data-testid="column"]:nth-child(2) .stButton > button,
+    div[data-testid="column"]:nth-child(2) .stButton > button:hover,
+    div[data-testid="column"]:nth-child(2) .stButton > button:active,
+    div[data-testid="column"]:nth-child(2) .stButton > button:focus {
         width: 100% !important;
-        background: linear-gradient(135deg, #F97316, #FB923C) !important;
+        background: linear-gradient(135deg, #F97316, #EA580C) !important;
         color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
         border: none !important;
         border-radius: 10px !important;
         padding: 11px !important;
         font-size: 0.9rem !important;
         font-weight: 600 !important;
-        transition: opacity .2s, transform .2s !important;
     }
-    div[data-testid="column"]:nth-child(2) .stButton > button:hover,
-    div[data-testid="column"]:nth-child(2) .stButton > button:active,
-    div[data-testid="column"]:nth-child(2) .stButton > button:focus {
-        background: linear-gradient(135deg, #EA580C, #F97316) !important;
-        color: #ffffff !important;
-        opacity: .92 !important;
+    div[data-testid="column"]:nth-child(2) .stButton > button:hover {
+        opacity: .9 !important;
         transform: translateY(-1px) !important;
-        border: none !important;
-    }
-    [data-testid="column"]:nth-child(2) .stButton > button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 24px rgba(249,115,22,.35) !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -4471,8 +4506,6 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         curr_label = c_start.strftime("%B %Y")
         prev_label = p_start.strftime("%B %Y")
 
-        if st.button("🔄 Refresh Data", key="refresh_pending"):
-               st.rerun()
 
         with st.spinner("Loading pending revenue data…"):
             _, _, df_meta_all = get_metadata()
