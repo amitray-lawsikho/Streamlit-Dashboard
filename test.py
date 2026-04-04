@@ -114,37 +114,32 @@ def get_stats():
 def show_homepage_with_login():
     import streamlit.components.v1 as components
 
+    # ── Full-page dark background + input styling ──
     st.markdown("""
     <style>
     footer { visibility: hidden; }
-    #MainMenu { display: none !important; }
-    header[data-testid="stHeader"] { display: none !important; }
-    [data-testid="stStatusWidget"] { display: none !important; }
-    [data-testid="collapsedControl"] { display: none !important; }
+    #MainMenu, header[data-testid="stHeader"] { display: none !important; }
+    [data-testid="stStatusWidget"],
+    [data-testid="collapsedControl"],
     [data-testid="stSidebarCollapsedControl"] { display: none !important; }
     [data-testid="stAppViewContainer"],
     [data-testid="stMain"], .main { background: #0B1120 !important; }
     .block-container { padding: 0 !important; max-width: 100% !important; }
 
-    /* ── Login card shell ── */
-    .login-outer {
-        display: flex;
-        justify-content: center;
-        background: #0B1120;
-        padding: 0 1rem 0;
-    }
-    .login-inner {
-        width: 100%;
-        max-width: 360px;
-        background: rgba(255,255,255,.05);
-        border: 1px solid rgba(255,255,255,.10);
-        border-top: none;
-        border-radius: 0 0 20px 20px;
-        padding: 0 1.6rem 1.8rem;
+    /* Center the login column */
+    [data-testid="stHorizontalBlock"] { gap: 0 !important; }
+
+    /* Card container around the login col */
+    div[data-testid="column"]:nth-child(2) > div:first-child {
+        background: rgba(255,255,255,.05) !important;
+        border: 1px solid rgba(255,255,255,.12) !important;
+        border-radius: 16px !important;
+        padding: 1.6rem 1.8rem 1.8rem !important;
+        margin: 0 auto !important;
     }
 
-    /* ── Inputs — always white text since they sit on dark bg ── */
-    .login-inner .stTextInput > div > div > input {
+    /* Input boxes — dark themed, always readable */
+    [data-testid="stTextInput"] > div > div > input {
         background: rgba(255,255,255,.08) !important;
         border: 1px solid rgba(255,255,255,.15) !important;
         color: #FFFFFF !important;
@@ -153,19 +148,15 @@ def show_homepage_with_login():
         font-size: 0.9rem !important;
         caret-color: #F97316 !important;
     }
-    .login-inner .stTextInput > div > div > input::placeholder {
-        color: rgba(255,255,255,.35) !important;
-    }
-    .login-inner .stTextInput > div > div > input:focus {
+    [data-testid="stTextInput"] > div > div > input::placeholder { color: rgba(255,255,255,.35) !important; }
+    [data-testid="stTextInput"] > div > div > input:focus {
         border-color: #F97316 !important;
         box-shadow: 0 0 0 2px rgba(249,115,22,.2) !important;
     }
-    .login-inner .stTextInput label {
-        color: rgba(255,255,255,.55) !important;
-        font-size: 0.78rem !important;
-        font-weight: 500 !important;
-    }
-    .login-inner .stButton > button {
+    [data-testid="stTextInput"] label { color: rgba(255,255,255,.55) !important; font-size: 0.8rem !important; }
+
+    /* Sign In button */
+    [data-testid="column"]:nth-child(2) .stButton > button {
         width: 100% !important;
         background: linear-gradient(135deg, #F97316, #FB923C) !important;
         color: #fff !important;
@@ -174,30 +165,20 @@ def show_homepage_with_login():
         padding: 11px !important;
         font-size: 0.9rem !important;
         font-weight: 600 !important;
-        margin-top: 6px !important;
         transition: all .2s !important;
     }
-    .login-inner .stButton > button:hover {
+    [data-testid="column"]:nth-child(2) .stButton > button:hover {
         transform: translateY(-2px) !important;
         box-shadow: 0 8px 24px rgba(249,115,22,.35) !important;
-    }
-    .login-inner .stAlert {
-        font-size: 0.78rem !important;
-        margin-top: 6px !important;
-    }
-    /* prevent Streamlit from adding its own padding around the columns */
-    .login-inner [data-testid="stHorizontalBlock"] {
-        gap: 0 !important;
     }
     </style>
     """, unsafe_allow_html=True)
 
     call_time, call_cnt, rev_time, rev_cnt = get_stats()
 
-    # ── TOP HTML: hero + top half of login card ──
-    html_top = f"""<!DOCTYPE html><html lang="en"><head>
-    <meta charset="UTF-8"/>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
+    # ── HERO HTML ──
+    html_hero = f"""<!DOCTYPE html><html><head>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Plus+Jakarta+Sans:wght@300;400;500&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
     <style>
     *{{box-sizing:border-box;margin:0;padding:0;}}
     html,body{{font-family:'Plus Jakarta Sans',sans-serif;background:#0B1120;color:#E2E8F0;overflow-x:hidden;}}
@@ -206,391 +187,157 @@ def show_homepage_with_login():
         radial-gradient(ellipse 60% 40% at 90% 80%,rgba(249,115,22,.08) 0%,transparent 55%),
         #0B1120;}}
     body::before{{content:"";position:fixed;inset:0;
-        background-image:linear-gradient(rgba(255,255,255,.025) 1px,transparent 1px),
-            linear-gradient(90deg,rgba(255,255,255,.025) 1px,transparent 1px);
-        background-size:48px 48px;pointer-events:none;z-index:0;}}
-    .page{{position:relative;z-index:1;}}
-    .hero{{display:flex;flex-direction:column;align-items:center;text-align:center;padding:3rem 2rem 2rem;}}
-    .logo-block{{display:flex;align-items:center;justify-content:center;margin-bottom:1.1rem;}}
-    .logo-side{{padding:0 1.8rem;font-size:1.25rem;font-weight:700;color:#fff;}}
-    .logo-sep{{width:1px;height:50px;background:linear-gradient(180deg,transparent,rgba(249,115,22,.85),transparent);
-        box-shadow:0 0 8px rgba(249,115,22,.5);}}
-    .eyebrow{{display:inline-flex;align-items:center;gap:.5rem;font-family:'Fira Code',monospace;font-size:.66rem;
+        background-image:linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px),
+            linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px);
+        background-size:48px 48px;pointer-events:none;}}
+    .hero{{display:flex;flex-direction:column;align-items:center;text-align:center;padding:3rem 2rem 2.5rem;}}
+    .logos{{display:flex;align-items:center;margin-bottom:1rem;}}
+    .lname{{font-size:1.25rem;font-weight:700;color:#fff;padding:0 1.6rem;}}
+    .lsep{{width:1px;height:48px;background:linear-gradient(180deg,transparent,rgba(249,115,22,.85),transparent);box-shadow:0 0 8px rgba(249,115,22,.5);}}
+    .tagline{{font-family:'Fira Code',monospace;font-size:.75rem;color:rgba(255,255,255,.32);letter-spacing:1.5px;margin-bottom:2rem;}}
+    .eyebrow{{display:inline-flex;align-items:center;gap:.45rem;font-family:'Fira Code',monospace;font-size:.65rem;
         letter-spacing:2.5px;text-transform:uppercase;color:#F97316;background:rgba(249,115,22,.08);
-        border:1px solid rgba(249,115,22,.18);border-radius:100px;padding:.28rem 1rem;margin-bottom:1.3rem;}}
-    .dot{{width:5px;height:5px;background:#F97316;border-radius:50%;box-shadow:0 0 6px #F97316;
-        animation:pulse 2s ease-in-out infinite;}}
-    @keyframes pulse{{0%,100%{{opacity:1;transform:scale(1);}}50%{{opacity:.5;transform:scale(1.4);}}}}
-    .tagline{{font-family:'Fira Code',monospace;font-size:.76rem;color:rgba(255,255,255,.35);
-        letter-spacing:1.5px;margin-bottom:2.2rem;}}
-    .headline{{font-family:'Playfair Display',serif;font-size:clamp(2rem,5vw,3.6rem);
-        font-weight:800;line-height:1.09;color:#fff;letter-spacing:-1.5px;margin-bottom:.7rem;}}
+        border:1px solid rgba(249,115,22,.18);border-radius:100px;padding:.28rem .95rem;margin-bottom:1.2rem;}}
+    .dot{{width:5px;height:5px;background:#F97316;border-radius:50%;box-shadow:0 0 5px #F97316;
+        animation:p 2s ease-in-out infinite;}}
+    @keyframes p{{0%,100%{{opacity:1;transform:scale(1);}}50%{{opacity:.45;transform:scale(1.4);}}}}
+    .headline{{font-family:'Playfair Display',serif;font-size:clamp(2rem,5vw,3.5rem);
+        font-weight:800;line-height:1.09;color:#fff;letter-spacing:-1.5px;margin-bottom:.65rem;}}
     .accent{{background:linear-gradient(125deg,#F97316,#FB923C 40%,#FBBF24);
         -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}}
-    .sub{{font-size:1rem;font-weight:300;color:rgba(255,255,255,.4);margin-bottom:2rem;max-width:520px;}}
-    /* top half of login card — rounded top, open bottom */
-    .login-top{{
-        max-width:360px;margin:0 auto;
-        background:rgba(255,255,255,.05);
-        border:1px solid rgba(255,255,255,.10);
-        border-bottom:none;
-        border-radius:20px 20px 0 0;
-        padding:1.6rem 1.6rem .6rem;
-        text-align:center;
-    }}
-    .login-title{{font-family:'Playfair Display',serif;font-size:1.25rem;font-weight:600;color:#fff;}}
-    </style>
-    </head><body><div class="page">
-      <div class="hero">
-        <div class="logo-block">
-          <div class="logo-side">LawSikho</div>
-          <div class="logo-sep"></div>
-          <div class="logo-side">Skill Arbitrage</div>
-        </div>
-        <div class="tagline">India Learning &nbsp;📖&nbsp; India Earning</div>
-        <div class="eyebrow"><span class="dot"></span>Internal Analytics Hub</div>
-        <div class="headline">All your dashboards,<br><span class="accent">at one place</span></div>
-        <div class="sub">Real-time insights across Leads, Revenue &amp; Calling</div>
-        <div class="login-top">
-          <div class="login-title">🔐 Sign In to Continue</div>
-        </div>
+    .sub{{font-size:1rem;font-weight:300;color:rgba(255,255,255,.38);max-width:500px;}}
+    </style></head><body>
+    <div class="hero">
+      <div class="logos">
+        <div class="lname">LawSikho</div>
+        <div class="lsep"></div>
+        <div class="lname">Skill Arbitrage</div>
       </div>
-    </div></body></html>"""
-
-    components.html(html_top, height=520, scrolling=False)
-
-    # ── Streamlit login form: sits flush below the card top ──
-    st.markdown('<div class="login-outer"><div class="login-inner">', unsafe_allow_html=True)
-
-    username = st.text_input("Username", key="lg_username", placeholder="Enter username")
-    password = st.text_input("Password", type="password", key="lg_password", placeholder="Enter password")
-
-    if st.button("Sign In →", key="lg_btn"):
-        uname = st.session_state.get("lg_username", "").strip()
-        pwd   = st.session_state.get("lg_password", "")
-        if uname in AUTHORIZED_USERS and AUTHORIZED_USERS[uname] == pwd:
-            st.session_state["password_correct"] = True
-            st.session_state["current_user"] = uname
-            st.rerun()
-        else:
-            st.error("😕 Username or password is incorrect.")
-
-    st.markdown('</div></div>', unsafe_allow_html=True)
-
-    # ── BOTTOM HTML: stats + dashboard cards + footer ──
-    html_bottom = f"""<!DOCTYPE html><html lang="en"><head>
-    <meta charset="UTF-8"/>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
-    <style>
-    *{{box-sizing:border-box;margin:0;padding:0;}}
-    html,body{{font-family:'Plus Jakarta Sans',sans-serif;background:#0B1120;color:#E2E8F0;}}
-    .stats-row{{display:flex;justify-content:center;gap:1rem;flex-wrap:wrap;padding:2.5rem 2rem 1.5rem;}}
-    .stat-card{{display:flex;align-items:center;gap:.85rem;background:rgba(255,255,255,.04);
-        border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:.9rem 1.4rem;
-        min-width:240px;flex:1;max-width:320px;backdrop-filter:blur(12px);transition:all .2s;}}
-    .stat-card:hover{{transform:translateY(-2px);}}
-    .stat-card.sc-call:hover{{border-color:rgba(249,115,22,.22);background:rgba(249,115,22,.04);}}
-    .stat-card.sc-rev:hover{{border-color:rgba(52,211,153,.22);background:rgba(52,211,153,.04);}}
-    .si{{width:36px;height:36px;border-radius:9px;display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0;}}
-    .si-o{{background:rgba(249,115,22,.14);}} .si-g{{background:rgba(52,211,153,.12);}} .si-p{{background:rgba(139,92,246,.12);}}
-    .stat-info{{display:flex;flex-direction:column;gap:2px;}}
-    .slbl{{font-family:'Fira Code',monospace;font-size:.56rem;text-transform:uppercase;color:rgba(255,255,255,.3);}}
-    .sval{{font-family:'Fira Code',monospace;font-size:.78rem;color:rgba(255,255,255,.82);white-space:nowrap;}}
-    .ssub{{font-family:'Fira Code',monospace;font-size:.56rem;color:rgba(255,255,255,.2);}}
-    .pill-l,.pill-w{{margin-left:auto;font-family:'Fira Code',monospace;font-size:.54rem;
-        letter-spacing:.8px;text-transform:uppercase;border-radius:20px;padding:2px 8px;}}
-    .pill-l{{color:#34D399;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.18);}}
-    .pill-w{{color:#FBBF24;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.18);}}
-    .dash-section{{padding:0 2rem 4rem;max-width:1100px;margin:0 auto;}}
-    .sec-head{{display:flex;align-items:center;gap:1rem;margin-bottom:2rem;}}
-    .sec-line{{flex:1;height:1px;background:rgba(255,255,255,.07);}}
-    .sec-lbl{{font-family:'Fira Code',monospace;font-size:.63rem;letter-spacing:2.5px;
-        text-transform:uppercase;color:rgba(255,255,255,.22);}}
-    .cards{{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem;}}
-    @media(max-width:900px){{.cards{{grid-template-columns:1fr;}}}}
-    @media(max-width:1200px) and (min-width:901px){{.cards{{grid-template-columns:repeat(2,1fr);}}}}
-    .dc{{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.09);border-radius:18px;
-        padding:1.7rem 1.6rem 1.4rem;display:flex;flex-direction:column;gap:.7rem;
-        transition:transform .25s,box-shadow .25s,border-color .25s;}}
-    .dc:hover{{transform:translateY(-5px);}}
-    .dc.wip{{opacity:.52;}}
-    .dc-o{{border-top:2px solid rgba(249,115,22,.4);}}
-    .dc-g{{border-top:2px solid rgba(52,211,153,.35);}}
-    .dc-p{{border-top:2px solid rgba(139,92,246,.3);}}
-    .dc-o:hover{{border-color:#F97316;background:rgba(249,115,22,.04);box-shadow:0 18px 55px rgba(249,115,22,.1);}}
-    .dc-g:hover{{border-color:#34D399;background:rgba(52,211,153,.04);box-shadow:0 18px 55px rgba(52,211,153,.08);}}
-    .dc-hdr{{display:flex;align-items:flex-start;justify-content:space-between;}}
-    .dc-icon{{font-size:1.7rem;}}
-    .wip-badge{{font-family:'Fira Code',monospace;font-size:.52rem;text-transform:uppercase;
-        color:#FBBF24;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.18);
-        border-radius:7px;padding:3px 8px;}}
-    .dc-title{{font-family:'Playfair Display',serif;font-size:1.15rem;font-weight:600;color:#fff;}}
-    .dc-desc{{font-size:.78rem;color:rgba(255,255,255,.4);line-height:1.7;}}
-    .dc-tags{{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.15rem;}}
-    .dtag{{font-family:'Fira Code',monospace;font-size:.56rem;color:rgba(255,255,255,.28);
-        background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);
-        border-radius:5px;padding:2px 8px;text-transform:uppercase;}}
-    .footer{{border-top:1px solid rgba(255,255,255,.06);padding:1.8rem 2rem;text-align:center;}}
-    .f1{{font-family:'Fira Code',monospace;font-size:.66rem;color:rgba(255,255,255,.32);margin-bottom:.4rem;}}
-    .f2{{font-family:'Fira Code',monospace;font-size:.6rem;color:rgba(255,255,255,.16);}}
-    .fdot{{display:inline-block;width:3px;height:3px;background:rgba(249,115,22,.45);border-radius:50%;margin:0 .5rem;vertical-align:middle;}}
-    </style>
-    </head><body>
-    <div class="stats-row">
-      <div class="stat-card sc-call">
-        <div class="si si-o">🔔</div>
-        <div class="stat-info">
-          <span class="slbl">Calling Data</span>
-          <span class="sval">{call_time}</span>
-          <span class="ssub">{call_cnt} records</span>
-        </div><span class="pill-l">● Live</span>
-      </div>
-      <div class="stat-card sc-rev">
-        <div class="si si-g">💰</div>
-        <div class="stat-info">
-          <span class="slbl">Revenue Data</span>
-          <span class="sval">{rev_time}</span>
-          <span class="ssub">{rev_cnt} records</span>
-        </div><span class="pill-l">● Live</span>
-      </div>
-      <div class="stat-card">
-        <div class="si si-p">📊</div>
-        <div class="stat-info">
-          <span class="slbl">Lead Data</span>
-          <span class="sval" style="color:rgba(255,255,255,.25);">Under Development</span>
-          <span class="ssub">Pipeline coming soon</span>
-        </div><span class="pill-w">🚧 WIP</span>
-      </div>
-    </div>
-    <div class="dash-section">
-      <div class="sec-head">
-        <div class="sec-line"></div>
-        <span class="sec-lbl">Dashboards</span>
-        <div class="sec-line"></div>
-      </div>
-      <div class="cards">
-        <div class="dc dc-o">
-          <div class="dc-hdr"><div class="dc-icon">🔔</div></div>
-          <div class="dc-title">Calling Metrics</div>
-          <div class="dc-desc">Full CDR analysis across Ozonetel, Acefone &amp; Manual calls. Agent-level performance, break tracking, productive hours &amp; team leaderboards.</div>
-          <div class="dc-tags"><span class="dtag">Ozonetel</span><span class="dtag">Acefone</span><span class="dtag">Manual</span><span class="dtag">Teams</span></div>
-        </div>
-        <div class="dc dc-g">
-          <div class="dc-hdr"><div class="dc-icon">💰</div></div>
-          <div class="dc-title">Revenue Metrics</div>
-          <div class="dc-desc">Enrollment revenue, target achievement &amp; caller-level breakdown. Course performance, source mix &amp; team leaderboards.</div>
-          <div class="dc-tags"><span class="dtag">Enrollments</span><span class="dtag">Targets</span><span class="dtag">Achievement</span><span class="dtag">Teams</span></div>
-        </div>
-        <div class="dc dc-p wip">
-          <div class="dc-hdr"><div class="dc-icon">📊</div><span class="wip-badge">🚧 Coming Soon</span></div>
-          <div class="dc-title">Lead Metrics</div>
-          <div class="dc-desc">Currently under development.</div>
-          <div class="dc-tags"><span class="dtag">Fresh</span><span class="dtag">Breached</span><span class="dtag">Less Dialled</span></div>
-        </div>
-      </div>
-    </div>
-    <div class="footer">
-      <div class="f1">For Internal Use of Sales and Operations Team Only<span class="fdot"></span>All Rights Reserved</div>
-      <div class="f2">Developed and Designed by Amit Ray<span class="fdot"></span>Reach out for Support and Queries</div>
+      <div class="tagline">India Learning &nbsp;📖&nbsp; India Earning</div>
+      <div class="eyebrow"><span class="dot"></span>Internal Analytics Hub</div>
+      <div class="headline">All your dashboards,<br><span class="accent">at one place</span></div>
+      <div class="sub">Real-time insights across Leads, Revenue &amp; Calling</div>
     </div>
     </body></html>"""
+    components.html(html_hero, height=420, scrolling=False)
 
-    components.html(html_bottom, height=780, scrolling=False)
-    
-    # ── Streamlit login form (renders directly below the hero card) ──
-    with st.container():
-        st.markdown('<div class="login-wrap">', unsafe_allow_html=True)
-        col1, col2 = st.columns(2)
-        with col1:
-            username = st.text_input("Username", key="username", placeholder="username")
-        with col2:
-            password = st.text_input("Password", type="password", key="password", placeholder="••••••••")
-        if st.button("Sign In →", key="login_btn"):
-            uname = st.session_state.get("username", "").strip()
-            pwd   = st.session_state.get("password", "")
+    # ── LOGIN CARD using st.columns for centering ──
+    left, mid, right = st.columns([1, 1, 1])
+    with mid:
+        st.markdown("""
+        <div style="text-align:center;margin-bottom:1rem;">
+            <span style="font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:600;color:#fff;">
+                🔐 Sign In to Continue
+            </span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        username = st.text_input("Username", key="lg_username", placeholder="Enter username")
+        password = st.text_input("Password", type="password", key="lg_password", placeholder="Enter password")
+
+        if st.button("Sign In →", key="lg_signin"):
+            uname = st.session_state.get("lg_username", "").strip()
+            pwd   = st.session_state.get("lg_password", "")
             if uname in AUTHORIZED_USERS and AUTHORIZED_USERS[uname] == pwd:
                 st.session_state["password_correct"] = True
                 st.session_state["current_user"] = uname
                 st.rerun()
             else:
                 st.error("😕 Username or password is incorrect.")
-        st.markdown('</div>', unsafe_allow_html=True)
 
-    # ── BOTTOM HTML: stats + dashboard cards + footer ──
-    html_bottom = f"""
-    <!DOCTYPE html><html lang="en"><head>
-    <meta charset="UTF-8"/>
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
+    # ── STATS + CARDS + FOOTER HTML ──
+    html_bottom = f"""<!DOCTYPE html><html><head>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@300;400;500&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
     <style>
     *{{box-sizing:border-box;margin:0;padding:0;}}
-    html,body{{font-family:'Plus Jakarta Sans',sans-serif;background:#0B1120;color:#E2E8F0;overflow-x:hidden;}}
-    .stats-row{{display:flex;justify-content:center;gap:1rem;flex-wrap:wrap;padding:2rem 2rem 1rem;}}
-    .stat-card{{display:flex;align-items:center;gap:.85rem;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:.9rem 1.4rem;min-width:260px;flex:1;max-width:340px;backdrop-filter:blur(12px);transition:all .2s;}}
-    .stat-card:hover{{transform:translateY(-2px);}}
-    .stat-card.sc-call:hover{{border-color:rgba(249,115,22,.22);background:rgba(249,115,22,.04);}}
-    .stat-card.sc-rev:hover{{border-color:rgba(52,211,153,.22);background:rgba(52,211,153,.04);}}
-    .stat-icon-wrap{{width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0;}}
-    .si-call{{background:rgba(249,115,22,.14);}} .si-rev{{background:rgba(52,211,153,.12);}} .si-lead{{background:rgba(139,92,246,.12);}}
-    .stat-info{{display:flex;flex-direction:column;gap:2px;}}
-    .stat-lbl{{font-family:'Fira Code',monospace;font-size:.58rem;text-transform:uppercase;color:rgba(255,255,255,.3);}}
-    .stat-val{{font-family:'Fira Code',monospace;font-size:.8rem;color:rgba(255,255,255,.82);white-space:nowrap;}}
-    .stat-sub{{font-family:'Fira Code',monospace;font-size:.58rem;color:rgba(255,255,255,.2);}}
-    .pill-live,.pill-wip{{margin-left:auto;font-family:'Fira Code',monospace;font-size:.55rem;letter-spacing:.8px;text-transform:uppercase;border-radius:20px;padding:2px 8px;}}
-    .pill-live{{color:#34D399;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.18);}}
-    .pill-wip{{color:#FBBF24;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.18);}}
-    .dashboards-section{{padding:0 2rem 4rem;max-width:1120px;margin:0 auto;}}
-    .section-head{{display:flex;align-items:center;gap:1rem;margin-bottom:2rem;}}
-    .section-line{{flex:1;height:1px;background:rgba(255,255,255,.07);}}
-    .section-lbl{{font-family:'Fira Code',monospace;font-size:.65rem;letter-spacing:2.5px;text-transform:uppercase;color:rgba(255,255,255,.25);}}
-    .cards-grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:1.25rem;}}
-    @media(max-width:900px){{.cards-grid{{grid-template-columns:1fr;}}}}
-    @media(max-width:1200px) and (min-width:901px){{.cards-grid{{grid-template-columns:repeat(2,1fr);}}}}
-    .dcard{{background:rgba(255,255,255,.035);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:1.8rem 1.7rem 1.5rem;display:flex;flex-direction:column;gap:.75rem;transition:transform .25s,box-shadow .25s,border-color .25s;}}
-    .dcard:hover{{transform:translateY(-5px);}}
-    .dcard.wip{{opacity:.55;}}
-    .dcard-call{{border-top:2px solid rgba(249,115,22,.4);}}
-    .dcard-rev{{border-top:2px solid rgba(52,211,153,.35);}}
-    .dcard-lead{{border-top:2px solid rgba(139,92,246,.3);}}
-    .dcard-call:hover{{border-color:#F97316;background:rgba(249,115,22,.04);box-shadow:0 20px 60px rgba(249,115,22,.1);}}
-    .dcard-rev:hover{{border-color:#34D399;background:rgba(52,211,153,.04);box-shadow:0 20px 60px rgba(52,211,153,.08);}}
-    .dcard-header{{display:flex;align-items:flex-start;justify-content:space-between;}}
-    .dcard-icon{{font-size:1.8rem;}}
-    .dcard-wip-badge{{font-family:'Fira Code',monospace;font-size:.55rem;text-transform:uppercase;color:#FBBF24;background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.18);border-radius:8px;padding:3px 9px;}}
-    .dcard-title{{font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:600;color:#fff;}}
-    .dcard-desc{{font-size:.8rem;color:rgba(255,255,255,.42);line-height:1.7;}}
-    .dcard-tags{{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.2rem;}}
-    .dtag{{font-family:'Fira Code',monospace;font-size:.58rem;color:rgba(255,255,255,.32);background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.08);border-radius:6px;padding:2px 9px;text-transform:uppercase;}}
-    .site-footer{{border-top:1px solid rgba(255,255,255,.06);padding:2rem;text-align:center;background:#0B1120;}}
-    .footer-top{{font-family:'Fira Code',monospace;font-size:.68rem;color:rgba(255,255,255,.35);margin-bottom:.5rem;}}
-    .footer-bottom{{font-family:'Fira Code',monospace;font-size:.62rem;color:rgba(255,255,255,.18);}}
-    .footer-dot{{display:inline-block;width:3px;height:3px;background:rgba(249,115,22,.5);border-radius:50%;margin:0 .5rem;}}
-    </style>
-    </head><body>
-    <div class="stats-row">
-      <div class="stat-card sc-call">
-        <div class="stat-icon-wrap si-call">🔔</div>
-        <div class="stat-info">
-          <span class="stat-lbl">Calling Data</span>
-          <span class="stat-val">{call_time}</span>
-          <span class="stat-sub">{call_cnt} records</span>
-        </div>
-        <span class="pill-live">● Live</span>
-      </div>
-      <div class="stat-card sc-rev">
-        <div class="stat-icon-wrap si-rev">💰</div>
-        <div class="stat-info">
-          <span class="stat-lbl">Revenue Data</span>
-          <span class="stat-val">{rev_time}</span>
-          <span class="stat-sub">{rev_cnt} records</span>
-        </div>
-        <span class="pill-live">● Live</span>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon-wrap si-lead">📊</div>
-        <div class="stat-info">
-          <span class="stat-lbl">Lead Data</span>
-          <span class="stat-val" style="color:rgba(255,255,255,.28);">Under Development</span>
-          <span class="stat-sub">Pipeline coming soon</span>
-        </div>
-        <span class="pill-wip">🚧 WIP</span>
-      </div>
+    html,body{{font-family:'Plus Jakarta Sans',sans-serif;background:#0B1120;color:#E2E8F0;}}
+    .stats{{display:flex;justify-content:center;gap:1rem;flex-wrap:wrap;padding:2.5rem 2rem 1.5rem;}}
+    .sc{{display:flex;align-items:center;gap:.8rem;background:rgba(255,255,255,.04);
+        border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:.85rem 1.3rem;
+        min-width:230px;flex:1;max-width:310px;transition:all .2s;}}
+    .sc:hover{{transform:translateY(-2px);}}
+    .sc.co:hover{{border-color:rgba(249,115,22,.22);background:rgba(249,115,22,.04);}}
+    .sc.cg:hover{{border-color:rgba(52,211,153,.22);background:rgba(52,211,153,.04);}}
+    .si{{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.88rem;flex-shrink:0;}}
+    .so{{background:rgba(249,115,22,.14);}} .sg{{background:rgba(52,211,153,.12);}} .sp{{background:rgba(139,92,246,.12);}}
+    .sinfo{{display:flex;flex-direction:column;gap:2px;}}
+    .slbl{{font-family:'Fira Code',monospace;font-size:.55rem;text-transform:uppercase;color:rgba(255,255,255,.28);}}
+    .sval{{font-family:'Fira Code',monospace;font-size:.76rem;color:rgba(255,255,255,.8);white-space:nowrap;}}
+    .ssub{{font-family:'Fira Code',monospace;font-size:.54rem;color:rgba(255,255,255,.18);}}
+    .pl,.pw{{margin-left:auto;font-family:'Fira Code',monospace;font-size:.52rem;letter-spacing:.8px;text-transform:uppercase;border-radius:20px;padding:2px 8px;}}
+    .pl{{color:#34D399;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.18);}}
+    .pw{{color:#FBBF24;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.18);}}
+    .dsec{{padding:0 2rem 3.5rem;max-width:1080px;margin:0 auto;}}
+    .sh{{display:flex;align-items:center;gap:1rem;margin-bottom:1.8rem;}}
+    .sl{{flex:1;height:1px;background:rgba(255,255,255,.07);}}
+    .slb{{font-family:'Fira Code',monospace;font-size:.62rem;letter-spacing:2.5px;text-transform:uppercase;color:rgba(255,255,255,.2);}}
+    .grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:1.2rem;}}
+    @media(max-width:900px){{.grid{{grid-template-columns:1fr;}}}}
+    @media(max-width:1200px) and (min-width:901px){{.grid{{grid-template-columns:repeat(2,1fr);}}}}
+    .dc{{background:rgba(255,255,255,.033);border:1px solid rgba(255,255,255,.08);border-radius:16px;
+        padding:1.6rem 1.5rem 1.3rem;display:flex;flex-direction:column;gap:.65rem;
+        transition:transform .25s,box-shadow .25s,border-color .25s;}}
+    .dc:hover{{transform:translateY(-5px);}}
+    .dc.wip{{opacity:.5;}}
+    .dc-o{{border-top:2px solid rgba(249,115,22,.4);}}
+    .dc-g{{border-top:2px solid rgba(52,211,153,.35);}}
+    .dc-p{{border-top:2px solid rgba(139,92,246,.3);}}
+    .dc-o:hover{{border-color:#F97316;background:rgba(249,115,22,.04);box-shadow:0 18px 50px rgba(249,115,22,.09);}}
+    .dc-g:hover{{border-color:#34D399;background:rgba(52,211,153,.04);box-shadow:0 18px 50px rgba(52,211,153,.08);}}
+    .dh{{display:flex;align-items:flex-start;justify-content:space-between;}}
+    .di{{font-size:1.65rem;}}
+    .wb{{font-family:'Fira Code',monospace;font-size:.5rem;text-transform:uppercase;color:#FBBF24;
+        background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.18);border-radius:6px;padding:3px 7px;}}
+    .dt{{font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:600;color:#fff;}}
+    .dd{{font-size:.77rem;color:rgba(255,255,255,.38);line-height:1.7;}}
+    .tags{{display:flex;flex-wrap:wrap;gap:.32rem;}}
+    .tag{{font-family:'Fira Code',monospace;font-size:.54rem;color:rgba(255,255,255,.26);
+        background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);border-radius:5px;padding:2px 7px;text-transform:uppercase;}}
+    .foot{{border-top:1px solid rgba(255,255,255,.06);padding:1.6rem 2rem;text-align:center;}}
+    .f1{{font-family:'Fira Code',monospace;font-size:.64rem;color:rgba(255,255,255,.28);margin-bottom:.4rem;}}
+    .f2{{font-family:'Fira Code',monospace;font-size:.58rem;color:rgba(255,255,255,.14);}}
+    .fd{{display:inline-block;width:3px;height:3px;background:rgba(249,115,22,.4);border-radius:50%;margin:0 .45rem;vertical-align:middle;}}
+    </style></head><body>
+    <div class="stats">
+      <div class="sc co"><div class="si so">🔔</div>
+        <div class="sinfo"><span class="slbl">Calling Data</span><span class="sval">{call_time}</span><span class="ssub">{call_cnt} records</span></div>
+        <span class="pl">● Live</span></div>
+      <div class="sc cg"><div class="si sg">💰</div>
+        <div class="sinfo"><span class="slbl">Revenue Data</span><span class="sval">{rev_time}</span><span class="ssub">{rev_cnt} records</span></div>
+        <span class="pl">● Live</span></div>
+      <div class="sc"><div class="si sp">📊</div>
+        <div class="sinfo"><span class="slbl">Lead Data</span><span class="sval" style="color:rgba(255,255,255,.22);">Under Development</span><span class="ssub">Pipeline coming soon</span></div>
+        <span class="pw">🚧 WIP</span></div>
     </div>
-    <div class="dashboards-section">
-      <div class="section-head">
-        <div class="section-line"></div>
-        <span class="section-lbl">Dashboards</span>
-        <div class="section-line"></div>
-      </div>
-      <div class="cards-grid">
-        <div class="dcard dcard-call">
-          <div class="dcard-header"><div class="dcard-icon">🔔</div></div>
-          <div class="dcard-title">Calling Metrics</div>
-          <div class="dcard-desc">Full CDR analysis across Ozonetel, Acefone &amp; Manual calls. Agent-level performance, break tracking, productive hours &amp; team leaderboards.</div>
-          <div class="dcard-tags"><span class="dtag">Ozonetel</span><span class="dtag">Acefone</span><span class="dtag">Manual</span><span class="dtag">Teams</span></div>
+    <div class="dsec">
+      <div class="sh"><div class="sl"></div><span class="slb">Dashboards</span><div class="sl"></div></div>
+      <div class="grid">
+        <div class="dc dc-o">
+          <div class="dh"><div class="di">🔔</div></div>
+          <div class="dt">Calling Metrics</div>
+          <div class="dd">Full CDR analysis across Ozonetel, Acefone &amp; Manual. Agent performance, break tracking, productive hours &amp; leaderboards.</div>
+          <div class="tags"><span class="tag">Ozonetel</span><span class="tag">Acefone</span><span class="tag">Manual</span><span class="tag">Teams</span></div>
         </div>
-        <div class="dcard dcard-rev">
-          <div class="dcard-header"><div class="dcard-icon">💰</div></div>
-          <div class="dcard-title">Revenue Metrics</div>
-          <div class="dcard-desc">Enrollment revenue, target achievement &amp; caller-level breakdown. Course performance, source mix &amp; team leaderboards.</div>
-          <div class="dcard-tags"><span class="dtag">Enrollments</span><span class="dtag">Targets</span><span class="dtag">Achievement</span><span class="dtag">Teams</span></div>
+        <div class="dc dc-g">
+          <div class="dh"><div class="di">💰</div></div>
+          <div class="dt">Revenue Metrics</div>
+          <div class="dd">Enrollment revenue, target achievement &amp; caller-level breakdown. Source mix &amp; team leaderboards.</div>
+          <div class="tags"><span class="tag">Enrollments</span><span class="tag">Targets</span><span class="tag">Achievement</span><span class="tag">Teams</span></div>
         </div>
-        <div class="dcard dcard-lead wip">
-          <div class="dcard-header"><div class="dcard-icon">📊</div><span class="dcard-wip-badge">🚧 Coming Soon</span></div>
-          <div class="dcard-title">Lead Metrics</div>
-          <div class="dcard-desc">Currently under development.</div>
-          <div class="dcard-tags"><span class="dtag">Fresh</span><span class="dtag">Breached</span><span class="dtag">Less Dialled</span></div>
+        <div class="dc dc-p wip">
+          <div class="dh"><div class="di">📊</div><span class="wb">🚧 Coming Soon</span></div>
+          <div class="dt">Lead Metrics</div>
+          <div class="dd">Currently under development.</div>
+          <div class="tags"><span class="tag">Fresh</span><span class="tag">Breached</span><span class="tag">Less Dialled</span></div>
         </div>
       </div>
     </div>
-    <div class="site-footer">
-      <div class="footer-top">For Internal Use of Sales and Operations Team Only<span class="footer-dot"></span>All Rights Reserved</div>
-      <div class="footer-bottom">Developed and Designed by Amit Ray<span class="footer-dot"></span>Reach out for Support and Queries</div>
+    <div class="foot">
+      <div class="f1">For Internal Use of Sales and Operations Team Only<span class="fd"></span>All Rights Reserved</div>
+      <div class="f2">Developed and Designed by Amit Ray<span class="fd"></span>Reach out for Support and Queries</div>
     </div>
-    </body></html>
-    """
-    components.html(html_bottom, height=820, scrolling=False)
-    
-    # Login form positioned over the login section
-    st.markdown("""
-    <style>
-    .login-container {
-        max-width: 420px;
-        margin: -350px auto 0;
-        position: relative;
-        z-index: 1000;
-        padding: 0 1rem;
-    }
-    .stTextInput > div > div > input {
-        background: rgba(255,255,255,.08) !important;
-        border: 1px solid rgba(255,255,255,.12) !important;
-        color: #fff !important;
-        border-radius: 12px !important;
-        padding: 12px 16px !important;
-        font-size: 0.95rem !important;
-    }
-    .stTextInput > div > div > input:focus {
-        border-color: #F97316 !important;
-        box-shadow: 0 0 0 2px rgba(249,115,22,.15) !important;
-    }
-    .stTextInput label {
-        color: rgba(255,255,255,.5) !important;
-        font-size: 0.85rem !important;
-        font-weight: 500 !important;
-    }
-    .stButton > button {
-        width: 100% !important;
-        background: linear-gradient(135deg, #F97316, #FB923C) !important;
-        color: #fff !important;
-        border: none !important;
-        border-radius: 12px !important;
-        padding: 12px !important;
-        font-size: 0.95rem !important;
-        font-weight: 600 !important;
-        margin-top: 8px !important;
-    }
-    .stButton > button:hover {
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 24px rgba(249,115,22,.3) !important;
-    }
-    </style>
-    <div class="login-container">
-    """, unsafe_allow_html=True)
-    
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        username = st.text_input("Username", key="username")
-    with col2:
-        password = st.text_input("Password", type="password", key="password")
-    
-    if st.button("Sign In", key="login_btn"):
-        if username == "amit" and password == "lawsikho@2024":
-            st.session_state["password_correct"] = True
-            st.rerun()
-        else:
-            st.error("😕 User not known or password incorrect")
-    
-    st.markdown("</div>", unsafe_allow_html=True)
-
+    </body></html>"""
+    components.html(html_bottom, height=760, scrolling=False)
 
 def run_calling_dashboard():
     # ADD THIS CSS BLOCK FIRST:
