@@ -3735,7 +3735,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
     # SIDEBAR
     # ─────────────────────────────────────────────
 
-   min_d, max_d = get_available_dates()
+    min_d, max_d = get_available_dates()
 
     st.sidebar.markdown("""
     <div style='padding:.5rem 0 .4rem; text-align:center;'>
