@@ -6,7 +6,7 @@ import io
 from datetime import datetime, date, time, timedelta
 from google.cloud import bigquery
 from google.oauth2 import service_account
-import base64
+
 # ReportLab imports (used by both dashboards)
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -22,6 +22,7 @@ from openpyxl.utils import get_column_letter
 
 
 # --- GLOBAL CONFIG & CREDENTIALS ---
+import streamlit.components.v1 as components
 st.set_page_config(
     page_title="Analytics Dashboard — LawSikho",
     page_icon="📊",
@@ -292,11 +293,7 @@ def show_homepage_with_login():
       <div class="sub">Real-time insights across Leads, Revenue &amp; Calling</div>
     </div>
     </body></html>"""
-    st.iframe(
-        "data:text/html;base64," + base64.b64encode(html_hero.encode()).decode(),
-        height=420,
-        scrolling=False
-    )
+    components.html(html_hero, height=420, scrolling=False)
 
     # ── LOGIN CARD using st.columns for centering ──
     left, mid, right = st.columns([1, 1, 1])
@@ -414,11 +411,7 @@ def show_homepage_with_login():
       <div class="f2">Developed and Designed by Amit Ray<span class="fd"></span>Reach out for Support and Queries</div>
     </div>
     </body></html>"""
-    st.iframe(
-        "data:text/html;base64," + base64.b64encode(html_bottom.encode()).decode(),
-        height=640,
-        scrolling=False
-    )
+    components.html(html_bottom, height=640, scrolling=False)
 
 def run_calling_dashboard():
     # ADD THIS CSS BLOCK FIRST:
