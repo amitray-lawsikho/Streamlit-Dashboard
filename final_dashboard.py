@@ -6,7 +6,11 @@ import io
 from datetime import datetime, date, time, timedelta
 from google.cloud import bigquery
 from google.oauth2 import service_account
-
+import warnings
+warnings.filterwarnings(
+    "ignore",
+    message="Please replace `st.components.v1.html` with `st.iframe`"
+)
 # ReportLab imports (used by both dashboards)
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
