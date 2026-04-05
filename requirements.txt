@@ -8,3 +8,4 @@ db-dtypes
 numpy
 reportlab
 openpyxl
+google-cloud-bigquery-storage
