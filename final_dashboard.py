@@ -3735,17 +3735,8 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
     # SIDEBAR
     # ─────────────────────────────────────────────
 
-    min_d, max_d = get_available_dates()
+   min_d, max_d = get_available_dates()
 
-    def build_month_options(min_date, max_date):
-        options, cur = {}, date(min_date.year, min_date.month, 1)
-        end = date(max_date.year, max_date.month, 1)
-        while cur <= end:
-            options[cur.strftime("%B %Y")] = cur
-            cur = (cur.replace(day=28) + timedelta(days=4)).replace(day=1)
-        return options
-
-    month_options        = build_month_options(min_d, max_d)
     st.sidebar.markdown("""
     <div style='padding:.5rem 0 .4rem; text-align:center;'>
         <div style='font-size:.72rem; font-weight:700; text-transform:uppercase;
@@ -3753,22 +3744,16 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
     </div>
     """, unsafe_allow_html=True)
 
-    selected_month_label = st.sidebar.selectbox("🗓️ Month", options=list(reversed(list(month_options.keys()))), key="rev_month_select")
-    selected_month_date  = month_options[selected_month_label]
-
     min_d = pd.Timestamp(min_d).date()
     max_d = pd.Timestamp(max_d).date()
 
-    if selected_month_date is not None:
-        s           = pd.Timestamp(selected_month_date).date()
-        next_month  = (s.replace(day=28) + timedelta(days=4)).replace(day=1)
-        month_end   = next_month - timedelta(days=1)
-        default_start = max(s, min_d)
-        default_end   = min(month_end, max_d)
-        if default_start > default_end:
-            default_start = default_end
-    else:
-        default_start = default_end = max_d
+    _s            = date(max_d.year, max_d.month, 1)
+    _next_m       = (_s.replace(day=28) + timedelta(days=4)).replace(day=1)
+    _month_end    = _next_m - timedelta(days=1)
+    default_start = max(_s, min_d)
+    default_end   = min(_month_end, max_d)
+    if default_start > default_end:
+        default_start = default_end
 
     selected_dates = st.sidebar.date_input(
         "📅 Date Range",
@@ -3788,7 +3773,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
     search_query      = st.sidebar.text_input("👤 Search Caller Name", key="rev_search_input")
 
     gen_report = st.sidebar.button("💰 Generate Revenue Report", key="rev_gen_btn")
-
+    gen_pending = st.sidebar.button("📊 Generate Callerwise Pending", key="rev_pending_btn")
     st.sidebar.download_button(
         label="📖 Metrics Guide (PDF)",
         data=generate_helper_pdf_bytes(),
@@ -4423,22 +4408,17 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         c_start, c_end, p_start, p_end = pending_months()
         curr_label = c_start.strftime("%B %Y")
         prev_label = p_start.strftime("%B %Y")
-    
-        _tab3_key = f"pending_loaded_{c_start}_{p_start}"
-        if _tab3_key not in st.session_state:
-            st.session_state[_tab3_key] = False
-    
-        if not st.session_state[_tab3_key]:
-            if st.button("📊 Load Pending Revenue Data", key="load_pending_btn"):
-                st.session_state[_tab3_key] = True
-                st.rerun()
-            else:
-                st.markdown("""
-                <div style='text-align:center;padding:4rem 1rem;opacity:.6;'>
-                    <div style='font-size:3rem;margin-bottom:1rem;'>📊</div>
-                    <div style='font-size:.9rem;font-weight:600;'>Click <b>Load Pending Revenue Data</b> to load this tab</div>
-                </div>""", unsafe_allow_html=True)
-    
+
+        if gen_pending:
+            st.session_state['pending_revenue_loaded'] = True
+
+        if not st.session_state.get('pending_revenue_loaded', False):
+            st.markdown("""
+            <div style='text-align:center;padding:4rem 1rem;opacity:.6;'>
+                <div style='font-size:3rem;margin-bottom:1rem;'>📊</div>
+                <div style='font-size:.9rem;font-weight:600;'>Click <b>📊 Generate Callerwise Pending</b> in the sidebar to load this tab</div>
+            </div>""", unsafe_allow_html=True)
+
         else:
             with st.spinner("Loading pending revenue data…"):
                 _, _, df_meta_all = get_metadata()
