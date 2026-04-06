@@ -67,7 +67,7 @@ client = get_cached_bq_client()
 AUTHORIZED_USERS = {
     "rinku@lawsikho.in": "Addictive@123",
     "amitray@lawsikho.in": "Seekun@12345",
-    "parul.nagar@lawsikho.in ": "Addictive@123",
+    "parul.nagar@lawsikho.in": "Addictive@123",
     "inayat@lawsikho.in": "Addictive@123",
     "uzair@lawsikho.in": "Addictive@123",
     "shivangi.s@lawsikho.in": "Addictive@123",
