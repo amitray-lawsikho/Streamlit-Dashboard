@@ -4742,6 +4742,7 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
         merged['Owner']     = merged['Caller Name'].fillna(merged['Owner'])
         merged['Team Name'] = merged['Team Name'].fillna('Others')
         merged['Vertical']  = merged['Vertical'].fillna('Others')
+        merged = merged[merged['Team Name'] != 'Others']
         return merged
  
     def _append_caller_total_ld(df):
