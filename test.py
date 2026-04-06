@@ -67,7 +67,20 @@ client = get_cached_bq_client()
 AUTHORIZED_USERS = {
     "rinku@lawsikho.in": "Addictive@123",
     "amitray@lawsikho.in": "Seekun@12345",
-    "parul.nagar@lawsikho.in ": "Addictive@123",
+    "parul.nagar@lawsikho.in": "Addictive@123",
+    "inayat@lawsikho.in": "Addictive@123",
+    "uzair@lawsikho.in": "Addictive@123",
+    "shivangi.s@lawsikho.in": "Addictive@123",
+    "jyotimishra@lawsikho.in": "Addictive@123",
+    "anas@lawsikho.in": "Addictive@123",
+    "sana.a@lawsikho.in": "Addictive@123",
+    "deepanshi@lawsikho.in": "Addictive@123",
+    "darshan.c@lawsikho.in": "Addictive@123",
+    "anmol.g@skillarbitra.ge": "Addictive@123",
+    "shivam.sharma@skillarbitra.ge": "Addictive@123",
+    "aditya.c@skillarbitra.ge": "Addictive@123",
+    "raunak@lawsikho.in": "Addictive@123",
+    "sahil.a@lawsikho.in": "Addictive@123"
 }
 
 def check_password():
