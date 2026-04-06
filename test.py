@@ -5179,8 +5179,8 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
                     # Table 2
                     _ld_section_header("POTENTIAL BREACHED LEADS AFTER ASSIGNMENT")
                     cut_disp = (pd.Timestamp.now().normalize() - pd.Timedelta(days=3)).strftime('%d-%m-%Y')
-                    st.caption(f"Overdue follow-up date AND LastCalledDate before {cut_disp} · "
-                               "Stages: CBL · FLW-UP · COUNSELLED · DISCOVERY · ROADMAP")
+                    st.caption(f"Leads Breached and dialled before {cut_disp} · "
+                               "of stages Call Back Later, Follow Up, Counselled, Discovery & Roadmap.")
                     df_bc_ld = _proc_breached_caller(df_m_ld)
                     _show_caller(df_bc_ld, "No potential breached leads found.")
  
@@ -5188,7 +5188,7 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
  
                     # Table 3
                     _ld_section_header("LESS DIALLED LEADS AFTER ASSIGNMENT")
-                    st.caption("DNP stages (Not Picking Up / Not Connected) with Assigned_On_Call_Counter < 11")
+                    st.caption("DNP stages (Call Not Picking Up / Call Not Connected) dialled less than 11 times after assignment to counsellor.")
                     df_ldc_ld = _proc_ld_caller(df_m_ld)
                     _show_caller(df_ldc_ld, "No less-dialled leads found.")
  
