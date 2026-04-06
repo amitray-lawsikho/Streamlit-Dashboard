@@ -721,6 +721,7 @@ with tab1:
                 if selected_team:     df = df[df["TEAM"].isin(selected_team)]
                 if selected_vertical: df = df[df["Vertical"].isin(selected_vertical)]
                 if search_query:      df = df[df["CALLER"].str.contains(search_query, case=False, na=False)]
+                df = df[df["TEAM"] != "Others"]
 
                 if df.empty:
                     st.error("No leads match the selected filters.")
