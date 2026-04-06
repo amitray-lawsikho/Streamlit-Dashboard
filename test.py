@@ -343,6 +343,10 @@ def show_homepage_with_login():
     .sc:hover{{transform:translateY(-2px);}}
     .sc.co:hover{{border-color:rgba(249,115,22,.22);background:rgba(249,115,22,.04);}}
     .sc.cg:hover{{border-color:rgba(52,211,153,.22);background:rgba(52,211,153,.04);}}
+    .sb{{background:rgba(59,130,246,.14);}}
+    .cb:hover{{border-color:rgba(59,130,246,.22);background:rgba(59,130,246,.04);}}
+    .dc-b{{border-top:2px solid rgba(59,130,246,.3);}}
+    .dc-b:hover{{border-color:3B82F6;background:rgba(59,130,246,.04);box-shadow:0 18px 50px rgba(59,130,246,.09);}}
     .si{{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.88rem;flex-shrink:0;}}
     .so{{background:rgba(249,115,22,.14);}} .sg{{background:rgba(52,211,153,.12);}} .sp{{background:rgba(139,92,246,.12);}}
     .sinfo{{display:flex;flex-direction:column;gap:2px;}}
@@ -390,9 +394,11 @@ def show_homepage_with_login():
       <div class="sc cg"><div class="si sg">💰</div>
         <div class="sinfo"><span class="slbl">Revenue Data</span><span class="sval">{rev_time}</span><span class="ssub">{rev_cnt} records</span></div>
         <span class="pl">● Live</span></div>
-      <div class="sc"><div class="si sp">📊</div>
-        <div class="sinfo"><span class="slbl">Lead Data</span><span class="sval" style="color:rgba(255,255,255,.22);">Under Development</span><span class="ssub">Pipeline coming soon</span></div>
-        <span class="pw">🚧 WIP</span></div>
+      <div class="sc cb"><div class="si sb">📊</div>
+         <div class="sinfo"><span class="slbl">Lead Data</span>
+         <span class="sval">{lead_time}</span>
+         <span class="ssub">{lead_cnt} records</span></div>
+         <span class="pl">● Live</span></div>
     </div>
     <div class="dsec">
       <div class="sh"><div class="sl"></div><span class="slb">Dashboards</span><div class="sl"></div></div>
@@ -409,12 +415,12 @@ def show_homepage_with_login():
           <div class="dd">Enrollment revenue, target achievement &amp; caller-level breakdown. Source mix &amp; team leaderboards.</div>
           <div class="tags"><span class="tag">Enrollments</span><span class="tag">Targets</span><span class="tag">Achievement</span><span class="tag">Teams</span></div>
         </div>
-        <div class="dc dc-p wip">
-          <div class="dh"><div class="di">📊</div><span class="wb">🚧 Coming Soon</span></div>
-          <div class="dt">Lead Metrics</div>
-          <div class="dd">Currently under development.</div>
-          <div class="tags"><span class="tag">Fresh</span><span class="tag">Breached</span><span class="tag">Less Dialled</span></div>
-        </div>
+        <div class="dc dc-b">
+           <div class="dh"><div class="di">📊</div></div>
+           <div class="dt">Lead Metrics</div>
+           <div class="dd">Assigned lead distribution, potential breached leads & less-dialled leads analysis. Stage-by-stage callerwise and teamwise breakdown.</div>
+           <div class="tags"><span class="tag">Assigned</span><span class="tag">Breached</span><span class="tag">Less Dialled</span><span class="tag">Stages</span></div>
+       </div>
       </div>
     </div>
     <div class="foot">
@@ -5272,9 +5278,12 @@ else:
 
     # ── Read previous choice first so logo color is correct before selectbox renders ──
     _prev = st.session_state.get("dashboard_choice", "Calling Metrics")
-    _lc   = "#F97316" if _prev == "Calling Metrics" else "#10B981"
-    _sc   = "rgba(249,115,22,.9)" if _prev == "Calling Metrics" else "rgba(16,185,129,.9)"
-    _shc  = "rgba(249,115,22,.5)" if _prev == "Calling Metrics" else "rgba(16,185,129,.5)"
+     if _prev == "Calling Metrics":
+         _lc, _sc, _shc = "F97316", "rgba(249,115,22,.9)", "rgba(249,115,22,.5)"
+     elif _prev == "Revenue Metrics":
+         _lc, _sc, _shc = "10B981", "rgba(16,185,129,.9)", "rgba(16,185,129,.5)"
+     else:
+         _lc, _sc, _shc = "3B82F6", "rgba(59,130,246,.9)", "rgba(59,130,246,.5)"
     
     if st.sidebar.button("🚪 Sign Out", key="signout_btn"):
         for key in list(st.session_state.keys()):
@@ -5305,14 +5314,16 @@ else:
     """, unsafe_allow_html=True)
 
     choice = st.sidebar.selectbox(
-        "Navigation",
-        ["Calling Metrics", "Revenue Metrics"],
-        key="dashboard_choice",
-        label_visibility="collapsed"
-    )
+         "Navigation",
+         ["Calling Metrics", "Revenue Metrics", "Lead Metrics"],
+         key="dashboard_choice",
+         label_visibility="collapsed"
+     )
 
     # Render selected dashboard (sidebar Report Controls come from inside each function)
     if choice == "Calling Metrics":
-        run_calling_dashboard()
-    else:
-        run_revenue_dashboard()
+         run_calling_dashboard()
+     elif choice == "Revenue Metrics":
+         run_revenue_dashboard()
+     else:
+         run_leads_dashboard()
