@@ -116,7 +116,7 @@ def get_stats():
              SELECT MAX(updated_at_ampm) AS last_updated, COUNT(*) AS cnt
              FROM `studious-apex-488820-c3.crm_dashboard.revenue_sheet`
              """).to_dataframe()
-         rev_time = str(r3["last_updated"].iloc[0]) if not r3.empty and r3["last_updated"].iloc[0] else "N/A"
+        rev_time = str(r3["last_updated"].iloc[0]) if not r3.empty and r3["last_updated"].iloc[0] else "N/A"
         rev_cnt  = "{:,}".format(int(r3["cnt"].iloc[0])) if not r3.empty else "0"
 
         r4 = client.query("""
