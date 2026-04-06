@@ -5278,7 +5278,7 @@ else:
 
     # ── Read previous choice first so logo color is correct before selectbox renders ──
     _prev = st.session_state.get("dashboard_choice", "Calling Metrics")
-     if _prev == "Calling Metrics":
+    if _prev == "Calling Metrics":
         _lc, _sc, _shc = "#F97316", "rgba(249,115,22,.9)", "rgba(249,115,22,.5)"
     elif _prev == "Revenue Metrics":
         _lc, _sc, _shc = "#10B981", "rgba(16,185,129,.9)", "rgba(16,185,129,.5)"
