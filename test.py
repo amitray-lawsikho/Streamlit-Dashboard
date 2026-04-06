@@ -117,18 +117,18 @@ def get_stats():
              FROM `studious-apex-488820-c3.crm_dashboard.revenue_sheet`
              """).to_dataframe()
          rev_time = str(r3["last_updated"].iloc[0]) if not r3.empty and r3["last_updated"].iloc[0] else "N/A"
-         rev_cnt  = "{:,}".format(int(r3["cnt"].iloc[0])) if not r3.empty else "0"
-    
-         r4 = client.query("""
-             SELECT MAX(updated_at_ampm) AS last_updated, COUNT(*) AS cnt
-             FROM `studious-apex-488820-c3.crm_dashboard.lsq_leads`
-             """).to_dataframe()
-         lead_time = str(r4["last_updated"].iloc[0]) if not r4.empty and r4["last_updated"].iloc[0] else "N/A"
-         lead_cnt  = "{:,}".format(int(r4["cnt"].iloc[0])) if not r4.empty else "0"
-    
-         return call_time, call_cnt, rev_time, rev_cnt, lead_time, lead_cnt
-        except:
-            return "N/A", "—", "N/A", "—", "N/A", "—"
+        rev_cnt  = "{:,}".format(int(r3["cnt"].iloc[0])) if not r3.empty else "0"
+
+        r4 = client.query("""
+            SELECT MAX(updated_at_ampm) AS last_updated, COUNT(*) AS cnt
+            FROM `studious-apex-488820-c3.crm_dashboard.lsq_leads`
+            """).to_dataframe()
+        lead_time = str(r4["last_updated"].iloc[0]) if not r4.empty and r4["last_updated"].iloc[0] else "N/A"
+        lead_cnt  = "{:,}".format(int(r4["cnt"].iloc[0])) if not r4.empty else "0"
+
+        return call_time, call_cnt, rev_time, rev_cnt, lead_time, lead_cnt
+    except:
+        return "N/A", "—", "N/A", "—", "N/A", "—"
 
 # ADD THIS FUNCTION AFTER get_stats() and BEFORE run_calling_dashboard()
 # ===========================================================================
@@ -5279,11 +5279,11 @@ else:
     # ── Read previous choice first so logo color is correct before selectbox renders ──
     _prev = st.session_state.get("dashboard_choice", "Calling Metrics")
      if _prev == "Calling Metrics":
-         _lc, _sc, _shc = "F97316", "rgba(249,115,22,.9)", "rgba(249,115,22,.5)"
-     elif _prev == "Revenue Metrics":
-         _lc, _sc, _shc = "10B981", "rgba(16,185,129,.9)", "rgba(16,185,129,.5)"
-     else:
-         _lc, _sc, _shc = "3B82F6", "rgba(59,130,246,.9)", "rgba(59,130,246,.5)"
+        _lc, _sc, _shc = "#F97316", "rgba(249,115,22,.9)", "rgba(249,115,22,.5)"
+    elif _prev == "Revenue Metrics":
+        _lc, _sc, _shc = "#10B981", "rgba(16,185,129,.9)", "rgba(16,185,129,.5)"
+    else:
+        _lc, _sc, _shc = "#3B82F6", "rgba(59,130,246,.9)", "rgba(59,130,246,.5)"    
     
     if st.sidebar.button("🚪 Sign Out", key="signout_btn"):
         for key in list(st.session_state.keys()):
@@ -5322,8 +5322,8 @@ else:
 
     # Render selected dashboard (sidebar Report Controls come from inside each function)
     if choice == "Calling Metrics":
-         run_calling_dashboard()
-     elif choice == "Revenue Metrics":
-         run_revenue_dashboard()
-     else:
-         run_leads_dashboard()
+        run_calling_dashboard()
+    elif choice == "Revenue Metrics":
+        run_revenue_dashboard()
+    else:
+        run_leads_dashboard()
