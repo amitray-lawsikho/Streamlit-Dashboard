@@ -5246,12 +5246,12 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
  
             st.divider()
             _ld_section_header("TEAMWISE POTENTIAL BREACHED LEADS AFTER ASSIGNMENT")
-            st.caption("Teamwise split · overdue follow-up AND LastCalledDate older than 3 days.")
+            st.caption("Potential leads not dialled in last 3 days / having a older follow up date.")
             _show_team(df_bt_ld, "No teamwise breached data found.")
  
             st.divider()
             _ld_section_header("TEAMWISE LESS DIALLED LEADS AFTER ASSIGNMENT")
-            st.caption("Teamwise split · DNP stages with Assigned_On_Call_Counter < 11.")
+            st.caption("DNP Leads dialled less than 11 times after assignment to counsellor")
             _show_team(df_ldt_ld, "No teamwise less-dialled data found.")
         else:
             st.markdown("""
