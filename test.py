@@ -113,22 +113,22 @@ def get_stats():
         call_cnt = "{:,}".format(int(r2["t"].iloc[0])) if not r2.empty else "—"
 
         r3 = client.query("""
-         SELECT MAX(updated_at_ampm) AS last_updated, COUNT(*) AS cnt
-         FROM `studious-apex-488820-c3.crm_dashboard.revenue_sheet`
-     """).to_dataframe()
-     rev_time = str(r3["last_updated"].iloc[0]) if not r3.empty and r3["last_updated"].iloc[0] else "N/A"
-     rev_cnt  = "{:,}".format(int(r3["cnt"].iloc[0])) if not r3.empty else "0"
-
-     r4 = client.query("""
-         SELECT MAX(updated_at_ampm) AS last_updated, COUNT(*) AS cnt
-         FROM `studious-apex-488820-c3.crm_dashboard.lsq_leads`
-     """).to_dataframe()
-     lead_time = str(r4["last_updated"].iloc[0]) if not r4.empty and r4["last_updated"].iloc[0] else "N/A"
-     lead_cnt  = "{:,}".format(int(r4["cnt"].iloc[0])) if not r4.empty else "0"
-
-     return call_time, call_cnt, rev_time, rev_cnt, lead_time, lead_cnt
-    except:
-        return "N/A", "—", "N/A", "—", "N/A", "—"
+             SELECT MAX(updated_at_ampm) AS last_updated, COUNT(*) AS cnt
+             FROM `studious-apex-488820-c3.crm_dashboard.revenue_sheet`
+             """).to_dataframe()
+         rev_time = str(r3["last_updated"].iloc[0]) if not r3.empty and r3["last_updated"].iloc[0] else "N/A"
+         rev_cnt  = "{:,}".format(int(r3["cnt"].iloc[0])) if not r3.empty else "0"
+    
+         r4 = client.query("""
+             SELECT MAX(updated_at_ampm) AS last_updated, COUNT(*) AS cnt
+             FROM `studious-apex-488820-c3.crm_dashboard.lsq_leads`
+             """).to_dataframe()
+         lead_time = str(r4["last_updated"].iloc[0]) if not r4.empty and r4["last_updated"].iloc[0] else "N/A"
+         lead_cnt  = "{:,}".format(int(r4["cnt"].iloc[0])) if not r4.empty else "0"
+    
+         return call_time, call_cnt, rev_time, rev_cnt, lead_time, lead_cnt
+        except:
+            return "N/A", "—", "N/A", "—", "N/A", "—"
 
 # ADD THIS FUNCTION AFTER get_stats() and BEFORE run_calling_dashboard()
 # ===========================================================================
