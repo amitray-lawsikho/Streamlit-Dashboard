@@ -4785,6 +4785,58 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
         h = min((len(final) + 1) * 35 + 20, 600)
         st.dataframe(final.style.apply(_style_team, axis=1),
                      use_container_width=True, hide_index=True, height=h)
+        
+    def _build_leads_xlsx_bytes_ld(df_rows):
+        EXPORT_COLS = [
+            'AssignedOn', 'FirstName', 'LastName', 'Email', 'PhoneNumber',
+            'Alternate_PhoneNumber', 'Owner', 'ContactStage', 'LastCalledDate',
+            'Follow_up_date', 'Enquired_Course', 'Campaign_Name',
+            'Phone_call_counter', 'Assigned_On_Call_Counter', 'Team', 'Vertical', 'AssignedBy'
+        ]
+        df = df_rows.copy()
+        if 'Team' not in df.columns and 'Team Name' in df.columns:
+            df['Team'] = df['Team Name']
+        cols = [c for c in EXPORT_COLS if c in df.columns]
+        df   = df[cols].reset_index(drop=True)
+
+        HDR_FILL  = PatternFill("solid", start_color="1e3a8a", end_color="1e3a8a")
+        HDR_FONT  = Font(bold=True, color="FFFFFF", name="Calibri", size=10)
+        ALT_FILL  = PatternFill("solid", start_color="EFF6FF", end_color="EFF6FF")
+        WHT_FILL  = PatternFill("solid", start_color="FFFFFF", end_color="FFFFFF")
+        DATA_FONT = Font(name="Calibri", size=10)
+        CENTER    = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        LEFT      = Alignment(horizontal='left',   vertical='center', wrap_text=True)
+        BORDER    = Border(
+            left=Side(style='thin', color='BFDBFE'), right=Side(style='thin', color='BFDBFE'),
+            top=Side(style='thin',  color='BFDBFE'), bottom=Side(style='thin', color='BFDBFE'),
+        )
+        COL_WIDTHS = {
+            'AssignedOn': 14, 'FirstName': 18, 'LastName': 18, 'Email': 32,
+            'PhoneNumber': 14, 'Alternate_PhoneNumber': 18, 'Owner': 24,
+            'ContactStage': 24, 'LastCalledDate': 14, 'Follow_up_date': 14,
+            'Enquired_Course': 26, 'Campaign_Name': 22, 'Phone_call_counter': 12,
+            'Assigned_On_Call_Counter': 14, 'Team': 24, 'Vertical': 18, 'AssignedBy': 20,
+        }
+        wb = Workbook(); ws = wb.active; ws.title = "Breached Leads"
+        for c_idx, col in enumerate(cols, 1):
+            cell = ws.cell(1, c_idx, col.replace('_', ' ').upper())
+            cell.fill, cell.font, cell.alignment, cell.border = HDR_FILL, HDR_FONT, CENTER, BORDER
+        ws.row_dimensions[1].height = 26
+        for r_idx, (_, row) in enumerate(df.iterrows(), 2):
+            fill = ALT_FILL if r_idx % 2 == 0 else WHT_FILL
+            for c_idx, col in enumerate(cols, 1):
+                val = row[col]
+                try:
+                    if pd.isna(val): val = ''
+                except (TypeError, ValueError): pass
+                if hasattr(val, 'strftime'): val = val.strftime('%Y-%m-%d')
+                cell = ws.cell(r_idx, c_idx, val)
+                cell.fill, cell.font, cell.alignment, cell.border = fill, DATA_FONT, LEFT, BORDER
+        for c_idx, col in enumerate(cols, 1):
+            ws.column_dimensions[get_column_letter(c_idx)].width = COL_WIDTHS.get(col, 16)
+        ws.freeze_panes = "A2"
+        buf = io.BytesIO(); wb.save(buf)
+        return buf.getvalue()
  
     def _stage_counts(grp, col_map):
         row, total = {}, 0
@@ -5205,6 +5257,17 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
                     df_bc_ld = _proc_breached_caller(df_m_ld)
                     _show_caller(df_bc_ld, "No potential breached leads found.")
  
+                    df_bc_raw_ld = _get_breached(df_m_ld)
+                    if not df_bc_raw_ld.empty:
+                        col_dl_bc, _ = st.columns([1, 3])
+                        with col_dl_bc:
+                            st.download_button(
+                                label="📥 Download Breached Leads (.xlsx)",
+                                data=_build_leads_xlsx_bytes_ld(df_bc_raw_ld),
+                                file_name=f"Breached_Leads_{disp_start}_to_{disp_end}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key="dl_bc_leads_ld_xlsx"
+                            )
                     st.divider()
  
                     # Table 3
