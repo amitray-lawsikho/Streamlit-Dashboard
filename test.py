@@ -737,7 +737,7 @@ with tab1:
                     roadmap_c = int(df_valid["ContactStage"].eq("Roadmap Done").sum())
                     followup_c = int(df_valid["ContactStage"].isin(["Follow Up For Closure","Counselled lead"]).sum())
                     kpis = [
-                        ("Total Assigned Leads", len(df_valid), "📋"),
+                        ("Assigned Leads", len(df_valid), "📋"),
                         ("Fresh Leads", fresh_c, "🌱"),
                         ("Lead Conversions", enrolled_c, "🎓"),
                         ("Discovery", discovery_c, "🔍"),
