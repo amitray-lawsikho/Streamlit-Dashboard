@@ -5167,7 +5167,7 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
  
                     kc = st.columns(5)
                     for col, (lbl, val, ico) in zip(kc, [
-                        ("Total Leads",     f"{len(df_m_ld):,}",           "📋"),
+                        ("Total Assigned Leads",     f"{len(df_m_ld):,}",           "📋"),
                         ("Active Callers",  df_m_ld['Owner'].nunique(),    "👤"),
                         ("Active Teams",    df_m_ld['Team Name'].nunique(),"👥"),
                         ("Fresh Leads",     f"{fresh_c:,}",                "🌱"),
