@@ -358,8 +358,6 @@ def show_homepage_with_login():
     .sc.cg:hover{{border-color:rgba(52,211,153,.22);background:rgba(52,211,153,.04);}}
     .sb{{background:rgba(59,130,246,.14);}}
     .cb:hover{{border-color:rgba(59,130,246,.22);background:rgba(59,130,246,.04);}}
-    .dc-b{{border-top:2px solid #3B82F6;}}
-    .dc-b:hover{{border-color:#3B82F6;background:rgba(59,130,246,.04);box-shadow:0 18px 50px rgba(59,130,246,.09);}}
     .si{{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.88rem;flex-shrink:0;}}
     .so{{background:rgba(249,115,22,.14);}} .sg{{background:rgba(52,211,153,.12);}} .sp{{background:rgba(139,92,246,.12);}}
     .sinfo{{display:flex;flex-direction:column;gap:2px;}}
@@ -386,6 +384,8 @@ def show_homepage_with_login():
     .dc-p{{border-top:2px solid rgba(139,92,246,.3);}}
     .dc-o:hover{{border-color:#F97316;background:rgba(249,115,22,.04);box-shadow:0 18px 50px rgba(249,115,22,.09);}}
     .dc-g:hover{{border-color:#34D399;background:rgba(52,211,153,.04);box-shadow:0 18px 50px rgba(52,211,153,.08);}}
+    .dc-b{{border-top:2px solid #3B82F6;}}
+    .dc-b:hover{{border-color:#3B82F6;background:rgba(59,130,246,.04);box-shadow:0 18px 50px rgba(59,130,246,.09);}}
     .dh{{display:flex;align-items:flex-start;justify-content:space-between;}}
     .di{{font-size:1.65rem;}}
     .wb{{font-family:'Fira Code',monospace;font-size:.5rem;text-transform:uppercase;color:#FBBF24;
