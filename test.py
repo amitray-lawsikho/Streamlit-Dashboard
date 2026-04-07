@@ -846,7 +846,7 @@ with tab1:
                     col_dl1, _ = st.columns([1, 3])
                     with col_dl1:
                         st.download_button(
-                            label="📥 Download Assigned Leads (.xlsx)",
+                            label="📥 Download Assigned Leads",
                             data=build_leads_xlsx_bytes(df),
                             file_name=f"Assigned_Leads_{display_start}_to_{display_end}.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -872,7 +872,7 @@ with tab1:
                         col_dl2, _ = st.columns([1, 3])
                         with col_dl2:
                             st.download_button(
-                                label="📥 Download Breached Leads (.xlsx)",
+                                label="📥 Download Breached Leads",
                                 data=build_leads_xlsx_bytes(df_breach_raw),
                                 file_name=f"Breached_Leads_{display_start}_to_{display_end}.xlsx",
                                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -897,7 +897,7 @@ with tab1:
                         col_dl3, _ = st.columns([1, 3])
                         with col_dl3:
                             st.download_button(
-                                label="📥 Download Less Dialled Leads (.xlsx)",
+                                label="📥 Download Less Dialled Leads",
                                 data=build_leads_xlsx_bytes(df_ld_raw),
                                 file_name=f"Less_Dialled_Leads_{display_start}_to_{display_end}.xlsx",
                                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
