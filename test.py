@@ -726,16 +726,25 @@ with tab1:
                 if df.empty:
                     st.error("No leads match the selected filters.")
                 else:
-                    # ── Summary KPIs ──
                     section_header("📊 LEAD SUMMARY METRICS")
+
+                    # Since you already filtered TEAM != "Others", df is clean
+                    df_valid = df.copy()
+                    
+                    fresh_c = int(df_valid["ContactStage"].isin(STAGE_MAP["FRESH"]).sum())
+                    enrolled_c = int(df_valid["ContactStage"].eq("Actually Enrolled").sum())
+                    discovery_c = int(df_valid["ContactStage"].eq("Discovery Call Done").sum())
+                    roadmap_c = int(df_valid["ContactStage"].eq("Roadmap Done").sum())
+                    followup_c = int(df_valid["ContactStage"].isin(["Follow Up For Closure","Counselled lead"]).sum())
                     kpis = [
-                        ("Total Leads",     len(df),                                                           "📋"),
-                        ("Active Callers",  df["CALLER"].nunique(),                                            "👤"),
-                        ("Active Teams",    df[df["TEAM"] != "Others"]["TEAM"].nunique(),                      "👥"),
-                        ("Fresh Leads",     int(df["ContactStage"].isin(STAGE_MAP["FRESH"]).sum()),             "🌱"),
-                        ("FLW-UP Leads",    int(df["ContactStage"].isin(STAGE_MAP["FLW-UP"]).sum()),            "🔄"),
-                        ("DNP Leads",       int(df["ContactStage"].isin(STAGE_MAP["DNP"]).sum()),               "📵"),
-                        ("Enrolled",        int(df["ContactStage"].isin(STAGE_MAP["ACTUALLY-ENROLLED"]).sum()), "✅"),
+                        ("Total Leads", len(df_valid), "📋"),
+                        ("Active Callers", df_valid["CALLER"].nunique(), "👤"),
+                        ("Active Teams", df_valid["TEAM"].nunique(), "👥"),
+                        ("Fresh Leads", fresh_c, "🌱"),
+                        ("Actually Enrolled", enrolled_c, "🎓"),
+                        ("Discovery", discovery_c, "🔍"),
+                        ("Roadmap", roadmap_c, "🗺️"),
+                        ("Follow Up / Counselled", followup_c, "📞"),
                     ]
                     kpi_cols = st.columns(len(kpis))
                     for col, (label, val, icon) in zip(kpi_cols, kpis):
