@@ -408,7 +408,7 @@ def show_homepage_with_login():
         <div class="sinfo"><span class="slbl">Revenue Data</span><span class="sval">{rev_time}</span><span class="ssub">{rev_cnt} records</span></div>
         <span class="pl">● Live</span></div>
       <div class="sc cb"><div class="si sb">📊</div>
-         <div class="sinfo"><span class="slbl">Lead Data</span>
+         <div class="sinfo"><span class="slbl">Leads Data</span>
          <span class="sval">{lead_time}</span>
          <span class="ssub">{lead_cnt} records</span></div>
          <span class="pl">● Live</span></div>
