@@ -5161,17 +5161,25 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
                     st.error("No results match the selected filters.")
                 else:
                     # Summary KPIs
+                    df_valid_ld = df_m_ld[df_m_ld['Team Name'] != "Others"]
                     _ld_section_header("SUMMARY METRICS")
-                    fresh_c    = int(df_m_ld['ContactStage'].isin(_STAGE_MAP['FRESH']).sum())
-                    enrolled_c = int(df_m_ld['ContactStage'].isin(_STAGE_MAP['COURSE ENROLLED']).sum())
- 
-                    kc = st.columns(5)
+                    fresh_c = int(df_m_ld['ContactStage'].isin(_STAGE_MAP['FRESH']).sum())
+                    enrolled_c = int(df_valid_ld['ContactStage'].eq("Actually Enrolled").sum())
+                    discovery_c = int(df_valid_ld['ContactStage'].eq("Discovery Call Done").sum())
+                    roadmap_c = int(df_valid_ld['ContactStage'].eq("Roadmap Done").sum())
+                    followup_c = int(df_valid_ld['ContactStage'].isin(["Follow Up For Closure","Counselled lead"]).sum())
+                    roadmap_c = int(df_valid_ld['ContactStage'].eq("Roadmap Done").sum())
+                    followup_c = int(df_valid_ld['ContactStage'].isin(["Follow Up For Closure","Counselled lead"]).sum())
+                    kc = st.columns(8)
                     for col, (lbl, val, ico) in zip(kc, [
-                        ("Total Assigned Leads",     f"{len(df_m_ld):,}",           "📋"),
-                        ("Active Callers",  df_m_ld['Owner'].nunique(),    "👤"),
-                        ("Active Teams",    df_m_ld['Team Name'].nunique(),"👥"),
-                        ("Fresh Leads",     f"{fresh_c:,}",                "🌱"),
-                        ("Course Enrolled", f"{enrolled_c:,}",             "🎓"),
+                        ("Total Assigned Leads", f"{len(df_m_ld):,}", "📋"),
+                        ("Fresh Leads", f"{fresh_c:,}", "🌱"),
+                        ("Lead Conversions", f"{enrolled_c:,}", "🎓"),
+                        ("Discovery", f"{discovery_c:,}", "🔍"),
+                        ("Roadmap", f"{roadmap_c:,}", "🗺️"),
+                        ("Follow Up / Counselled", f"{followup_c:,}", "📞"),
+                        ("Active Callers", df_m_ld['Owner'].nunique(), "👤"),
+                        ("Active Teams", df_m_ld['Team Name'].nunique(), "👥"),
                     ]):
                         with col:
                             st.markdown(f"""
