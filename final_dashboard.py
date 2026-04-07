@@ -126,15 +126,22 @@ def get_stats():
         call_cnt = "{:,}".format(int(r2["t"].iloc[0])) if not r2.empty else "—"
 
         r3 = client.query("""
-            SELECT MAX(updated_at_ampm) AS last_updated, COUNT(*) AS cnt
-            FROM `studious-apex-488820-c3.crm_dashboard.revenue_sheet`
-        """).to_dataframe()
+             SELECT MAX(updated_at_ampm) AS last_updated, COUNT(*) AS cnt
+             FROM `studious-apex-488820-c3.crm_dashboard.revenue_sheet`
+             """).to_dataframe()
         rev_time = str(r3["last_updated"].iloc[0]) if not r3.empty and r3["last_updated"].iloc[0] else "N/A"
         rev_cnt  = "{:,}".format(int(r3["cnt"].iloc[0])) if not r3.empty else "0"
 
-        return call_time, call_cnt, rev_time, rev_cnt
+        r4 = client.query("""
+            SELECT MAX(updated_at_ampm) AS last_updated, COUNT(*) AS cnt
+            FROM `studious-apex-488820-c3.crm_dashboard.lsq_leads`
+            """).to_dataframe()
+        lead_time = str(r4["last_updated"].iloc[0]) if not r4.empty and r4["last_updated"].iloc[0] else "N/A"
+        lead_cnt  = "{:,}".format(int(r4["cnt"].iloc[0])) if not r4.empty else "0"
+
+        return call_time, call_cnt, rev_time, rev_cnt, lead_time, lead_cnt
     except:
-        return "N/A", "—", "N/A", "—"
+        return "N/A", "—", "N/A", "—", "N/A", "—"
 
 # ADD THIS FUNCTION AFTER get_stats() and BEFORE run_calling_dashboard()
 # ===========================================================================
@@ -265,7 +272,7 @@ def show_homepage_with_login():
     </style>
     """, unsafe_allow_html=True)
 
-    call_time, call_cnt, rev_time, rev_cnt = get_stats()
+    call_time, call_cnt, rev_time, rev_cnt, lead_time, lead_cnt = get_stats()
 
     # ── HERO HTML ──
     html_hero = f"""<!DOCTYPE html><html><head>
@@ -349,6 +356,10 @@ def show_homepage_with_login():
     .sc:hover{{transform:translateY(-2px);}}
     .sc.co:hover{{border-color:rgba(249,115,22,.22);background:rgba(249,115,22,.04);}}
     .sc.cg:hover{{border-color:rgba(52,211,153,.22);background:rgba(52,211,153,.04);}}
+    .sb{{background:rgba(59,130,246,.14);}}
+    .cb:hover{{border-color:rgba(59,130,246,.22);background:rgba(59,130,246,.04);}}
+    .dc-b{{border-top:2px solid rgba(59,130,246,.45);}}
+    .dc-b:hover{{border-color:#3B82F6;background:rgba(59,130,246,.04);box-shadow:0 18px 50px rgba(59,130,246,.09);}}
     .si{{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.88rem;flex-shrink:0;}}
     .so{{background:rgba(249,115,22,.14);}} .sg{{background:rgba(52,211,153,.12);}} .sp{{background:rgba(139,92,246,.12);}}
     .sinfo{{display:flex;flex-direction:column;gap:2px;}}
@@ -396,9 +407,11 @@ def show_homepage_with_login():
       <div class="sc cg"><div class="si sg">💰</div>
         <div class="sinfo"><span class="slbl">Revenue Data</span><span class="sval">{rev_time}</span><span class="ssub">{rev_cnt} records</span></div>
         <span class="pl">● Live</span></div>
-      <div class="sc"><div class="si sp">📊</div>
-        <div class="sinfo"><span class="slbl">Lead Data</span><span class="sval" style="color:rgba(255,255,255,.22);">Under Development</span><span class="ssub">Pipeline coming soon</span></div>
-        <span class="pw">🚧 WIP</span></div>
+      <div class="sc cb"><div class="si sb">📊</div>
+         <div class="sinfo"><span class="slbl">Leads Data</span>
+         <span class="sval">{lead_time}</span>
+         <span class="ssub">{lead_cnt} records</span></div>
+         <span class="pl">● Live</span></div>
     </div>
     <div class="dsec">
       <div class="sh"><div class="sl"></div><span class="slb">Dashboards</span><div class="sl"></div></div>
@@ -415,12 +428,12 @@ def show_homepage_with_login():
           <div class="dd">Enrollment revenue, target achievement &amp; caller-level breakdown. Source mix &amp; team leaderboards.</div>
           <div class="tags"><span class="tag">Enrollments</span><span class="tag">Targets</span><span class="tag">Achievement</span><span class="tag">Teams</span></div>
         </div>
-        <div class="dc dc-p wip">
-          <div class="dh"><div class="di">📊</div><span class="wb">🚧 Coming Soon</span></div>
-          <div class="dt">Lead Metrics</div>
-          <div class="dd">Currently under development.</div>
-          <div class="tags"><span class="tag">Fresh</span><span class="tag">Breached</span><span class="tag">Less Dialled</span></div>
-        </div>
+        <div class="dc dc-b">
+           <div class="dh"><div class="di">📊</div></div>
+           <div class="dt">Lead Metrics</div>
+           <div class="dd">Assigned lead distribution, potential breached leads & less-dialled leads analysis. Stage-by-stage callerwise and teamwise breakdown.</div>
+           <div class="tags"><span class="tag">Assigned</span><span class="tag">Breached</span><span class="tag">Less Dialled</span><span class="tag">Stages</span></div>
+       </div>
       </div>
     </div>
     <div class="foot">
@@ -1295,7 +1308,6 @@ def run_calling_dashboard():
                     if selected_team:     df = df[df['Team Name'].isin(selected_team)]
                     if selected_vertical: df = df[df['Vertical'].isin(selected_vertical)]
                     if search_query:      df = df[df['call_owner'].str.contains(search_query, case=False, na=False)]
-
                     if df.empty:
                         st.error("No results match the selected filters.")
                     else:
@@ -4556,6 +4568,784 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                 else:
                     st.info("Drop leads sheet could not be loaded.")
 
+def run_leads_dashboard():
+    st.markdown("""
+    <style>
+    [data-testid="stMainBlockContainer"] {
+        max-width: 100% !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+    }
+    .block-container { max-width: 100% !important; }
+    </style>
+    """, unsafe_allow_html=True)
+ 
+    # ── CONSTANTS ──────────────────────────────────────────────────────────────
+    _CSV_URL     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRT73ztvPNZSvIu5WLxo-3WQ76JMAnt4P9dITd4EAbjSvuDytfgvdfri1WPXotCjm_Etnb80_Q7S-wf/pub?gid=0&single=true&output=csv"
+    _LEADS_TABLE = "studious-apex-488820-c3.crm_dashboard.lsq_leads"
+ 
+    _STAGE_MAP = {
+        'FRESH'             : ['New Lead', 'Re-enquired Lead', 'Opportunity Created'],
+        'DNP'               : ['Call Not Picking Up', 'Call Not Connected'],
+        'CBL'               : ['Call Back Later'],
+        'FLW-UP'            : ['Follow Up For Closure'],
+        'COUNSELLED'        : ['Counselled lead'],
+        'DISCOVERY'         : ['Discovery Call Done'],
+        'ROADMAP'           : ['Roadmap Done'],
+        'MBL'               : ['May buy later'],
+        'ACTUALLY-ENROLLED' : ['Actually Enrolled'],
+        'INVALID/NTINTRSTD' : ['Irrelevant lead', 'Not Interested', 'Invalid'],
+        'BOOKING-RCVD'      : ['Booking fees received'],
+        'LOAN-PNDG'         : ['Loan pending'],
+        'COLL-DNE'          : ['Collections done'],
+        'PRE-SALES'         : ['Pre-Sales Registrations'],
+        'COURSE ENROLLED'   : ['Course Enrolled'],
+    }
+ 
+    _BREACHED_COL_MAP = {
+        'CBL'       : ['Call Back Later'],
+        'FLW-UP'    : ['Follow Up For Closure'],
+        'COUNSELLED': ['Counselled lead'],
+        'DISCOVERY' : ['Discovery Call Done'],
+        'ROADMAP'   : ['Roadmap Done'],
+    }
+ 
+    _DIALLED_COL_MAP = {
+        'CALL NOT PICKING UP': ['Call Not Picking Up'],
+        'CALL NOT CONNECTED' : ['Call Not Connected'],
+    }
+ 
+    # ── CSS ────────────────────────────────────────────────────────────────────
+    st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+ 
+:root {
+    --ld-accent: #3B82F6; --ld-deep: #1D4ED8; --ld-deepest: #1e3a8a;
+    --ld-light: #DBEAFE;
+    --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.08);
+    --shadow-md: 0 4px 16px rgba(0,0,0,.10);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,.14);
+    --transition: all 0.22s cubic-bezier(.4,0,.2,1);
+}
+[data-testid="stAppViewContainer"]:not([class*="dark"]) {
+    --bg-base:#EFF6FF;--bg-surface:#FFFFFF;--bg-muted:#DBEAFE;
+    --border:rgba(59,130,246,.12);--text-primary:#111827;
+    --text-muted:#6B7280;--metric-bg:#FFFFFF;
+}
+@media (prefers-color-scheme: dark) {
+    :root{--bg-base:#0A0F1E;--bg-surface:#111827;--bg-elevated:#1E293B;
+          --bg-muted:#1E3A5F;--border:rgba(59,130,246,.10);
+          --text-primary:#EFF6FF;--text-muted:#93C5FD;--metric-bg:#1E293B;}
+}
+[data-theme="dark"]{
+    --bg-base:#0A0F1E!important;--bg-surface:#111827!important;
+    --bg-elevated:#1E293B!important;--bg-muted:#1E3A5F!important;
+    --border:rgba(59,130,246,.10)!important;--text-primary:#EFF6FF!important;
+    --text-muted:#93C5FD!important;--metric-bg:#1E293B!important;
+}
+html,body,[class*="css"]{font-family:'DM Sans',sans-serif!important;}
+footer{visibility:hidden;}
+[data-testid="stStatusWidget"]{display:none!important;}
+[data-testid="stSidebar"]{border-right:1px solid var(--border,rgba(59,130,246,.12));}
+ 
+.ld-header{
+    background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 45%,#1e40af 100%);
+    border-radius:var(--radius-lg);padding:1.5rem 2rem 1.2rem;
+    margin-bottom:1.2rem;position:relative;overflow:hidden;box-shadow:var(--shadow-lg);
+}
+.ld-header::before{
+    content:"";position:absolute;top:-40px;right:-40px;width:200px;height:200px;
+    background:radial-gradient(circle,rgba(59,130,246,.25) 0%,transparent 70%);border-radius:50%;
+}
+.ld-title{font-size:1.65rem;font-weight:700;color:#FFF;letter-spacing:.5px;margin:0 0 .25rem;}
+.ld-subtitle{font-size:.82rem;color:rgba(255,255,255,.6);margin:0;font-family:'DM Mono',monospace;}
+.ld-badge{
+    display:inline-flex;align-items:center;gap:5px;
+    background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);
+    border-radius:20px;padding:3px 10px;font-size:.73rem;
+    color:rgba(255,255,255,.9);font-family:'DM Mono',monospace;
+}
+.ld-pulse{
+    width:6px;height:6px;background:#60A5FA;border-radius:50%;
+    display:inline-block;animation:pulse-ld 1.8s ease-in-out infinite;
+}
+@keyframes pulse-ld{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(1.4);}}
+ 
+.ld-metric-card{
+    background:var(--metric-bg,#fff);border:1px solid var(--border,rgba(59,130,246,.12));
+    border-radius:var(--radius-md);padding:.9rem 1rem;transition:var(--transition);
+    box-shadow:var(--shadow-sm);position:relative;overflow:hidden;text-align:center;
+}
+.ld-metric-card::before{
+    content:"";position:absolute;top:0;left:0;width:100%;height:3px;
+    background:linear-gradient(90deg,#3B82F6,#60A5FA);opacity:0;transition:opacity .2s;
+}
+.ld-metric-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
+.ld-metric-card:hover::before{opacity:1;}
+.ld-metric-label{font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.8px;
+    color:var(--text-muted,#6B7280);margin:0 0 .3rem;}
+.ld-metric-value{font-size:1.45rem;font-weight:700;color:var(--text-primary,#111827);
+    line-height:1;font-family:'DM Mono',monospace;}
+ 
+.ld-section-header{display:flex;align-items:center;gap:.6rem;margin:1.5rem 0 .8rem;}
+.ld-section-line{flex:1;height:1px;background:linear-gradient(90deg,#3B82F6,transparent);opacity:.35;}
+.ld-section-title{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;
+    color:#3B82F6;white-space:nowrap;text-align:center;}
+ 
+.ld-insight-card{background:var(--metric-bg,#fff);border:1px solid var(--border,rgba(59,130,246,.12));
+    border-radius:var(--radius-md);padding:1rem 1.1rem;margin-bottom:.6rem;
+    box-shadow:var(--shadow-sm);transition:var(--transition);}
+.ld-insight-card:hover{box-shadow:var(--shadow-md);}
+.ld-insight-card.good{border-left:3px solid #3B82F6;}
+.ld-insight-card.warn{border-left:3px solid #FBBF24;}
+.ld-insight-card.bad{border-left:3px solid #F87171;}
+.ld-insight-card.info{border-left:3px solid #60A5FA;}
+ 
+div[data-testid="stDataFrame"] thead tr th{
+    background:linear-gradient(135deg,#1e3a8a,#1d4ed8)!important;
+    color:#fff!important;font-family:'DM Sans',sans-serif!important;
+    font-size:.72rem!important;font-weight:700!important;letter-spacing:.6px;
+    text-transform:uppercase;white-space:normal!important;word-wrap:break-word!important;
+    text-align:center!important;vertical-align:middle!important;
+    min-width:80px!important;padding:10px!important;
+}
+[data-testid="stSidebar"] .stButton>button{
+    width:100%;font-family:'DM Sans',sans-serif!important;font-weight:600!important;
+    font-size:.82rem!important;border-radius:var(--radius-sm);transition:var(--transition);
+    background:linear-gradient(135deg,#1d4ed8,#1e3a8a)!important;
+    color:#fff!important;border:none!important;
+}
+[data-testid="stSidebar"] .stButton>button:hover{opacity:.88!important;transform:translateY(-1px)!important;}
+.stDownloadButton>button{
+    background:linear-gradient(135deg,#1d4ed8,#1e3a8a)!important;color:#fff!important;
+    border:none!important;border-radius:var(--radius-sm)!important;
+    font-family:'DM Sans',sans-serif!important;font-weight:600!important;
+    font-size:.82rem!important;width:100%!important;transition:var(--transition)!important;
+}
+hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!important;}
+</style>
+""", unsafe_allow_html=True)
+ 
+    # ── LOCAL HELPERS ──────────────────────────────────────────────────────────
+    def _ld_section_header(label):
+        st.markdown(f"""
+        <div class="ld-section-header">
+            <div class="ld-section-line"></div>
+            <span class="ld-section-title">{label}</span>
+            <div class="ld-section-line" style="background:linear-gradient(90deg,transparent,#3B82F6)"></div>
+        </div>""", unsafe_allow_html=True)
+ 
+    def _style_caller(row):
+        if row.get('CALLER') == 'TOTAL':
+            return ['font-weight:bold;background-color:#374151;color:#FFFFFF;'] * len(row)
+        return [''] * len(row)
+ 
+    def _style_team(row):
+        if row.get('TEAM') == 'TOTAL':
+            return ['font-weight:bold;background-color:#374151;color:#FFFFFF;'] * len(row)
+        return [''] * len(row)
+ 
+    def _merge_team_ld(df, df_meta):
+        df_w = df.copy()
+        df_w['merge_key'] = df_w['Owner'].astype(str).str.strip().str.lower()
+        slim = df_meta[['merge_key','Caller Name','Team Name','Vertical']].drop_duplicates('merge_key')
+        merged = pd.merge(df_w, slim, on='merge_key', how='left')
+        merged['Owner']     = merged['Caller Name'].fillna(merged['Owner'])
+        merged['Team Name'] = merged['Team Name'].fillna('Others')
+        merged['Vertical']  = merged['Vertical'].fillna('Others')
+        merged = merged[merged['Team Name'] != 'Others']
+        return merged
+ 
+    def _append_caller_total_ld(df):
+        if df.empty: return df
+        nc  = [c for c in df.columns if c not in ('CALLER','TEAM')]
+        row = {'CALLER':'TOTAL','TEAM':'—'}
+        for c in nc: row[c] = int(df[c].sum())
+        return pd.concat([df, pd.DataFrame([row])], ignore_index=True)
+ 
+    def _append_team_total_ld(df):
+        if df.empty: return df
+        nc  = [c for c in df.columns if c != 'TEAM']
+        row = {'TEAM':'TOTAL'}
+        for c in nc: row[c] = int(df[c].sum())
+        return pd.concat([df, pd.DataFrame([row])], ignore_index=True)
+ 
+    def _show_caller(df, msg="No data."):
+        if df.empty: st.info(msg); return
+        final = _append_caller_total_ld(df)
+        h = min((len(final) + 1) * 35 + 20, 800)
+        st.dataframe(final.style.apply(_style_caller, axis=1),
+                     use_container_width=True, hide_index=True, height=h)
+ 
+    def _show_team(df, msg="No data."):
+        if df.empty: st.info(msg); return
+        final = _append_team_total_ld(df)
+        h = min((len(final) + 1) * 35 + 20, 600)
+        st.dataframe(final.style.apply(_style_team, axis=1),
+                     use_container_width=True, hide_index=True, height=h)
+        
+    def _build_leads_xlsx_bytes_ld(df_rows):
+        EXPORT_COLS = [
+            'AssignedOn', 'FirstName', 'LastName', 'Email', 'PhoneNumber',
+            'Alternate_PhoneNumber', 'Owner', 'ContactStage', 'LastCalledDate',
+            'Follow_up_date', 'Enquired_Course', 'Campaign_Name',
+            'Phone_call_counter', 'Assigned_On_Call_Counter', 'Team', 'Vertical', 'AssignedBy'
+        ]
+        df = df_rows.copy()
+        if 'Team' not in df.columns and 'Team Name' in df.columns:
+            df['Team'] = df['Team Name']
+        cols = [c for c in EXPORT_COLS if c in df.columns]
+        df   = df[cols].reset_index(drop=True)
+
+        HDR_FILL  = PatternFill("solid", start_color="1e3a8a", end_color="1e3a8a")
+        HDR_FONT  = Font(bold=True, color="FFFFFF", name="Calibri", size=10)
+        ALT_FILL  = PatternFill("solid", start_color="EFF6FF", end_color="EFF6FF")
+        WHT_FILL  = PatternFill("solid", start_color="FFFFFF", end_color="FFFFFF")
+        DATA_FONT = Font(name="Calibri", size=10)
+        CENTER    = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        LEFT      = Alignment(horizontal='left',   vertical='center', wrap_text=True)
+        BORDER    = Border(
+            left=Side(style='thin', color='BFDBFE'), right=Side(style='thin', color='BFDBFE'),
+            top=Side(style='thin',  color='BFDBFE'), bottom=Side(style='thin', color='BFDBFE'),
+        )
+        COL_WIDTHS = {
+            'AssignedOn': 14, 'FirstName': 18, 'LastName': 18, 'Email': 32,
+            'PhoneNumber': 14, 'Alternate_PhoneNumber': 18, 'Owner': 24,
+            'ContactStage': 24, 'LastCalledDate': 14, 'Follow_up_date': 14,
+            'Enquired_Course': 26, 'Campaign_Name': 22, 'Phone_call_counter': 12,
+            'Assigned_On_Call_Counter': 14, 'Team': 24, 'Vertical': 18, 'AssignedBy': 20,
+        }
+        wb = Workbook(); ws = wb.active; ws.title = "Breached Leads"
+        for c_idx, col in enumerate(cols, 1):
+            cell = ws.cell(1, c_idx, col.replace('_', ' ').upper())
+            cell.fill, cell.font, cell.alignment, cell.border = HDR_FILL, HDR_FONT, CENTER, BORDER
+        ws.row_dimensions[1].height = 26
+        for r_idx, (_, row) in enumerate(df.iterrows(), 2):
+            fill = ALT_FILL if r_idx % 2 == 0 else WHT_FILL
+            for c_idx, col in enumerate(cols, 1):
+                val = row[col]
+                try:
+                    if pd.isna(val): val = ''
+                except (TypeError, ValueError): pass
+                if hasattr(val, 'strftime'): val = val.strftime('%Y-%m-%d')
+                cell = ws.cell(r_idx, c_idx, val)
+                cell.fill, cell.font, cell.alignment, cell.border = fill, DATA_FONT, LEFT, BORDER
+        for c_idx, col in enumerate(cols, 1):
+            ws.column_dimensions[get_column_letter(c_idx)].width = COL_WIDTHS.get(col, 16)
+        ws.freeze_panes = "A2"
+        buf = io.BytesIO(); wb.save(buf)
+        return buf.getvalue()
+ 
+    def _stage_counts(grp, col_map):
+        row, total = {}, 0
+        for col, stages in col_map.items():
+            cnt = int(grp['ContactStage'].isin(stages).sum())
+            row[col] = cnt; total += cnt
+        row['TOTAL'] = total
+        return row
+ 
+    # ── CACHED DATA FUNCTIONS ──────────────────────────────────────────────────
+    @st.cache_data(ttl=120, show_spinner=False)
+    def _ld_get_metadata():
+        df = pd.read_csv(_CSV_URL)
+        df.columns = df.columns.str.strip()
+        df['merge_key'] = df['Caller Name'].str.strip().str.lower()
+        return sorted(df['Team Name'].dropna().unique()), sorted(df['Vertical'].dropna().unique()), df
+ 
+    @st.cache_data(ttl=300, show_spinner=False)
+    def _ld_last_update():
+        try:
+            r = client.query(
+                f"SELECT MAX(updated_at_ampm) AS lu FROM `{_LEADS_TABLE}` WHERE updated_at_ampm IS NOT NULL"
+            ).to_dataframe()
+            return str(r['lu'].iloc[0]) if not r.empty and r['lu'].iloc[0] else "N/A"
+        except Exception: return "N/A"
+ 
+    @st.cache_data(ttl=600, show_spinner=False)
+    def _ld_available_dates():
+        try:
+            r = client.query(
+                f"SELECT MIN(AssignedOn) AS mn, MAX(AssignedOn) AS mx FROM `{_LEADS_TABLE}`"
+            ).to_dataframe()
+            if not r.empty and not pd.isna(r['mn'].iloc[0]):
+                return r['mn'].iloc[0], r['mx'].iloc[0]
+        except Exception: pass
+        return date.today(), date.today()
+ 
+    @st.cache_data(ttl=120, show_spinner=False)
+    def _ld_fetch(start_date, end_date):
+        q = f"""
+            SELECT ProspectID, Owner, ContactStage,
+                   Follow_up_date, LastCalledDate, AssignedOn,
+                   Assigned_On_Call_Counter, updated_at_ampm
+            FROM `{_LEADS_TABLE}`
+            WHERE AssignedOn BETWEEN '{start_date}' AND '{end_date}'
+        """
+        df = client.query(q).to_dataframe()
+        if not df.empty:
+            df['Owner']        = df['Owner'].astype(str).str.strip()
+            df['ContactStage'] = df['ContactStage'].astype(str).str.strip()
+            df['Follow_up_date'] = pd.to_datetime(df['Follow_up_date'], errors='coerce')
+            df['LastCalledDate'] = pd.to_datetime(df['LastCalledDate'], errors='coerce')
+            df['Assigned_On_Call_Counter'] = pd.to_numeric(
+                df['Assigned_On_Call_Counter'], errors='coerce').fillna(0)
+        return df
+ 
+    # ── PROCESSING ─────────────────────────────────────────────────────────────
+    def _proc_assigned_caller(df_m):
+        rows = []
+        for owner, g in df_m.groupby('Owner'):
+            team = g['Team Name'].mode().iloc[0] if len(g) else 'Others'
+            r = {'CALLER': owner, 'TEAM': team}
+            r.update(_stage_counts(g, _STAGE_MAP))
+            rows.append(r)
+        if not rows: return pd.DataFrame()
+        return pd.DataFrame(rows).sort_values('TOTAL', ascending=False).reset_index(drop=True)
+ 
+    def _proc_assigned_team(df_m):
+        rows = []
+        for team, g in df_m.groupby('Team Name'):
+            r = {'TEAM': team}; r.update(_stage_counts(g, _STAGE_MAP)); rows.append(r)
+        if not rows: return pd.DataFrame()
+        return pd.DataFrame(rows).sort_values('TOTAL', ascending=False).reset_index(drop=True)
+ 
+    def _get_breached(df_m):
+        now_ts = pd.Timestamp.now().normalize()
+        cut    = now_ts - pd.Timedelta(days=3)
+        all_s  = [s for v in _BREACHED_COL_MAP.values() for s in v]
+        fup    = df_m['Follow_up_date'].isna() | (df_m['Follow_up_date'] < now_ts)
+        lcd    = df_m['LastCalledDate'].notna() & (df_m['LastCalledDate'] < cut)
+        return df_m[fup & lcd & df_m['ContactStage'].isin(all_s)].copy()
+ 
+    def _proc_breached_caller(df_m):
+        df_b = _get_breached(df_m); rows = []
+        for owner, g in df_b.groupby('Owner'):
+            team = g['Team Name'].mode().iloc[0] if len(g) else 'Others'
+            r = {'CALLER': owner, 'TEAM': team}; r.update(_stage_counts(g, _BREACHED_COL_MAP)); rows.append(r)
+        if not rows: return pd.DataFrame()
+        return pd.DataFrame(rows).sort_values('TOTAL', ascending=False).reset_index(drop=True)
+ 
+    def _proc_breached_team(df_m):
+        df_b = _get_breached(df_m); rows = []
+        for team, g in df_b.groupby('Team Name'):
+            r = {'TEAM': team}; r.update(_stage_counts(g, _BREACHED_COL_MAP)); rows.append(r)
+        if not rows: return pd.DataFrame()
+        return pd.DataFrame(rows).sort_values('TOTAL', ascending=False).reset_index(drop=True)
+ 
+    def _get_less_dialled(df_m):
+        all_s = [s for v in _DIALLED_COL_MAP.values() for s in v]
+        return df_m[(df_m['Assigned_On_Call_Counter'] < 11) & df_m['ContactStage'].isin(all_s)].copy()
+ 
+    def _proc_ld_caller(df_m):
+        df_ld = _get_less_dialled(df_m); rows = []
+        for owner, g in df_ld.groupby('Owner'):
+            team = g['Team Name'].mode().iloc[0] if len(g) else 'Others'
+            r = {'CALLER': owner, 'TEAM': team}; r.update(_stage_counts(g, _DIALLED_COL_MAP)); rows.append(r)
+        if not rows: return pd.DataFrame()
+        return pd.DataFrame(rows).sort_values('TOTAL', ascending=False).reset_index(drop=True)
+ 
+    def _proc_ld_team(df_m):
+        df_ld = _get_less_dialled(df_m); rows = []
+        for team, g in df_ld.groupby('Team Name'):
+            r = {'TEAM': team}; r.update(_stage_counts(g, _DIALLED_COL_MAP)); rows.append(r)
+        if not rows: return pd.DataFrame()
+        return pd.DataFrame(rows).sort_values('TOTAL', ascending=False).reset_index(drop=True)
+ 
+    def _compute_insights(df_ac, df_bc, df_ldc, df_at, df_bt, df_ldt):
+        ins = []
+        if not df_ac.empty:
+            t = df_ac.iloc[0]
+            ins.append({"type":"good","icon":"🏆",
+                "title":f"Highest Assigned Leads — {t['CALLER']}",
+                "body":(f"{t['CALLER']} holds the highest lead count with {t['TOTAL']} leads. "
+                        f"Team: {t['TEAM']}. Fresh: {t.get('FRESH',0)} · "
+                        f"Counselled: {t.get('COUNSELLED',0)} · Enrolled: {t.get('COURSE ENROLLED',0)}.")})
+        if not df_at.empty:
+            t = df_at.iloc[0]
+            ins.append({"type":"good","icon":"🏅",
+                "title":f"Highest Assigned Leads — Team: {t['TEAM']}",
+                "body":(f"{t['TEAM']} received the most leads with {t['TOTAL']} assignments. "
+                        f"Fresh: {t.get('FRESH',0)} · DNP: {t.get('DNP',0)} · "
+                        f"Course Enrolled: {t.get('COURSE ENROLLED',0)}.")})
+        if not df_bc.empty:
+            t = df_bc.iloc[0]
+            ins.append({"type":"bad","icon":"⚠️",
+                "title":f"Highest Potential Breached — {t['CALLER']}",
+                "body":(f"{t['CALLER']} has {t['TOTAL']} leads with overdue follow-up and no recent call. "
+                        f"Team: {t['TEAM']}. CBL: {t.get('CBL',0)} · FLW-UP: {t.get('FLW-UP',0)} · "
+                        f"Counselled: {t.get('COUNSELLED',0)}. Immediate action required.")})
+        if not df_bt.empty:
+            t = df_bt.iloc[0]
+            ins.append({"type":"warn","icon":"🚨",
+                "title":f"Highest Potential Breached — Team: {t['TEAM']}",
+                "body":(f"{t['TEAM']} leads the breached list with {t['TOTAL']} overdue leads. "
+                        f"CBL: {t.get('CBL',0)} · FLW-UP: {t.get('FLW-UP',0)} · "
+                        f"Counselled: {t.get('COUNSELLED',0)}. Schedule recovery sessions.")})
+        if not df_ldc.empty:
+            t = df_ldc.iloc[0]
+            ins.append({"type":"warn","icon":"📞",
+                "title":f"Highest Less Dialled — {t['CALLER']}",
+                "body":(f"{t['CALLER']} has {t['TOTAL']} DNP leads with <11 dial attempts. "
+                        f"Team: {t['TEAM']}. Not Picking Up: {t.get('CALL NOT PICKING UP',0)} · "
+                        f"Not Connected: {t.get('CALL NOT CONNECTED',0)}. Increase dial frequency.")})
+        if not df_ldt.empty:
+            t = df_ldt.iloc[0]
+            ins.append({"type":"info","icon":"📈",
+                "title":f"Highest Less Dialled — Team: {t['TEAM']}",
+                "body":(f"{t['TEAM']} has {t['TOTAL']} less-dialled leads below 11 attempts. "
+                        f"Maximise dial frequency before these leads degrade further.")})
+        return ins[:6]
+ 
+    @st.cache_data(show_spinner=False)
+    def _ld_pdf_bytes() -> bytes:
+        from reportlab.lib.pagesizes import A4 as _A4
+        from reportlab.lib import colors as _colors
+        from reportlab.lib.units import mm as _mm
+        from reportlab.lib.styles import ParagraphStyle as _PS
+        from reportlab.platypus import (SimpleDocTemplate as _SDT, Paragraph as _P,
+                                         Spacer as _Sp, Table as _T, TableStyle as _TS,
+                                         HRFlowable as _HR, Flowable as _F)
+        from reportlab.lib.enums import TA_CENTER as _TAC
+        import io as _io
+ 
+        buf     = _io.BytesIO()
+        BD      = _colors.HexColor("#1e3a8a"); BM=_colors.HexColor("#1d4ed8")
+        BP      = _colors.HexColor("#DBEAFE"); BR=_colors.HexColor("#EFF6FF")
+        GD      = _colors.HexColor("#374151"); GM=_colors.HexColor("#6B7280")
+        W_      = _colors.white;               BK=_colors.HexColor("#111827")
+        PW, PH  = _A4
+ 
+        def sty(name,**kw):
+            d=dict(fontName='Helvetica',fontSize=9,textColor=BK,spaceAfter=3,leading=14)
+            d.update(kw); return _PS(name,**d)
+ 
+        S={'b':sty('b_ld'),'l':sty('l_ld',fontName='Helvetica-Bold',fontSize=8,textColor=BD,spaceAfter=1),
+           'f':sty('f_ld',fontName='Helvetica-Oblique',fontSize=8.5,textColor=BM,backColor=BP,leftIndent=8,rightIndent=8),
+           'ft':sty('ft_ld',fontSize=7.5,textColor=GM,alignment=_TAC)}
+ 
+        class Cover(_F):
+            def __init__(self,w): _F.__init__(self); self.w=w; self.height=90
+            def draw(self):
+                c=self.canv
+                c.setFillColor(BD); c.rect(0,52,self.w,38,fill=1,stroke=0)
+                c.setFillColor(BM); c.rect(0,22,self.w,30,fill=1,stroke=0)
+                c.setFillColor(_colors.HexColor("#0f172a")); c.rect(0,0,self.w,22,fill=1,stroke=0)
+                c.setFillColor(W_); c.setFont("Helvetica-Bold",22)
+                c.drawCentredString(self.w/2,66,"LEAD METRICS DASHBOARD")
+                c.setFillColor(_colors.HexColor("#BFDBFE")); c.setFont("Helvetica-Bold",11)
+                c.drawCentredString(self.w/2,34,"Logic & Metric Reference Guide")
+                c.setFillColor(_colors.HexColor("#DBEAFE")); c.setFont("Helvetica",8.5)
+                c.drawCentredString(self.w/2,8,
+                    "LawSikho & Skill Arbitrage  \u00b7  Internal Use Only")
+ 
+        class Ban(_F):
+            def __init__(self,icon,title,color=None,w=None):
+                _F.__init__(self); self.icon=icon; self.title=title
+                self.color=color or BD; self.w=w or (PW-30*_mm); self.height=22
+            def draw(self):
+                c=self.canv; c.setFillColor(self.color)
+                c.roundRect(0,0,self.w,self.height,4,fill=1,stroke=0)
+                c.setFillColor(W_); c.setFont("Helvetica-Bold",11)
+                c.drawString(10,6,f"{self.icon}  {self.title}")
+ 
+        def bt(rows,cw=None):
+            cw=cw or [44*_mm,116*_mm]
+            data=[[_P(f"<b>{r[0]}</b>",S['l']),_P(r[1],S['b'])] for r in rows]
+            t=_T(data,colWidths=cw,hAlign='LEFT')
+            t.setStyle(_TS([('BACKGROUND',(0,0),(0,-1),BP),('VALIGN',(0,0),(-1,-1),'TOP'),
+                ('GRID',(0,0),(-1,-1),0.3,_colors.HexColor("#BFDBFE")),
+                ('ROWBACKGROUNDS',(0,0),(-1,-1),[W_,BR]),
+                ('LEFTPADDING',(0,0),(-1,-1),6),('RIGHTPADDING',(0,0),(-1,-1),6),
+                ('TOPPADDING',(0,0),(-1,-1),4),('BOTTOMPADDING',(0,0),(-1,-1),4)]))
+            return t
+ 
+        def lt(rows):
+            data=[[_P(f"<b>{r[0]}</b>",S['l']),_P(r[1],S['f'])] for r in rows]
+            t=_T(data,colWidths=[52*_mm,108*_mm],hAlign='LEFT')
+            t.setStyle(_TS([('VALIGN',(0,0),(-1,-1),'TOP'),
+                ('GRID',(0,0),(-1,-1),0.3,_colors.HexColor("#93C5FD")),
+                ('ROWBACKGROUNDS',(0,0),(-1,-1),[W_,BR]),
+                ('LEFTPADDING',(0,0),(-1,-1),6),('RIGHTPADDING',(0,0),(-1,-1),6),
+                ('TOPPADDING',(0,0),(-1,-1),4),('BOTTOMPADDING',(0,0),(-1,-1),4)]))
+            return t
+ 
+        SP=_Sp; HR_=lambda:_HR(width="100%",thickness=0.6,color=_colors.HexColor("#93C5FD"),spaceAfter=6,spaceBefore=4)
+        cw_=PW-30*_mm
+ 
+        story=[
+            SP(1,18*_mm),Cover(cw_),SP(1,10*_mm),
+            _P("This document explains every metric, table, and column in the Lead Metrics Dashboard.",S['b']),
+            SP(1,6*_mm),
+            Ban("📋","SECTION 1 — TABS OVERVIEW"),SP(1,3*_mm),
+            bt([("📊 Assigned Leads Report",
+                 "Three callerwise tables: (1) Assigned Leads Distribution — all ContactStage buckets per caller; "
+                 "(2) Potential Breached Leads — overdue follow-up + no recent call activity; "
+                 "(3) Less Dialled Leads — DNP leads with <11 dial attempts."),
+                ("🧠 Insights & Teamwise",
+                 "Six auto-generated insights + three teamwise versions of all tables.")]),
+            SP(1,6*_mm),
+            Ban("📊","SECTION 2 — ASSIGNED LEADS DISTRIBUTION"),SP(1,3*_mm),
+            _P("One row per caller. Sorted by TOTAL descending. Date filter = AssignedOn field.",S['b']),SP(1,2*_mm),
+            lt([
+                ("FRESH","New Lead + Re-enquired Lead + Opportunity Created"),
+                ("DNP","Call Not Picking Up + Call Not Connected"),
+                ("CBL","Call Back Later"),("FLW-UP","Follow Up For Closure"),
+                ("COUNSELLED","Counselled lead"),("DISCOVERY","Discovery Call Done"),
+                ("ROADMAP","Roadmap Done"),("MBL","May buy later"),
+                ("ACTUALLY-ENROLLED","Actually Enrolled"),
+                ("INVALID/NTINTRSTD","Irrelevant lead + Not Interested + Invalid"),
+                ("BOOKING-RCVD","Booking fees received"),("LOAN-PNDG","Loan pending"),
+                ("COLL-DNE","Collections done"),("PRE-SALES","Pre-Sales Registrations"),
+                ("COURSE ENROLLED","Course Enrolled"),
+                ("TOTAL","Sum of all stage columns = total assigned leads for this caller/team."),
+            ]),SP(1,6*_mm),
+            Ban("⚠️","SECTION 3 — POTENTIAL BREACHED LEADS"),SP(1,3*_mm),
+            lt([
+                ("Condition 1","Follow_up_date IS NULL OR Follow_up_date < today (IST)."),
+                ("Condition 2","LastCalledDate < today minus 3 days (both conditions required)."),
+                ("Stages","CBL · FLW-UP · COUNSELLED · DISCOVERY · ROADMAP only."),
+                ("TOTAL","Sum of all five stage columns."),
+            ]),SP(1,6*_mm),
+            Ban("📞","SECTION 4 — LESS DIALLED LEADS"),SP(1,3*_mm),
+            lt([
+                ("Filter","Assigned_On_Call_Counter < 11 (fewer than 11 call attempts since assignment)."),
+                ("CALL NOT PICKING UP","ContactStage = 'Call Not Picking Up' with <11 attempts."),
+                ("CALL NOT CONNECTED","ContactStage = 'Call Not Connected' with <11 attempts."),
+                ("TOTAL","Sum of both columns."),
+            ]),SP(1,6*_mm),
+            Ban("📖","KEY TERMS GLOSSARY",color=GD),SP(1,3*_mm),
+            bt([
+                ("AssignedOn","Date the lead was assigned. Primary date filter for the dashboard."),
+                ("Owner","Caller the lead is assigned to. Mapped via lowercase merge key to Caller Name."),
+                ("ContactStage","Current CRM lifecycle stage. Drives all bucketing logic."),
+                ("Follow_up_date","Scheduled follow-up date. NULL or past = overdue."),
+                ("LastCalledDate","Date last called. Used in breached leads filter."),
+                ("Assigned_On_Call_Counter","Call attempts since assignment. Used in less-dialled filter."),
+                ("TOTAL row","Bold dark row at bottom summing all numeric columns."),
+            ]),SP(1,8*_mm),HR_(),
+            _P("Designed by Amit Ray  \u00b7  amitray@lawsikho.in  \u00b7  "
+               "For Internal Use of Sales and Operations Team Only. All Rights Reserved.",S['ft']),
+        ]
+        doc=_SDT(buf,pagesize=_A4,leftMargin=15*_mm,rightMargin=15*_mm,
+                 topMargin=14*_mm,bottomMargin=14*_mm,
+                 title="Lead Metrics — Logic Reference Guide",author="Amit Ray")
+        doc.build(story)
+        return buf.getvalue()
+ 
+    # ── SIDEBAR ────────────────────────────────────────────────────────────────
+    st.sidebar.markdown("""
+    <div style='padding:.5rem 0 .4rem; text-align:center;'>
+        <div style='font-size:.72rem; font-weight:700; text-transform:uppercase;
+                    letter-spacing:1px; color:var(--text-muted,#6B7280);'>Report Controls</div>
+    </div>
+    """, unsafe_allow_html=True)
+ 
+    teams_ld, verts_ld, df_meta_ld = _ld_get_metadata()
+    min_dr, max_dr = _ld_available_dates()
+    min_date_ld = pd.Timestamp(min_dr).date()
+    max_date_ld = pd.Timestamp(max_dr).date()
+ 
+    date_range_ld = st.sidebar.date_input(
+        "📅 Date Range", value=(max_date_ld, max_date_ld),
+        min_value=min_date_ld, max_value=max_date_ld,
+        format="DD-MM-YYYY", key="ld_date_range_cd"
+    )
+    if isinstance(date_range_ld, tuple) and len(date_range_ld) == 2:
+        start_date_ld, end_date_ld = date_range_ld
+    else:
+        start_date_ld = end_date_ld = (
+            date_range_ld if not isinstance(date_range_ld, tuple) else date_range_ld[0])
+ 
+    sel_team_ld = st.sidebar.multiselect("👥 Filter by Team",     options=teams_ld, key="ld_team_cd")
+    sel_vert_ld = st.sidebar.multiselect("👑 Filter by Vertical", options=verts_ld, key="ld_vert_cd")
+    search_ld   = st.sidebar.text_input("👤 Search Caller Name",                    key="ld_search_cd")
+ 
+    gen_ld = st.sidebar.button("📊 Generate Leads Report", key="ld_gen_cd")
+ 
+    st.sidebar.download_button(
+        label="📖 Metrics Guide (PDF)",
+        data=_ld_pdf_bytes(),
+        file_name="Lead_Metrics_Logic_Guide.pdf",
+        mime="application/pdf", key="dl_ld_pdf_cd"
+    )
+ 
+    # ── HEADER ─────────────────────────────────────────────────────────────────
+    last_upd_ld  = _ld_last_update()
+    disp_start   = start_date_ld.strftime('%d-%m-%Y')
+    disp_end     = end_date_ld.strftime('%d-%m-%Y')
+ 
+    st.markdown(f"""
+    <div class="ld-header">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:.75rem;">
+            <div>
+                <div class="ld-title">📊 LEAD METRICS</div>
+                <div class="ld-subtitle">ASSIGNMENT PERIOD&nbsp;·&nbsp; {disp_start} to {disp_end}</div>
+            </div>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.25rem;">
+                <span class="ld-badge"><span class="ld-pulse"></span>LEADSQUARED DATA</span>
+                <span class="ld-badge">🕐 UPDATED AT: {last_upd_ld}</span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+ 
+    # ── TABS ───────────────────────────────────────────────────────────────────
+    tab_ld1, tab_ld2 = st.tabs(["📊 Assigned Leads Report", "🧠 Insights & Teamwise"])
+ 
+    # ── TAB 1 ──────────────────────────────────────────────────────────────────
+    with tab_ld1:
+        if gen_ld:
+            with st.spinner("Fetching lead data…"):
+                df_raw_ld = _ld_fetch(start_date_ld, end_date_ld)
+ 
+            if df_raw_ld.empty:
+                st.warning("No leads found for the selected period.")
+            else:
+                with st.spinner("Processing…"):
+                    df_m_ld = _merge_team_ld(df_raw_ld, df_meta_ld)
+                    if sel_team_ld: df_m_ld = df_m_ld[df_m_ld['Team Name'].isin(sel_team_ld)]
+                    if sel_vert_ld: df_m_ld = df_m_ld[df_m_ld['Vertical'].isin(sel_vert_ld)]
+                    if search_ld:   df_m_ld = df_m_ld[df_m_ld['Owner'].str.contains(search_ld, case=False, na=False)]
+ 
+                if df_m_ld.empty:
+                    st.error("No results match the selected filters.")
+                else:
+                    # Summary KPIs
+                    df_valid_ld = df_m_ld[df_m_ld['Team Name'] != "Others"]
+                    _ld_section_header("SUMMARY METRICS")
+                    fresh_c = int(df_m_ld['ContactStage'].isin(_STAGE_MAP['FRESH']).sum())
+                    enrolled_c = int(df_valid_ld['ContactStage'].eq("Actually Enrolled").sum())
+                    discovery_c = int(df_valid_ld['ContactStage'].eq("Discovery Call Done").sum())
+                    roadmap_c = int(df_valid_ld['ContactStage'].eq("Roadmap Done").sum())
+                    followup_c = int(df_valid_ld['ContactStage'].isin(["Follow Up For Closure","Counselled lead"]).sum())
+                    roadmap_c = int(df_valid_ld['ContactStage'].eq("Roadmap Done").sum())
+                    followup_c = int(df_valid_ld['ContactStage'].isin(["Follow Up For Closure","Counselled lead"]).sum())
+                    kc = st.columns(8)
+                    for col, (lbl, val, ico) in zip(kc, [
+                        ("Total Assigned Leads", f"{len(df_m_ld):,}", "📋"),
+                        ("Fresh Leads", f"{fresh_c:,}", "🌱"),
+                        ("Lead Conversions", f"{enrolled_c:,}", "🎓"),
+                        ("Discovery", f"{discovery_c:,}", "🔍"),
+                        ("Roadmap", f"{roadmap_c:,}", "🗺️"),
+                        ("Follow Up / Counselled", f"{followup_c:,}", "📞"),
+                        ("Active Callers", df_m_ld['Owner'].nunique(), "👤"),
+                        ("Active Teams", df_m_ld['Team Name'].nunique(), "👥"),
+                    ]):
+                        with col:
+                            st.markdown(f"""
+                            <div class="ld-metric-card">
+                                <div class="ld-metric-label">{ico} {lbl}</div>
+                                <div class="ld-metric-value">{val}</div>
+                            </div>""", unsafe_allow_html=True)
+ 
+                    st.divider()
+ 
+                    # Table 1
+                    _ld_section_header("ASSIGNED LEADS DISTRIBUTION")
+                    df_ac_ld = _proc_assigned_caller(df_m_ld)
+                    _show_caller(df_ac_ld, "No assigned lead data found.")
+ 
+                    st.divider()
+ 
+                    # Table 2
+                    _ld_section_header("POTENTIAL BREACHED LEADS AFTER ASSIGNMENT")
+                    cut_disp = (pd.Timestamp.now().normalize() - pd.Timedelta(days=3)).strftime('%d-%m-%Y')
+                    st.caption(f"Leads Breached and dialled before {cut_disp} · "
+                               "of stages Call Back Later, Follow Up, Counselled, Discovery & Roadmap.")
+                    df_bc_ld = _proc_breached_caller(df_m_ld)
+                    _show_caller(df_bc_ld, "No potential breached leads found.")
+ 
+                    df_bc_raw_ld = _get_breached(df_m_ld)
+                    if not df_bc_raw_ld.empty:
+                        col_dl_bc, _ = st.columns([1, 3])
+                        with col_dl_bc:
+                            st.download_button(
+                                label="📥 Download Breached Leads (.xlsx)",
+                                data=_build_leads_xlsx_bytes_ld(df_bc_raw_ld),
+                                file_name=f"Breached_Leads_{disp_start}_to_{disp_end}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key="dl_bc_leads_ld_xlsx"
+                            )
+                    st.divider()
+ 
+                    # Table 3
+                    _ld_section_header("LESS DIALLED LEADS AFTER ASSIGNMENT")
+                    st.caption("DNP stages (Call Not Picking Up / Call Not Connected) dialled less than 11 times after assignment to counsellor.")
+                    df_ldc_ld = _proc_ld_caller(df_m_ld)
+                    _show_caller(df_ldc_ld, "No less-dialled leads found.")
+ 
+                    # Persist
+                    st.session_state.update({
+                        'ld_merged_cd'   : df_m_ld.copy(),
+                        'ld_ac_cd'       : df_ac_ld,
+                        'ld_bc_cd'       : df_bc_ld,
+                        'ld_ldc_cd'      : df_ldc_ld,
+                        'ld_generated_cd': True,
+                    })
+        else:
+            st.markdown("""
+            <div style='text-align:center;padding:6rem 1rem;opacity:.6;'>
+                <div style='font-size:4rem;margin-bottom:1rem;'>📊</div>
+                <div style='font-size:.9rem;font-weight:600;'>
+                    Select a date range and click <b>Generate Leads Report</b>
+                </div>
+            </div>""", unsafe_allow_html=True)
+ 
+    # ── TAB 2 ──────────────────────────────────────────────────────────────────
+    with tab_ld2:
+        if st.session_state.get('ld_generated_cd') and 'ld_merged_cd' in st.session_state:
+            df_m_ld  = st.session_state['ld_merged_cd']
+            df_ac_ld = st.session_state.get('ld_ac_cd',  pd.DataFrame())
+            df_bc_ld = st.session_state.get('ld_bc_cd',  pd.DataFrame())
+            df_ld_ld = st.session_state.get('ld_ldc_cd', pd.DataFrame())
+ 
+            df_at_ld  = _proc_assigned_team(df_m_ld)
+            df_bt_ld  = _proc_breached_team(df_m_ld)
+            df_ldt_ld = _proc_ld_team(df_m_ld)
+ 
+            _ld_section_header("🧠 GENERATED LEAD INSIGHTS")
+            insights_ld = _compute_insights(df_ac_ld, df_bc_ld, df_ld_ld, df_at_ld, df_bt_ld, df_ldt_ld)
+            if insights_ld:
+                ic = st.columns(2)
+                for i, ins in enumerate(insights_ld):
+                    with ic[i % 2]:
+                        st.markdown(f"""
+                        <div class="ld-insight-card {ins['type']}">
+                            <div style='display:flex;align-items:center;gap:.4rem;'>
+                                <span class="insight-icon">{ins['icon']}</span>
+                                <span style='font-size:.82rem;font-weight:700;color:var(--text-primary,#111827);'>
+                                    {ins['title']}</span>
+                            </div>
+                            <div style='font-size:.76rem;color:var(--text-muted,#6B7280);line-height:1.5;'>
+                                {ins['body']}</div>
+                        </div>""", unsafe_allow_html=True)
+            else:
+                st.info("Not enough data to generate insights.")
+ 
+            st.divider()
+            _ld_section_header("TEAMWISE ASSIGNED LEADS DISTRIBUTION")
+            _show_team(df_at_ld, "No teamwise data available.")
+ 
+            st.divider()
+            _ld_section_header("TEAMWISE POTENTIAL BREACHED LEADS AFTER ASSIGNMENT")
+            st.caption("Potential leads not dialled in last 3 days / having a older follow up date.")
+            _show_team(df_bt_ld, "No teamwise breached data found.")
+ 
+            st.divider()
+            _ld_section_header("TEAMWISE LESS DIALLED LEADS AFTER ASSIGNMENT")
+            st.caption("DNP Leads dialled less than 11 times after assignment to counsellor")
+            _show_team(df_ldt_ld, "No teamwise less-dialled data found.")
+        else:
+            st.markdown("""
+            <div style='text-align:center;padding:6rem 1rem;opacity:.6;'>
+                <div style='font-size:4rem;margin-bottom:1rem;'>🧠</div>
+                <div style='font-size:.9rem;font-weight:600;'>
+                    Generate a <b>Leads Report</b> first — insights will appear here automatically.
+                </div>
+            </div>""", unsafe_allow_html=True)
+
 # --- MAIN APP ROUTER ---
 if not check_password():
     # Show homepage with login
@@ -4572,9 +5362,12 @@ else:
 
     # ── Read previous choice first so logo color is correct before selectbox renders ──
     _prev = st.session_state.get("dashboard_choice", "Calling Metrics")
-    _lc   = "#F97316" if _prev == "Calling Metrics" else "#10B981"
-    _sc   = "rgba(249,115,22,.9)" if _prev == "Calling Metrics" else "rgba(16,185,129,.9)"
-    _shc  = "rgba(249,115,22,.5)" if _prev == "Calling Metrics" else "rgba(16,185,129,.5)"
+    if _prev == "Calling Metrics":
+        _lc, _sc, _shc = "#F97316", "rgba(249,115,22,.9)", "rgba(249,115,22,.5)"
+    elif _prev == "Revenue Metrics":
+        _lc, _sc, _shc = "#10B981", "rgba(16,185,129,.9)", "rgba(16,185,129,.5)"
+    else:
+        _lc, _sc, _shc = "#3B82F6", "rgba(59,130,246,.9)", "rgba(59,130,246,.5)"    
     
     if st.sidebar.button("🚪 Sign Out", key="signout_btn"):
         for key in list(st.session_state.keys()):
@@ -4605,14 +5398,16 @@ else:
     """, unsafe_allow_html=True)
 
     choice = st.sidebar.selectbox(
-        "Navigation",
-        ["Calling Metrics", "Revenue Metrics"],
-        key="dashboard_choice",
-        label_visibility="collapsed"
-    )
+         "Navigation",
+         ["Calling Metrics", "Revenue Metrics", "Lead Metrics"],
+         key="dashboard_choice",
+         label_visibility="collapsed"
+     )
 
     # Render selected dashboard (sidebar Report Controls come from inside each function)
     if choice == "Calling Metrics":
         run_calling_dashboard()
-    else:
+    elif choice == "Revenue Metrics":
         run_revenue_dashboard()
+    else:
+        run_leads_dashboard()
