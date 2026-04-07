@@ -5,6 +5,9 @@ import pandas as pd
 from datetime import date, timedelta
 import os
 import io
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils import get_column_letter
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import mm
@@ -606,6 +609,76 @@ def generate_leads_pdf_bytes() -> bytes:
     doc.build(story)
     return buffer.getvalue()
 
+# ─────────────────────────────────────────────
+# LEADS XLSX BUILDER
+# ─────────────────────────────────────────────
+
+def build_leads_xlsx_bytes(df_rows: pd.DataFrame) -> bytes:
+    EXPORT_COLS = [
+        'AssignedOn', 'FirstName', 'LastName', 'Email', 'PhoneNumber',
+        'Alternate_PhoneNumber', 'Owner', 'ContactStage', 'LastCalledDate',
+        'Follow_up_date', 'Enquired_Course', 'Campaign_Name',
+        'Phone_call_counter', 'Assigned_On_Call_Counter', 'Team', 'Vertical', 'AssignedBy'
+    ]
+    df = df_rows.copy()
+    # Map Team Name → Team for export
+    if 'Team' not in df.columns and 'Team Name' in df.columns:
+        df['Team'] = df['Team Name']
+    elif 'Team' not in df.columns and 'TEAM' in df.columns:
+        df['Team'] = df['TEAM']
+
+    cols = [c for c in EXPORT_COLS if c in df.columns]
+    df   = df[cols].reset_index(drop=True)
+
+    HDR_FILL  = PatternFill("solid", start_color="1e3a8a", end_color="1e3a8a")
+    HDR_FONT  = Font(bold=True, color="FFFFFF", name="Calibri", size=10)
+    ALT_FILL  = PatternFill("solid", start_color="EFF6FF", end_color="EFF6FF")
+    WHT_FILL  = PatternFill("solid", start_color="FFFFFF", end_color="FFFFFF")
+    DATA_FONT = Font(name="Calibri", size=10)
+    CENTER    = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    LEFT      = Alignment(horizontal='left',   vertical='center', wrap_text=True)
+    BORDER    = Border(
+        left=Side(style='thin', color='BFDBFE'), right=Side(style='thin', color='BFDBFE'),
+        top=Side(style='thin',  color='BFDBFE'), bottom=Side(style='thin', color='BFDBFE'),
+    )
+    COL_WIDTHS = {
+        'AssignedOn': 14, 'FirstName': 18, 'LastName': 18, 'Email': 32,
+        'PhoneNumber': 14, 'Alternate_PhoneNumber': 18, 'Owner': 24,
+        'ContactStage': 24, 'LastCalledDate': 14, 'Follow_up_date': 14,
+        'Enquired_Course': 26, 'Campaign_Name': 22, 'Phone_call_counter': 12,
+        'Assigned_On_Call_Counter': 14, 'Team': 24, 'Vertical': 18, 'AssignedBy': 20,
+    }
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Leads"
+
+    for c_idx, col in enumerate(cols, 1):
+        cell = ws.cell(1, c_idx, col.replace('_', ' ').upper())
+        cell.fill, cell.font, cell.alignment, cell.border = HDR_FILL, HDR_FONT, CENTER, BORDER
+    ws.row_dimensions[1].height = 26
+
+    for r_idx, (_, row) in enumerate(df.iterrows(), 2):
+        fill = ALT_FILL if r_idx % 2 == 0 else WHT_FILL
+        for c_idx, col in enumerate(cols, 1):
+            val = row[col]
+            try:
+                if pd.isna(val):
+                    val = ''
+            except (TypeError, ValueError):
+                pass
+            if hasattr(val, 'strftime'):
+                val = val.strftime('%Y-%m-%d')
+            cell = ws.cell(r_idx, c_idx, val)
+            cell.fill, cell.font, cell.alignment, cell.border = fill, DATA_FONT, LEFT, BORDER
+
+    for c_idx, col in enumerate(cols, 1):
+        ws.column_dimensions[get_column_letter(c_idx)].width = COL_WIDTHS.get(col, 16)
+
+    ws.freeze_panes = "A2"
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
 
 # ─────────────────────────────────────────────
 # 10. SIDEBAR
@@ -770,6 +843,15 @@ with tab1:
                     else:
                         st.info("No data available.")
 
+                    col_dl1, _ = st.columns([1, 3])
+                    with col_dl1:
+                        st.download_button(
+                            label="📥 Download Assigned Leads (.xlsx)",
+                            data=build_leads_xlsx_bytes(df),
+                            file_name=f"Assigned_Leads_{display_start}_to_{display_end}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            key="dl_assigned_leads_xlsx"
+                        )
                     st.divider()
 
                     # ── TABLE 2: Potential Breached Leads ──
@@ -785,6 +867,17 @@ with tab1:
                     else:
                         st.success("✅ No potential breached leads detected for the selected filters.")
 
+                    df_breach_raw = _breach_filter(df)
+                    if not df_breach_raw.empty:
+                        col_dl2, _ = st.columns([1, 3])
+                        with col_dl2:
+                            st.download_button(
+                                label="📥 Download Breached Leads (.xlsx)",
+                                data=build_leads_xlsx_bytes(df_breach_raw),
+                                file_name=f"Breached_Leads_{display_start}_to_{display_end}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key="dl_breached_leads_xlsx"
+                            )
                     st.divider()
 
                     # ── TABLE 3: Less Dialled Leads ──
@@ -799,6 +892,17 @@ with tab1:
                         )
                     else:
                         st.success("✅ No less-dialled leads detected for the selected filters.")
+                    df_ld_raw = _ld_filter(df)
+                    if not df_ld_raw.empty:
+                        col_dl3, _ = st.columns([1, 3])
+                        with col_dl3:
+                            st.download_button(
+                                label="📥 Download Less Dialled Leads (.xlsx)",
+                                data=build_leads_xlsx_bytes(df_ld_raw),
+                                file_name=f"Less_Dialled_Leads_{display_start}_to_{display_end}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key="dl_ld_leads_xlsx"
+                            )
 
                     # Persist for insights tab
                     st.session_state["ld_df"]       = df.copy()
