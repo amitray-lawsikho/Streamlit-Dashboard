@@ -4877,10 +4877,7 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
     @st.cache_data(ttl=120, show_spinner=False)
     def _ld_fetch(start_date, end_date):
         q = f"""
-            SELECT ProspectID, Owner, ContactStage,
-                   Follow_up_date, LastCalledDate, AssignedOn,
-                   Assigned_On_Call_Counter, updated_at_ampm
-            FROM `{_LEADS_TABLE}`
+            SELECT * FROM `{_LEADS_TABLE}`
             WHERE AssignedOn BETWEEN '{start_date}' AND '{end_date}'
         """
         df = client.query(q).to_dataframe()
