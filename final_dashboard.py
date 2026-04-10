@@ -95,17 +95,17 @@ ADMIN_EMAILS = {
 
 VERTICAL_HEAD_TEAMS = {
     # email               : [list of Team Names they can see]
-    "uzair@lawsikho.in"   : ["19th Jan US acc/women ai Closure Batch","CD Closures - Inayat","Contract Drafting","Corporate law - Anas",
-                             "Corporate law - Jyoti","Elite","Law firm trainees - Anas","US Acc Closure Specialist - Inayat","US Accounting - Inayat",
-                             "US accounting closures - Sana","US accounting trainees","Women ai Trainee - Umme","Women ai/CD closure"],
+    "uzair@lawsikho.in"       : ["19th Jan US acc/women ai Closure Batch","CD Closures - Inayat","Contract Drafting","Corporate law - Anas",
+                                 "Corporate law - Jyoti","Elite","Law firm trainees - Anas","US Acc Closure Specialist - Inayat","US Accounting - Inayat",
+                                 "US accounting closures - Sana","US accounting trainees","Women ai Trainee - Umme","Women ai/CD closure"],
 
-    "shivya.p@lawsikho.in"   : ["ID - 2","ID - 4","ID - 8","ID - 9"],
+    "shivya.p@lawsikho.in"    : ["ID - 2","ID - 4","ID - 8","ID - 9"],
     
-    "mayur@lawsikho.in"   : ["Changemakers"],
-    "deepansi@lawsikho.in"   : ["US Accounting","US accounting - Closures"],
+    "mayur@lawsikho.in"       : ["Changemakers"],
+    "deepansi@lawsikho.in"    : ["US Accounting","US accounting - Closures"],
     "darshan.c@lawsikho.in"   : ["ID Closure"],
-    "anmol.g@lawsikho.in"   : ["DSV- Aditya"],["DSV- Shivam"],["ID Closure - Anmol"],["Women ai"],
-    "abhipsa@lawsikho.in"   : ["CD - Community"],["CD - Community Manager"],["Criminal - Community"],["Criminal - Community Manager"],["ID - Community"],["ID - Community Manager"],
+    "anmol.g@lawsikho.in"     : ["DSV- Aditya"],["DSV- Shivam"],["ID Closure - Anmol"],["Women ai"],
+    "abhipsa@lawsikho.in"     : ["CD - Community"],["CD - Community Manager"],["Criminal - Community"],["Criminal - Community Manager"],["ID - Community"],["ID - Community Manager"],
 }
 
 AUTH_SHEET_URL = (
