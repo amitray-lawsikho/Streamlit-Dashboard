@@ -4877,7 +4877,6 @@ def run_leads_dashboard():
         'CALL NOT CONNECTED' : ['Call Not Connected'],
     }
  
-    # ── CSS ────────────────────────────────────────────────────────────────────
     st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
@@ -4990,7 +4989,6 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
 </style>
 """, unsafe_allow_html=True)
  
-    # ── LOCAL HELPERS ──────────────────────────────────────────────────────────
     def _ld_section_header(label):
         st.markdown(f"""
         <div class="ld-section-header">
@@ -5108,7 +5106,6 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
         row['TOTAL'] = total
         return row
  
-    # ── CACHED DATA FUNCTIONS ──────────────────────────────────────────────────
     @st.cache_data(ttl=120, show_spinner=False)
     def _ld_get_metadata():
         df = pd.read_csv(_CSV_URL)
@@ -5152,7 +5149,6 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
                 df['Assigned_On_Call_Counter'], errors='coerce').fillna(0)
         return df
  
-    # ── PROCESSING ─────────────────────────────────────────────────────────────
     def _proc_assigned_caller(df_m):
         rows = []
         for owner, g in df_m.groupby('Owner'):
@@ -5393,7 +5389,6 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
         doc.build(story)
         return buf.getvalue()
  
-    # ── SIDEBAR ────────────────────────────────────────────────────────────────
     st.sidebar.markdown("""
     <div style='padding:.5rem 0 .4rem; text-align:center;'>
         <div style='font-size:.72rem; font-weight:700; text-transform:uppercase;
@@ -5450,8 +5445,7 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
         file_name="Lead_Metrics_Logic_Guide.pdf",
         mime="application/pdf", key="dl_ld_pdf_cd"
     )
- 
-    # ── HEADER ─────────────────────────────────────────────────────────────────
+    
     last_upd_ld  = _ld_last_update()
     disp_start   = start_date_ld.strftime('%d-%m-%Y')
     disp_end     = end_date_ld.strftime('%d-%m-%Y')
@@ -5471,10 +5465,8 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
     </div>
     """, unsafe_allow_html=True)
  
-    # ── TABS ───────────────────────────────────────────────────────────────────
     tab_ld1, tab_ld2 = st.tabs(["📊 Assigned Leads Report", "🧠 Insights & Teamwise"])
  
-    # ── TAB 1 ──────────────────────────────────────────────────────────────────
     with tab_ld1:
         if gen_ld:
             with st.spinner("Fetching lead data…"):
@@ -5492,7 +5484,7 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
                 if df_m_ld.empty:
                     st.error("No results match the selected filters.")
                 else:
-                    # Summary KPIs
+
                     df_valid_ld = df_m_ld[df_m_ld['Team Name'] != "Others"]
                     _ld_section_header("SUMMARY METRICS")
                     fresh_c = int(df_m_ld['ContactStage'].isin(_STAGE_MAP['FRESH']).sum())
@@ -5522,14 +5514,23 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
  
                     st.divider()
  
-                    # Table 1
                     _ld_section_header("ASSIGNED LEADS DISTRIBUTION")
                     df_ac_ld = _proc_assigned_caller(df_m_ld)
                     _show_caller(df_ac_ld, "No assigned lead data found.")
- 
+
+                    if not df_m_ld.empty:
+                        col_dl_ac, _ = st.columns([1, 3])
+                        with col_dl_ac:
+                            st.download_button(
+                                label="📥 Download Assigned Leads (.xlsx)",
+                                data=_build_leads_xlsx_bytes_ld(df_m_ld),
+                                file_name=f"Assigned_Leads_{disp_start}_to_{disp_end}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key="dl_ac_leads_ld_xlsx"
+                            )
+
                     st.divider()
- 
-                    # Table 2
+
                     _ld_section_header("POTENTIAL BREACHED LEADS AFTER ASSIGNMENT")
                     cut_disp = (pd.Timestamp.now().normalize() - pd.Timedelta(days=3)).strftime('%d-%m-%Y')
                     st.caption(f"Leads Breached and dialled before {cut_disp} · "
@@ -5549,14 +5550,24 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
                                 key="dl_bc_leads_ld_xlsx"
                             )
                     st.divider()
- 
-                    # Table 3
+
                     _ld_section_header("LESS DIALLED LEADS AFTER ASSIGNMENT")
                     st.caption("DNP stages (Call Not Picking Up / Call Not Connected) dialled less than 11 times after assignment to counsellor.")
                     df_ldc_ld = _proc_ld_caller(df_m_ld)
                     _show_caller(df_ldc_ld, "No less-dialled leads found.")
- 
-                    # Persist
+
+                    df_ld_raw_ld = _get_less_dialled(df_m_ld)
+                    if not df_ld_raw_ld.empty:
+                        col_dl_ld, _ = st.columns([1, 3])
+                        with col_dl_ld:
+                            st.download_button(
+                                label="📥 Download Less Dialled Leads (.xlsx)",
+                                data=_build_leads_xlsx_bytes_ld(df_ld_raw_ld),
+                                file_name=f"Less_Dialled_Leads_{disp_start}_to_{disp_end}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key="dl_ld_leads_ld_xlsx"
+                            )
+
                     st.session_state.update({
                         'ld_merged_cd'   : df_m_ld.copy(),
                         'ld_ac_cd'       : df_ac_ld,
