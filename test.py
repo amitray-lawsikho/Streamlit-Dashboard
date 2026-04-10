@@ -549,9 +549,7 @@ def show_homepage_with_login():
 
         if st.session_state.get('password_correct'):
             st.rerun()
-        else:
-                st.error("😕 Username or password is incorrect.")
-
+            
     # ── STATS + CARDS + FOOTER HTML ──
     html_bottom = f"""<!DOCTYPE html><html><head>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@300;400;500&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
