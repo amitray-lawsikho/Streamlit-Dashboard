@@ -80,12 +80,15 @@ def _apply_role_filters():
 
 # ── Hardcoded access tiers ─────────────────────────────────────
 ADMIN_EMAILS = {
+    "parul.nagar@lawsikho.in"
+    "amitray@lawsikho.in",
     "rinku@lawsikho.in",
 }
 
 VERTICAL_HEAD_TEAMS = {
     # email               : [list of Team Names they can see]
     "uzair@lawsikho.in"   : ["Elite", "Corporate law - Jyoti"],
+    
 }
 
 AUTH_SHEET_URL = (
@@ -246,7 +249,7 @@ def _auth_sign_in_panel():
             except Exception as ex:
                 st.error(f"Login failed: {ex}")
     with c2:
-        if st.button("Forgot / First time?", key="si_otp_switch", use_container_width=True):
+        if st.button("Forgot / Change Password", key="si_otp_switch", use_container_width=True):
             st.session_state['auth_tab']           = "otp"
             st.session_state['otp_prefill_email']  = email
             st.session_state['otp_step']           = 1
