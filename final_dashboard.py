@@ -104,8 +104,8 @@ VERTICAL_HEAD_TEAMS = {
     "mayur@lawsikho.in"       : ["Changemakers"],
     "deepansi@lawsikho.in"    : ["US Accounting","US accounting - Closures"],
     "darshan.c@lawsikho.in"   : ["ID Closure"],
-    "anmol.g@lawsikho.in"     : ["DSV- Aditya"],["DSV- Shivam"],["ID Closure - Anmol"],["Women ai"],
-    "abhipsa@lawsikho.in"     : ["CD - Community"],["CD - Community Manager"],["Criminal - Community"],["Criminal - Community Manager"],["ID - Community"],["ID - Community Manager"],
+    "anmol.g@lawsikho.in"     : ["DSV- Aditya","DSV- Shivam","ID Closure - Anmol","Women ai"],
+    "abhipsa@lawsikho.in"     : ["CD - Community","CD - Community Manager","Criminal - Community","Criminal - Community Manager","ID - Community","ID - Community Manager"],
 }
 
 AUTH_SHEET_URL = (
