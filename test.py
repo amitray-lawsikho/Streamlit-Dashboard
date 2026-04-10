@@ -107,8 +107,28 @@ _TL_VALS     = {"TL", "ATL", "AD", "TEAM LEAD", "TEAM LEADER"}
 
 @st.cache_resource
 def get_supabase():
-    url = st.secrets.get("SUPABASE_URL", "")
-    key = st.secrets.get("SUPABASE_KEY", "")
+    # Try top-level keys first, then nested under a section
+    url = (
+        st.secrets.get("SUPABASE_URL")
+        or st.secrets.get("supabase", {}).get("url")
+        or st.secrets.get("gcp_service_account", {}).get("SUPABASE_URL")
+        or ""
+    )
+    key = (
+        st.secrets.get("SUPABASE_KEY")
+        or st.secrets.get("supabase", {}).get("key")
+        or st.secrets.get("gcp_service_account", {}).get("SUPABASE_KEY")
+        or ""
+    )
+
+    if not url or not key:
+        st.error(
+            "⚠️ Supabase credentials missing from secrets. "
+            "Add SUPABASE_URL and SUPABASE_KEY to your secrets.toml at the TOP LEVEL "
+            "(before any [section] header)."
+        )
+        st.stop()
+
     return create_client(url, key)
 
 supa = get_supabase()
