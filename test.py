@@ -283,15 +283,15 @@ def _auth_otp_panel():
         pending_email = st.session_state.get('otp_pending_email', '')
         st.success(f"OTP sent to **{pending_email}** — check your inbox (also spam).")
 
-        otp  = st.text_input("6-digit OTP code", key="otp_code", max_chars=6, placeholder="123456")
+        otp = st.text_input("OTP code from email", key="otp_code", max_chars=8, placeholder="OTP Received on Email")
         pw1  = st.text_input("Set new password",    type="password", key="otp_pw1")
         pw2  = st.text_input("Confirm password",    type="password", key="otp_pw2")
 
         c1, c2 = st.columns(2)
         with c1:
             if st.button("Verify & Continue →", key="otp_verify_btn", use_container_width=True):
-                if len(otp) != 6:
-                    st.error("Enter the 6-digit code."); return
+                if len(otp) != 8:
+                    st.error("Enter the 8-digit code."); return
                 if pw1 != pw2:
                     st.error("Passwords don't match."); return
                 if len(pw1) < 8:
