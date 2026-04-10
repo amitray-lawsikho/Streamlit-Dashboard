@@ -172,11 +172,21 @@ def determine_role(email: str, df: pd.DataFrame) -> dict | None:
         df2['_tr_email'] = df2[_COL_TRAINER].apply(_extract_trainer_email)
         trainer_rows = df2[df2['_tr_email'] == el]
         if not trainer_rows.empty:
-            teams   = trainer_rows[_COL_TEAM].dropna().unique().tolist()  if _COL_TEAM in trainer_rows else []
-            callers = trainer_rows[_COL_NAME].dropna().unique().tolist()  if _COL_NAME in trainer_rows else []
-            name    = trainer_rows[_COL_NAME].iloc[0] if _COL_NAME in trainer_rows.columns and len(trainer_rows) else email
+            teams   = trainer_rows[_COL_TEAM].dropna().unique().tolist() if _COL_TEAM in trainer_rows.columns else []
+            callers = trainer_rows[_COL_NAME].dropna().unique().tolist() if _COL_NAME in trainer_rows.columns else []
+        
+            # ── Extract trainer's OWN name from "Name (email)" format in Sales Leader cell ──
+            _sl_cell   = str(trainer_rows[_COL_TRAINER].iloc[0])
+            _name_match = re.match(r'^([^(]+)\s*\(', _sl_cell)
+            _tr_name   = _name_match.group(1).strip() if _name_match else None
+        
+            # ── Fallback: look up trainer's own row by email ──
+            if not _tr_name:
+                _own_rows = df[df['_email_norm'] == el]
+                _tr_name  = _own_rows.iloc[0][_COL_NAME] if not _own_rows.empty and _COL_NAME in _own_rows.columns else email
+        
             return {'role': 'trainer', 'teams': teams, 'callers': callers,
-                    'caller_name': None, 'display_name': name}
+                    'caller_name': None, 'display_name': _tr_name}
 
     user_rows = df[df['_email_norm'] == el]
     if user_rows.empty:
@@ -361,6 +371,8 @@ def show_homepage_with_login():
     <style>
     footer { visibility: hidden; }
     #MainMenu, header[data-testid="stHeader"] { display: none !important; }
+    [data-testid="stToolbar"] { display: none !important; }
+    [data-testid="stDecoration"] { display: none !important; }
     [data-testid="stStatusWidget"],
     [data-testid="collapsedControl"],
     [data-testid="stSidebarCollapsedControl"] { display: none !important; }
@@ -5616,12 +5628,14 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
 if not st.session_state.get('password_correct', False):
     show_homepage_with_login()
 else:
-    # ── Shared logged-in CSS ───────────────────────────────────
     st.markdown("""
     <style>
     footer { visibility: hidden; }
     [data-testid="stStatusWidget"] { display: none !important; }
-    header[data-testid="stHeader"] { background: transparent !important; }
+    header[data-testid="stHeader"] { display: none !important; }
+    [data-testid="stToolbar"] { display: none !important; }
+    [data-testid="stDecoration"] { display: none !important; }
+    #MainMenu { display: none !important; }
     </style>
     """, unsafe_allow_html=True)
 
