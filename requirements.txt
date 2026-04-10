@@ -9,3 +9,4 @@ numpy
 reportlab
 openpyxl
 google-cloud-bigquery-storage
+supabase>=2.0.0
