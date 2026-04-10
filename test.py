@@ -80,7 +80,7 @@ def _apply_role_filters():
 
 # ── Hardcoded access tiers ─────────────────────────────────────
 ADMIN_EMAILS = {
-    "parul.nagar@lawsikho.in"
+    "parul.nagar@lawsikho.in",
     "amitray@lawsikho.in",
     "rinku@lawsikho.in",
 }
