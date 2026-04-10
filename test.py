@@ -300,7 +300,7 @@ def _auth_otp_panel():
                     resp = supa.auth.verify_otp({
                         "email": pending_email,
                         "token": otp,
-                        "type": "email"
+                        "type": "magiclink"
                     })
                     # Save the password (user is now logged in to Supabase)
                     supa.auth.update_user({"password": pw1})
