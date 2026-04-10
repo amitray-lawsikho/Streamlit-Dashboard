@@ -23,7 +23,8 @@ from reportlab.lib.enums import TA_CENTER
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
-
+from supabase import create_client
+import re
 
 # --- GLOBAL CONFIG & CREDENTIALS ---
 import streamlit.components.v1 as components
@@ -62,46 +63,266 @@ def get_cached_bq_client():
 client = get_cached_bq_client()
 
 # --- LOGIN MODULE ---
-# --- USER CREDENTIALS ---
 
-AUTHORIZED_USERS = {
-    "rinku@lawsikho.in": "Addictive@123",
-    "amitray@lawsikho.in": "Seekun@12345",
-    "parul.nagar@lawsikho.in": "Addictive@123",
-    "inayat@lawsikho.in": "Addictive@123",
-    "uzair@lawsikho.in": "Addictive@123",
-    "shivangi.s@lawsikho.in": "Addictive@123",
-    "jyotimishra@lawsikho.in": "Addictive@123",
-    "anas@lawsikho.in": "Addictive@123",
-    "sana.a@lawsikho.in": "Addictive@123",
-    "deepanshi@lawsikho.in": "Addictive@123",
-    "darshan.c@lawsikho.in": "Addictive@123",
-    "anmol.g@skillarbitra.ge": "Addictive@123",
-    "shivam.sharma@skillarbitra.ge": "Addictive@123",
-    "aditya.c@skillarbitra.ge": "Addictive@123",
-    "raunak@lawsikho.in": "Addictive@123",
-    "sahil.a@lawsikho.in": "Addictive@123"
+def _apply_role_filters():
+    ri = st.session_state.get('auth_role_info', {'role': 'admin'})
+    role    = ri.get('role', 'admin')
+    teams   = ri.get('teams')      # list | None
+    callers = ri.get('callers')    # list | None
+    cname   = ri.get('caller_name')
+
+    st.session_state['rf_role']        = role
+    st.session_state['rf_teams']       = teams   or []
+    st.session_state['rf_callers']     = callers or []
+    st.session_state['rf_caller_name'] = cname   or ''
+    # Roles that see team/vertical multiselects in the sidebar
+    st.session_state['rf_full_filters']= role == 'admin'
+
+# ── Hardcoded access tiers ─────────────────────────────────────
+ADMIN_EMAILS = {
+    "parul.nagar@lawsikho.in",
+    "amitray@lawsikho.in",
+    "rinku@lawsikho.in",
 }
 
-def check_password():
-    def password_entered():
-        username = st.session_state.get("username", "").strip()
-        password = st.session_state.get("password", "")
-        
-        # Check if username exists and password matches
-        if username in AUTHORIZED_USERS and AUTHORIZED_USERS[username] == password:
-            st.session_state["password_correct"] = True
-            st.session_state["current_user"] = username  # Store logged-in username
-            del st.session_state["password"]
-            del st.session_state["username"]
-        else:
-            st.session_state["password_correct"] = False
-
-    if "password_correct" not in st.session_state:
-        st.session_state["password_correct"] = False
+VERTICAL_HEAD_TEAMS = {
+    # email               : [list of Team Names they can see]
+    "uzair@lawsikho.in"   : ["Elite", "Corporate law - Jyoti"],
     
-    return st.session_state["password_correct"]
+}
 
+AUTH_SHEET_URL = (
+    "https://docs.google.com/spreadsheets/d/e/"
+    "2PACX-1vRT73ztvPNZSvIu5WLxo-3WQ76JMAnt4P9dITd4EAbjSvuDytfgvdfri1WPXotCjm_Etnb80_Q7S-wf"
+    "/pub?gid=0&single=true&output=csv"
+)
+
+# Sheet column names — update if your sheet differs
+_COL_NAME    = "Caller Name"
+_COL_EMAIL   = "Email id"
+_COL_DESIG   = "Academic Counselor/TL/ATL"
+_COL_TEAM    = "Team Name"
+_COL_TRAINER = "Sales Leader"
+_TL_VALS     = {"TL", "ATL", "AD", "TEAM LEAD", "TEAM LEADER"}
+
+
+@st.cache_resource
+def get_supabase():
+    # Try top-level keys first, then nested under a section
+    url = (
+        st.secrets.get("SUPABASE_URL")
+        or st.secrets.get("supabase", {}).get("url")
+        or st.secrets.get("gcp_service_account", {}).get("SUPABASE_URL")
+        or ""
+    )
+    key = (
+        st.secrets.get("SUPABASE_KEY")
+        or st.secrets.get("supabase", {}).get("key")
+        or st.secrets.get("gcp_service_account", {}).get("SUPABASE_KEY")
+        or ""
+    )
+
+    if not url or not key:
+        st.error(
+            "⚠️ Supabase credentials missing from secrets. "
+            "Add SUPABASE_URL and SUPABASE_KEY to your secrets.toml at the TOP LEVEL "
+            "(before any [section] header)."
+        )
+        st.stop()
+
+    return create_client(url, key)
+
+supa = get_supabase()
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def load_auth_sheet() -> pd.DataFrame:
+    df = pd.read_csv(AUTH_SHEET_URL)
+    df.columns = df.columns.str.strip()
+    if _COL_EMAIL in df.columns:
+        df['_email_norm'] = df[_COL_EMAIL].astype(str).str.strip().str.lower()
+    return df
+
+
+def _extract_trainer_email(cell: str) -> str | None:
+    """Parses 'Name (email@domain.com)' → 'email@domain.com'"""
+    m = re.search(r'\(([^)\s]+@[^)\s]+)\)', str(cell))
+    return m.group(1).strip().lower() if m else None
+
+
+def determine_role(email: str, df: pd.DataFrame) -> dict | None:
+   
+    el = email.strip().lower()
+
+    # 1 ── Admin
+    if el in {e.lower() for e in ADMIN_EMAILS}:
+        return {'role': 'admin', 'teams': None, 'callers': None,
+                'caller_name': None, 'display_name': email}
+
+    # 2 ── Vertical Head (hardcoded)
+    for vh_mail, vh_teams in VERTICAL_HEAD_TEAMS.items():
+        if vh_mail.lower() == el:
+            return {'role': 'vertical_head', 'teams': vh_teams, 'callers': None,
+                    'caller_name': None, 'display_name': email}
+
+    if '_email_norm' not in df.columns:
+        return None
+
+    # 3 ── Trainer  (Sales Leader column)
+    if _COL_TRAINER in df.columns:
+        df2 = df.copy()
+        df2['_tr_email'] = df2[_COL_TRAINER].apply(_extract_trainer_email)
+        trainer_rows = df2[df2['_tr_email'] == el]
+        if not trainer_rows.empty:
+            teams   = trainer_rows[_COL_TEAM].dropna().unique().tolist() if _COL_TEAM in trainer_rows.columns else []
+            callers = trainer_rows[_COL_NAME].dropna().unique().tolist() if _COL_NAME in trainer_rows.columns else []
+        
+            # ── Extract trainer's OWN name from "Name (email)" format in Sales Leader cell ──
+            _sl_cell   = str(trainer_rows[_COL_TRAINER].iloc[0])
+            _name_match = re.match(r'^([^(]+)\s*\(', _sl_cell)
+            _tr_name   = _name_match.group(1).strip() if _name_match else None
+        
+            # ── Fallback: look up trainer's own row by email ──
+            if not _tr_name:
+                _own_rows = df[df['_email_norm'] == el]
+                _tr_name  = _own_rows.iloc[0][_COL_NAME] if not _own_rows.empty and _COL_NAME in _own_rows.columns else email
+        
+            return {'role': 'trainer', 'teams': teams, 'callers': callers,
+                    'caller_name': None, 'display_name': _tr_name}
+
+    user_rows = df[df['_email_norm'] == el]
+    if user_rows.empty:
+        return None  # email not in sheet → not authorised
+
+    # 4 ── TL / AD / ATL
+    if _COL_DESIG in user_rows.columns:
+        tl_rows = user_rows[
+            user_rows[_COL_DESIG].astype(str).str.strip().str.upper().isin(_TL_VALS)
+        ]
+        if not tl_rows.empty:
+            team = tl_rows.iloc[0][_COL_TEAM] if _COL_TEAM in tl_rows.columns else None
+            team_callers = (
+                df[df[_COL_TEAM] == team][_COL_NAME].dropna().unique().tolist()
+                if team else []
+            )
+            disp = tl_rows.iloc[0][_COL_NAME] if _COL_NAME in tl_rows.columns else email
+            return {'role': 'tl', 'teams': [team] if team else [], 'callers': team_callers,
+                    'caller_name': None, 'display_name': disp}
+
+    # 5 ── Regular Caller
+    caller_name = user_rows.iloc[0][_COL_NAME] if _COL_NAME in user_rows.columns else email
+    return {'role': 'caller', 'teams': None, 'callers': None,
+            'caller_name': caller_name, 'display_name': caller_name}
+
+
+# ──────────────────────────────────────────────────────────────
+# AUTH UI HELPERS
+# ──────────────────────────────────────────────────────────────
+
+def _complete_login(email: str, session):
+    """Resolve role and store everything in session state."""
+    df_auth   = load_auth_sheet()
+    role_info = determine_role(email, df_auth)
+    if role_info is None:
+        st.error("⛔ Your email is not authorised to access this dashboard.")
+        return
+    st.session_state['password_correct'] = True
+    st.session_state['current_user']     = email
+    st.session_state['supabase_session'] = session
+    st.session_state['auth_role_info']   = role_info
+    st.rerun()
+
+
+def _auth_sign_in_panel():
+    """Email + Password login panel."""
+    email = st.text_input("Email", key="si_email", placeholder="your@lawsikho.in")
+    pwd   = st.text_input("Password", type="password", key="si_pwd", placeholder="Your password")
+
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("Sign In →", key="si_btn", use_container_width=True):
+            if not email or not pwd:
+                st.error("Enter both email and password."); return
+            try:
+                resp = supa.auth.sign_in_with_password({"email": email, "password": pwd})
+                _complete_login(resp.user.email, resp.session)
+            except Exception as ex:
+                st.error(f"Login failed: {ex}")
+    with c2:
+        if st.button("Forgot / Change Password", key="si_otp_switch", use_container_width=True):
+            st.session_state['auth_tab']           = "otp"
+            st.session_state['otp_prefill_email']  = email
+            st.session_state['otp_step']           = 1
+            st.rerun()
+
+
+def _auth_otp_panel():
+    """OTP verification + password-set panel (first-time or reset)."""
+    step = st.session_state.get('otp_step', 1)
+
+    # ── Step 1: request OTP ──────────────────────────────────
+    if step == 1:
+        email = st.text_input(
+            "Email", key="otp_email",
+            value=st.session_state.get('otp_prefill_email', ''),
+            placeholder="your@lawsikho.in"
+        )
+        if st.button("Send OTP →", key="otp_send_btn", use_container_width=True):
+            if not email:
+                st.error("Enter your email."); return
+            # Pre-check: is the email in the sheet?
+            role_check = determine_role(email, load_auth_sheet())
+            if role_check is None:
+                st.error("⛔ This email is not authorised."); return
+            try:
+                supa.auth.sign_in_with_otp({
+                    "email": email,
+                    "options": {"should_create_user": True}
+                })
+                st.session_state['otp_step']          = 2
+                st.session_state['otp_pending_email'] = email
+                st.rerun()
+            except Exception as ex:
+                st.error(f"Could not send OTP: {ex}")
+
+        if st.button("← Back to Sign In", key="otp_back1", use_container_width=True):
+            st.session_state['auth_tab'] = "signin"
+            st.rerun()
+
+    # ── Step 2: verify OTP + set password ───────────────────
+    elif step == 2:
+        pending_email = st.session_state.get('otp_pending_email', '')
+        st.success(f"OTP sent to **{pending_email}** — check your inbox (also spam).")
+
+        otp = st.text_input("OTP code from email", key="otp_code", max_chars=8, placeholder="OTP Received on Email")
+        pw1  = st.text_input("Set new password",    type="password", key="otp_pw1")
+        pw2  = st.text_input("Confirm password",    type="password", key="otp_pw2")
+
+        c1, c2 = st.columns(2)
+        with c1:
+            if st.button("Verify & Continue →", key="otp_verify_btn", use_container_width=True):
+                if len(otp) != 8:
+                    st.error("Enter the 8-digit code."); return
+                if pw1 != pw2:
+                    st.error("Passwords don't match."); return
+                if len(pw1) < 8:
+                    st.error("Password must be ≥ 8 characters."); return
+                try:
+                    resp = supa.auth.verify_otp({
+                        "email": pending_email,
+                        "token": otp,
+                        "type": "magiclink"
+                    })
+                    # Save the password (user is now logged in to Supabase)
+                    supa.auth.update_user({"password": pw1})
+                    st.session_state['otp_step'] = 1
+                    _complete_login(resp.user.email, resp.session)
+                except Exception as ex:
+                    st.error(f"Verification failed — wrong code or it expired: {ex}")
+        with c2:
+            if st.button("← Back", key="otp_back2", use_container_width=True):
+                st.session_state['otp_step'] = 1
+                st.rerun()
 
 # --- DASHBOARD FUNCTIONS ---
 @st.cache_data(ttl=300, show_spinner=False)
@@ -152,6 +373,8 @@ def show_homepage_with_login():
     <style>
     footer { visibility: hidden; }
     #MainMenu, header[data-testid="stHeader"] { display: none !important; }
+    [data-testid="stToolbar"] { display: none !important; }
+    [data-testid="stDecoration"] { display: none !important; }
     [data-testid="stStatusWidget"],
     [data-testid="collapsedControl"],
     [data-testid="stSidebarCollapsedControl"] { display: none !important; }
@@ -319,30 +542,27 @@ def show_homepage_with_login():
     </body></html>"""
     components.html(html_hero, height=420, scrolling=False)
 
-    # ── LOGIN CARD using st.columns for centering ──
+    # ── AUTH PANEL ─────────────────────────────────────────────
     left, mid, right = st.columns([1, 1, 1])
     with mid:
+        auth_tab = st.session_state.get('auth_tab', 'signin')
+
         st.markdown("""
-        <div style="text-align:center;margin-bottom:1rem;">
-            <span style="font-family:'Playfair Display',serif;font-size:1.2rem;font-weight:600;color:#fff;">
-                🔐 LOG IN / SIGN IN
+        <div style="text-align:center;margin-bottom:.8rem;">
+            <span style="font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:600;color:#fff;">
+                🔐 DASHBOARD ACCESS
             </span>
         </div>
         """, unsafe_allow_html=True)
 
-        username = st.text_input("Username", key="lg_username", placeholder="Enter username")
-        password = st.text_input("Password", type="password", key="lg_password", placeholder="Enter password")
+        if auth_tab == 'signin':
+            _auth_sign_in_panel()
+        else:
+            _auth_otp_panel()
 
-        if st.button("Sign In →", key="lg_signin"):
-            uname = st.session_state.get("lg_username", "").strip()
-            pwd   = st.session_state.get("lg_password", "")
-            if uname in AUTHORIZED_USERS and AUTHORIZED_USERS[uname] == pwd:
-                st.session_state["password_correct"] = True
-                st.session_state["current_user"] = uname
-                st.rerun()
-            else:
-                st.error("😕 Username or password is incorrect.")
-
+        if st.session_state.get('password_correct'):
+            st.rerun()
+            
     # ── STATS + CARDS + FOOTER HTML ──
     html_bottom = f"""<!DOCTYPE html><html><head>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@300;400;500&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
@@ -1237,9 +1457,30 @@ def run_calling_dashboard():
     else:
         start_date = end_date = date_range if not isinstance(date_range, tuple) else date_range[0]
 
-    selected_team     = st.sidebar.multiselect("👥 Filter by Team",     options=teams,     key="call_team_filter")
-    selected_vertical = st.sidebar.multiselect("👑 Filter by Vertical", options=verticals, key="call_vert_filter")
-    search_query      = st.sidebar.text_input("👤 Search Caller Name",                     key="call_search")
+    # ── Role-aware sidebar filters ──────────────────────────
+    _role       = st.session_state.get('rf_role', 'admin')
+    _rf_teams   = st.session_state.get('rf_teams', [])
+    _rf_cname   = st.session_state.get('rf_caller_name', '')
+
+    if _role == 'admin':
+        selected_team     = st.sidebar.multiselect("👥 Filter by Team",     options=teams,     key="call_team_filter")
+        selected_vertical = st.sidebar.multiselect("👑 Filter by Vertical", options=verticals, key="call_vert_filter")
+        search_query      = st.sidebar.text_input("👤 Search Caller Name",                     key="call_search")
+    elif _role == 'vertical_head':
+        selected_team     = _rf_teams
+        selected_vertical = []
+        search_query      = st.sidebar.text_input("👤 Search Caller Name", key="call_search")
+        st.sidebar.caption(f"🔒 Showing: {', '.join(_rf_teams)}")
+    elif _role in ('tl', 'trainer'):
+        selected_team     = _rf_teams
+        selected_vertical = []
+        search_query      = st.sidebar.text_input("👤 Search Caller Name", key="call_search")
+        st.sidebar.caption(f"🔒 Team: {', '.join(_rf_teams)}")
+    else:  # caller — only sees their own data
+        selected_team     = []
+        selected_vertical = []
+        search_query      = _rf_cname
+        st.sidebar.caption(f"👤 Viewing: {_rf_cname}")
 
     gen_dynamic = st.sidebar.button("🚀 Generate Dynamic Report",  key="call_gen_dynamic")
     gen_static  = st.sidebar.button("📅 Generate Duration Report", key="call_gen_static")
@@ -3797,9 +4038,30 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         start_date = end_date = selected_dates if not isinstance(selected_dates, tuple) else selected_dates[0]
 
     teams_meta, verticals_meta, df_team_mapping = get_metadata()
-    selected_vertical = st.sidebar.multiselect("👑 Filter by Vertical", options=verticals_meta, key="rev_vert_multiselect")
-    selected_team     = st.sidebar.multiselect("👥 Filter by Team",     options=teams_meta, key="rev_team_multiselect")
-    search_query      = st.sidebar.text_input("👤 Search Caller Name", key="rev_search_input")
+    # ── Role-aware sidebar filters ──────────────────────────
+    _role     = st.session_state.get('rf_role', 'admin')
+    _rf_teams = st.session_state.get('rf_teams', [])
+    _rf_cname = st.session_state.get('rf_caller_name', '')
+
+    if _role == 'admin':
+        selected_vertical = st.sidebar.multiselect("👑 Filter by Vertical", options=verticals_meta, key="rev_vert_multiselect")
+        selected_team     = st.sidebar.multiselect("👥 Filter by Team",     options=teams_meta,    key="rev_team_multiselect")
+        search_query      = st.sidebar.text_input("👤 Search Caller Name",                         key="rev_search_input")
+    elif _role == 'vertical_head':
+        selected_team     = _rf_teams
+        selected_vertical = []
+        search_query      = st.sidebar.text_input("👤 Search Caller Name", key="rev_search_input")
+        st.sidebar.caption(f"🔒 Showing: {', '.join(_rf_teams)}")
+    elif _role in ('tl', 'trainer'):
+        selected_team     = _rf_teams
+        selected_vertical = []
+        search_query      = st.sidebar.text_input("👤 Search Caller Name", key="rev_search_input")
+        st.sidebar.caption(f"🔒 Team: {', '.join(_rf_teams)}")
+    else:  # caller
+        selected_team     = []
+        selected_vertical = []
+        search_query      = _rf_cname
+        st.sidebar.caption(f"👤 Viewing: {_rf_cname}")
 
     gen_report = st.sidebar.button("💰 Generate Revenue Report", key="rev_gen_btn")
     gen_pending = st.sidebar.button("📊 Generate Callerwise Pending", key="rev_pending_btn")
@@ -4615,7 +4877,6 @@ def run_leads_dashboard():
         'CALL NOT CONNECTED' : ['Call Not Connected'],
     }
  
-    # ── CSS ────────────────────────────────────────────────────────────────────
     st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
@@ -4728,7 +4989,6 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
 </style>
 """, unsafe_allow_html=True)
  
-    # ── LOCAL HELPERS ──────────────────────────────────────────────────────────
     def _ld_section_header(label):
         st.markdown(f"""
         <div class="ld-section-header">
@@ -4846,7 +5106,6 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
         row['TOTAL'] = total
         return row
  
-    # ── CACHED DATA FUNCTIONS ──────────────────────────────────────────────────
     @st.cache_data(ttl=120, show_spinner=False)
     def _ld_get_metadata():
         df = pd.read_csv(_CSV_URL)
@@ -4890,7 +5149,6 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
                 df['Assigned_On_Call_Counter'], errors='coerce').fillna(0)
         return df
  
-    # ── PROCESSING ─────────────────────────────────────────────────────────────
     def _proc_assigned_caller(df_m):
         rows = []
         for owner, g in df_m.groupby('Owner'):
@@ -5131,7 +5389,6 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
         doc.build(story)
         return buf.getvalue()
  
-    # ── SIDEBAR ────────────────────────────────────────────────────────────────
     st.sidebar.markdown("""
     <div style='padding:.5rem 0 .4rem; text-align:center;'>
         <div style='font-size:.72rem; font-weight:700; text-transform:uppercase;
@@ -5155,9 +5412,30 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
         start_date_ld = end_date_ld = (
             date_range_ld if not isinstance(date_range_ld, tuple) else date_range_ld[0])
  
-    sel_team_ld = st.sidebar.multiselect("👥 Filter by Team",     options=teams_ld, key="ld_team_cd")
-    sel_vert_ld = st.sidebar.multiselect("👑 Filter by Vertical", options=verts_ld, key="ld_vert_cd")
-    search_ld   = st.sidebar.text_input("👤 Search Caller Name",                    key="ld_search_cd")
+    # ── Role-aware sidebar filters ──────────────────────────
+    _role     = st.session_state.get('rf_role', 'admin')
+    _rf_teams = st.session_state.get('rf_teams', [])
+    _rf_cname = st.session_state.get('rf_caller_name', '')
+
+    if _role == 'admin':
+        sel_team_ld = st.sidebar.multiselect("👥 Filter by Team",     options=teams_ld, key="ld_team_cd")
+        sel_vert_ld = st.sidebar.multiselect("👑 Filter by Vertical", options=verts_ld, key="ld_vert_cd")
+        search_ld   = st.sidebar.text_input("👤 Search Caller Name",                    key="ld_search_cd")
+    elif _role == 'vertical_head':
+        sel_team_ld = _rf_teams
+        sel_vert_ld = []
+        search_ld   = st.sidebar.text_input("👤 Search Caller Name", key="ld_search_cd")
+        st.sidebar.caption(f"🔒 Showing: {', '.join(_rf_teams)}")
+    elif _role in ('tl', 'trainer'):
+        sel_team_ld = _rf_teams
+        sel_vert_ld = []
+        search_ld   = st.sidebar.text_input("👤 Search Caller Name", key="ld_search_cd")
+        st.sidebar.caption(f"🔒 Team: {', '.join(_rf_teams)}")
+    else:  # caller
+        sel_team_ld = []
+        sel_vert_ld = []
+        search_ld   = _rf_cname
+        st.sidebar.caption(f"👤 Viewing: {_rf_cname}")
  
     gen_ld = st.sidebar.button("📊 Generate Leads Report", key="ld_gen_cd")
  
@@ -5167,8 +5445,7 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
         file_name="Lead_Metrics_Logic_Guide.pdf",
         mime="application/pdf", key="dl_ld_pdf_cd"
     )
- 
-    # ── HEADER ─────────────────────────────────────────────────────────────────
+    
     last_upd_ld  = _ld_last_update()
     disp_start   = start_date_ld.strftime('%d-%m-%Y')
     disp_end     = end_date_ld.strftime('%d-%m-%Y')
@@ -5188,10 +5465,8 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
     </div>
     """, unsafe_allow_html=True)
  
-    # ── TABS ───────────────────────────────────────────────────────────────────
     tab_ld1, tab_ld2 = st.tabs(["📊 Assigned Leads Report", "🧠 Insights & Teamwise"])
  
-    # ── TAB 1 ──────────────────────────────────────────────────────────────────
     with tab_ld1:
         if gen_ld:
             with st.spinner("Fetching lead data…"):
@@ -5209,7 +5484,7 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
                 if df_m_ld.empty:
                     st.error("No results match the selected filters.")
                 else:
-                    # Summary KPIs
+
                     df_valid_ld = df_m_ld[df_m_ld['Team Name'] != "Others"]
                     _ld_section_header("SUMMARY METRICS")
                     fresh_c = int(df_m_ld['ContactStage'].isin(_STAGE_MAP['FRESH']).sum())
@@ -5239,14 +5514,23 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
  
                     st.divider()
  
-                    # Table 1
                     _ld_section_header("ASSIGNED LEADS DISTRIBUTION")
                     df_ac_ld = _proc_assigned_caller(df_m_ld)
                     _show_caller(df_ac_ld, "No assigned lead data found.")
- 
+
+                    if not df_m_ld.empty:
+                        col_dl_ac, _ = st.columns([1, 3])
+                        with col_dl_ac:
+                            st.download_button(
+                                label="📥 Download Assigned Leads (.xlsx)",
+                                data=_build_leads_xlsx_bytes_ld(df_m_ld),
+                                file_name=f"Assigned_Leads_{disp_start}_to_{disp_end}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key="dl_ac_leads_ld_xlsx"
+                            )
+
                     st.divider()
- 
-                    # Table 2
+
                     _ld_section_header("POTENTIAL BREACHED LEADS AFTER ASSIGNMENT")
                     cut_disp = (pd.Timestamp.now().normalize() - pd.Timedelta(days=3)).strftime('%d-%m-%Y')
                     st.caption(f"Leads Breached and dialled before {cut_disp} · "
@@ -5266,14 +5550,24 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
                                 key="dl_bc_leads_ld_xlsx"
                             )
                     st.divider()
- 
-                    # Table 3
+
                     _ld_section_header("LESS DIALLED LEADS AFTER ASSIGNMENT")
                     st.caption("DNP stages (Call Not Picking Up / Call Not Connected) dialled less than 11 times after assignment to counsellor.")
                     df_ldc_ld = _proc_ld_caller(df_m_ld)
                     _show_caller(df_ldc_ld, "No less-dialled leads found.")
- 
-                    # Persist
+
+                    df_ld_raw_ld = _get_less_dialled(df_m_ld)
+                    if not df_ld_raw_ld.empty:
+                        col_dl_ld, _ = st.columns([1, 3])
+                        with col_dl_ld:
+                            st.download_button(
+                                label="📥 Download Less Dialled Leads (.xlsx)",
+                                data=_build_leads_xlsx_bytes_ld(df_ld_raw_ld),
+                                file_name=f"Less_Dialled_Leads_{disp_start}_to_{disp_end}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key="dl_ld_leads_ld_xlsx"
+                            )
+
                     st.session_state.update({
                         'ld_merged_cd'   : df_m_ld.copy(),
                         'ld_ac_cd'       : df_ac_ld,
@@ -5344,64 +5638,101 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
             </div>""", unsafe_allow_html=True)
 
 # --- MAIN APP ROUTER ---
-if not check_password():
-    # Show homepage with login
+if not st.session_state.get('password_correct', False):
     show_homepage_with_login()
 else:
-    # Global CSS for logged-in state
     st.markdown("""
     <style>
     footer { visibility: hidden; }
     [data-testid="stStatusWidget"] { display: none !important; }
-    header[data-testid="stHeader"] { background: transparent !important; }
+    header[data-testid="stHeader"] { display: none !important; }
+    [data-testid="stToolbar"] { display: none !important; }
+    [data-testid="stDecoration"] { display: none !important; }
+    #MainMenu { display: none !important; }
     </style>
     """, unsafe_allow_html=True)
 
-    # ── Read previous choice first so logo color is correct before selectbox renders ──
+    # ── Apply role constraints before any dashboard runs ──────
+    _apply_role_filters()
+
+    ri   = st.session_state.get('auth_role_info', {'role': 'admin'})
+    role = ri.get('role', 'admin')
+    disp = ri.get('display_name', st.session_state.get('current_user', ''))
+
+    _ROLE_LABELS = {
+        'admin'        : '🛡️ Admin',
+        'vertical_head': '🏢 Vertical Head',
+        'trainer'      : '🎓 Sales Leader',
+        'tl'           : '👑 Team Lead',
+        'caller'       : '📞 Caller',
+    }
+
+    # ── Previous choice → accent colour ───────────────────────
     _prev = st.session_state.get("dashboard_choice", "Calling Metrics")
     if _prev == "Calling Metrics":
         _lc, _sc, _shc = "#F97316", "rgba(249,115,22,.9)", "rgba(249,115,22,.5)"
     elif _prev == "Revenue Metrics":
         _lc, _sc, _shc = "#10B981", "rgba(16,185,129,.9)", "rgba(16,185,129,.5)"
     else:
-        _lc, _sc, _shc = "#3B82F6", "rgba(59,130,246,.9)", "rgba(59,130,246,.5)"    
-    
-    if st.sidebar.button("🚪 Sign Out", key="signout_btn"):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
-        st.rerun()
-    # 1. Logo — always first in sidebar
+        _lc, _sc, _shc = "#3B82F6", "rgba(59,130,246,.9)", "rgba(59,130,246,.5)"
+
+    # ── User info pill ─────────────────────────────────────────
     st.sidebar.markdown(f"""
-    <div style='padding:.7rem 0 .5rem; text-align:center; border-bottom:1px solid rgba(128,128,128,.15);'>
-        <div style='display:flex; align-items:center; justify-content:center; margin-bottom:.25rem;'>
-            <span style='font-size:.95rem; font-weight:700; color:{_lc}; letter-spacing:-.4px;'>LawSikho</span>
-            <div style='width:1px; height:16px; margin:0 .55rem;
+    <div style='margin:.4rem 0 .6rem;padding:.55rem .7rem;
+                background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
+                border-radius:10px;text-align:center;'>
+        <div style='font-size:.6rem;font-weight:700;text-transform:uppercase;
+                    letter-spacing:1px;color:{_lc};margin-bottom:.2rem;'>
+            {_ROLE_LABELS.get(role, role)}
+        </div>
+        <div style='font-size:.72rem;color:rgba(255,255,255,.75);word-break:break-all;'>
+            {disp}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Sign Out ───────────────────────────────────────────────
+    if st.sidebar.button("🚪 Sign Out", key="signout_btn"):
+        try:
+            supa.auth.sign_out()
+        except Exception:
+            pass
+        for k in list(st.session_state.keys()):
+            del st.session_state[k]
+        st.rerun()
+
+    # ── Logo ───────────────────────────────────────────────────
+    st.sidebar.markdown(f"""
+    <div style='padding:.7rem 0 .5rem;text-align:center;
+                border-bottom:1px solid rgba(128,128,128,.15);'>
+        <div style='display:flex;align-items:center;justify-content:center;margin-bottom:.25rem;'>
+            <span style='font-size:.95rem;font-weight:700;color:{_lc};letter-spacing:-.4px;'>LawSikho</span>
+            <div style='width:1px;height:16px;margin:0 .55rem;
                         background:linear-gradient(180deg,transparent,{_sc},transparent);
                         box-shadow:0 0 5px {_shc};'></div>
-            <span style='font-size:.95rem; font-weight:700; color:{_lc}; letter-spacing:-.4px;'>Skill Arbitrage</span>
+            <span style='font-size:.95rem;font-weight:700;color:{_lc};letter-spacing:-.4px;'>Skill Arbitrage</span>
         </div>
-        <div style='font-size:.6rem; color:{_lc}; letter-spacing:1px; font-family:monospace; font-weight:600;'>
+        <div style='font-size:.6rem;color:{_lc};letter-spacing:1px;font-family:monospace;font-weight:600;'>
             India Learning 📖 India Earning
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # 2. Navigation header — styled identical to "REPORT CONTROLS"
+    # ── Navigation ─────────────────────────────────────────────
     st.sidebar.markdown("""
-    <div style='padding:.5rem 0 .2rem; text-align:center;'>
-        <div style='font-size:.72rem; font-weight:700; text-transform:uppercase;
-                    letter-spacing:1px; color:var(--text-muted,#6B7280);'>Dashboards Navigation</div>
+    <div style='padding:.5rem 0 .2rem;text-align:center;'>
+        <div style='font-size:.72rem;font-weight:700;text-transform:uppercase;
+                    letter-spacing:1px;color:var(--text-muted,#6B7280);'>Dashboards Navigation</div>
     </div>
     """, unsafe_allow_html=True)
 
     choice = st.sidebar.selectbox(
-         "Navigation",
-         ["Calling Metrics", "Revenue Metrics", "Lead Metrics"],
-         key="dashboard_choice",
-         label_visibility="collapsed"
-     )
+        "Navigation",
+        ["Calling Metrics", "Revenue Metrics", "Lead Metrics"],
+        key="dashboard_choice",
+        label_visibility="collapsed"
+    )
 
-    # Render selected dashboard (sidebar Report Controls come from inside each function)
     if choice == "Calling Metrics":
         run_calling_dashboard()
     elif choice == "Revenue Metrics":
