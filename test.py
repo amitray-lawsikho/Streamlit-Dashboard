@@ -87,7 +87,7 @@ ADMIN_EMAILS = {
 VERTICAL_HEAD_TEAMS = {
     # email               : [list of Team Names they can see]
     "uzair@lawsikho.in"   : ["Elite", "Corporate law - Jyoti"],
-
+    "parul.nagar@lawsikho.in"   : ["Elite", "Corporate law - Jyoti"],
 }
 
 AUTH_SHEET_URL = (
