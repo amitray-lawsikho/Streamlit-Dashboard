@@ -252,8 +252,8 @@ def _complete_login(email: str, session):
 
 def _auth_sign_in_panel():
     """Email + Password login panel."""
-    email = st.text_input("Email", key="si_email", placeholder="your@lawsikho.in")
-    pwd   = st.text_input("Password", type="password", key="si_pwd", placeholder="Your password")
+    email = st.text_input("Email", key="si_email", placeholder="Your mail ID")
+    pwd   = st.text_input("Password", type="password", key="si_pwd", placeholder="Your Password")
 
     c1, c2 = st.columns(2)
     with c1:
