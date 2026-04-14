@@ -4095,8 +4095,6 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         st.sidebar.caption(f"👤 Viewing: {_rf_cname}")
 
     gen_report = st.sidebar.button("💰 Generate Revenue Report", key="rev_gen_btn")
-    gen_pending = st.sidebar.button("📊 Generate Callerwise Pending", key="rev_pending_btn")
-    gen_update  = st.sidebar.button("📋 Generate Revenue Update",      key="rev_update_btn")
     st.sidebar.download_button(
         label="📖 Metrics Guide (PDF)",
         data=generate_helper_pdf_bytes(),
@@ -4727,6 +4725,8 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         curr_label = c_start.strftime("%B %Y")
         prev_label = p_start.strftime("%B %Y")
 
+        gen_pending = st.button("📊 Generate Callerwise Pending", key="rev_pending_btn", use_container_width=False)
+
         if gen_pending:
             st.session_state['pending_revenue_loaded'] = True
 
@@ -4859,6 +4859,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
     
         with tab4:
             # ── Services Input ──────────────────────────────────────────────────────
+            gen_update = st.button("📋 Generate Revenue Update", key="rev_update_btn", use_container_width=False)
             st.markdown("""
             <div style='background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.2);
                         border-radius:10px;padding:.9rem 1.2rem;margin-bottom:.9rem;'>
