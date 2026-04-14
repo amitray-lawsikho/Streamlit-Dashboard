@@ -5235,17 +5235,22 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                             ('abhipsha',  'Abhipsha'),
                         ]:
                             _hm      = _ch_l.str.contains(_hkw, case=False, na=False)
+                            # Other revenue: source=community + head matches + enrollment=other revenue
                             _oth_r   = _sf(_hm & _src_comm & (_enr_l == 'other revenue'))
-                            _dir_m   = (_caller_l == 'direct') & _hm & (_enr_l == 'new enrollment')
+                            # Community-Direct: caller=Direct + source=community + head matches + enrollment=new enrollment
+                            _dir_m   = (_caller_l == 'direct') & _hm & _src_comm & (_enr_l == 'new enrollment')
                             _dir_r   = _sf(_dir_m)
                             _dir_e   = int(_dir_m.sum())
+                            # Collections split by eotm
                             _curr_h  = _sf(_hm & _src_comm & (_enr_l == 'community collections - balance payments') & (_eotm == 'yes'))
                             _prev_h  = _sf(_hm & _src_comm & (_enr_l == 'community collections - balance payments') & (_eotm == 'no'))
+                            # Subtract: source=community + head matches + new/balance enrollment + caller != Direct
                             _nd_new  = _sf(
                                 _hm & _src_comm
                                 & _enr_l.isin(['new enrollment', 'new enrollment - balance payment'])
                                 & (_caller_l != 'direct')
                             )
+                            # Abhipsha only: add ALL revenue for callers designated Community Manager in team sheet
                             _extra   = _sf(_caller_l.isin(_cm_callers)) if _hkw == 'abhipsha' else 0.0
                             _htotal  = _oth_r + _dir_r + _curr_h + _prev_h + _extra - _nd_new
                             _comm_heads[_hkw] = {
