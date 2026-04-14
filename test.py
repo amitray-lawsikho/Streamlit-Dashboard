@@ -5054,8 +5054,9 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         _us_t  = [t for t in _ns_teams if 'us accounting' in t.lower() or 'us acc' in t.lower()]
                         _id_t  = [t for t in _ns_teams
                                   if re.match(r'^id[\s\-]', t.strip().lower()) or t.strip().lower() == 'id']
-                        _oth_t = [t for t in _ns_teams if t not in _us_t and t not in _id_t]
-         
+                        _dsv_t = [t for t in _ns_teams if t.strip().lower().startswith('dsv')]
+                        _oth_t = [t for t in _ns_teams if t not in _us_t and t not in _id_t and t not in _dsv_t]
+
                         _ns_sub = {}
                         if _us_t:
                             _um = _dr['_team'].isin(_us_t)
@@ -5063,6 +5064,9 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         if _id_t:
                             _im = _dr['_team'].isin(_id_t)
                             _ns_sub['ID'] = {'rev': _sf(_im & ~_ns_excl), 'enr': _cnew(_im)}
+                        if _dsv_t:
+                            _dvm = _dr['_team'].isin(_dsv_t)
+                            _ns_sub['DSV'] = {'rev': _sf(_dvm & ~_ns_excl), 'enr': _cnew(_dvm)}
                         for _t in _oth_t:
                             _tm = _dr['_team'] == _t
                             _ns_sub[_t] = {'rev': _sf(_tm & ~_ns_excl), 'enr': _cnew(_tm)}
@@ -5098,7 +5102,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         _dep_rev    = _sf(_dep_m & (_enr_l == 'bootcamp collections - balance payments'))
          
                         # ─── COLLECTIONS ───────────────────────────────────────────────
-                        _coll_rev = _mayur_rev + _anmol_rev + _dep_rev
+                        _coll_rev = _boot_rev + _mayur_rev + _anmol_rev + _dep_rev
          
                         # ─── COMMUNITY (total) ──────────────────────────────────────────
                         _src_comm      = _src_l.str.contains('community', na=False)
@@ -5163,7 +5167,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
          
                         # ─── TOTAL REVENUE ───────────────────────────────────────────────
                         _total_rev = (
-                            _old_rev + _ns_rev + _boot_rev
+                            _old_rev + _ns_rev
                             + _coll_rev + _comm_rev
                             + _dfunnel_rev + _direct_rev
                             + _ru_services_val + _dna_rev
@@ -5258,10 +5262,6 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                             if not _show(_td['rev'], _td['enr']): continue
                             _html += _tr(_ss(), _ss(), _tn, _td['rev'], _td['enr'])
 
-                        # Bootcamp
-                        if _show(_boot_rev, _boot_enr):
-                            _html += _tr(_bs(), _bs(), "Bootcamp booking fees", _boot_rev, _boot_enr)
-
                         # Mayur
                         _html += _tr(_bs(), _bs(), "Mayur", _mayur_rev)
                         if _show(_mayur_call_r, _mayur_call_e):
@@ -5284,6 +5284,9 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
 
                         # Collections
                         _html += _tr(_bs(), _bs(), "Collections", _coll_rev)
+                        if _show(_boot_rev, _boot_enr):
+                            _html += _tr(_ss(), _ss(), "Bootcamp booking fees", _boot_rev, _boot_enr)
+                        if _show(_mayur_call_r, _mayur_call_e):
 
                         # Community
                         _html += _tr(_bs(), _bs(), "Community", _comm_rev)
@@ -5331,8 +5334,6 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         for _tn, _td in _ns_sub.items():
                             _rows_dl.append({"Category": "", "Sub-category": _tn,
                                              "Revenue Split": int(round(_td['rev'])), "Enrollments": _td['enr'] or ""})
-                        _rows_dl.append({"Category": "Bootcamp booking fees", "Sub-category": "",
-                                          "Revenue Split": int(round(_boot_rev)), "Enrollments": _boot_enr or ""})
                         _rows_dl.append({"Category": "Mayur", "Sub-category": "",
                                           "Revenue Split": int(round(_mayur_rev)), "Enrollments": ""})
                         _rows_dl.append({"Category": "", "Sub-category": "Calling Revenue",
@@ -5351,6 +5352,8 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                                           "Revenue Split": int(round(_dep_rev)), "Enrollments": ""})
                         _rows_dl.append({"Category": "Collections", "Sub-category": "",
                                           "Revenue Split": int(round(_coll_rev)), "Enrollments": ""})
+                        _rows_dl.append({"Category": "", "Sub-category": "Bootcamp booking fees",
+                                          "Revenue Split": int(round(_boot_rev)), "Enrollments": _boot_enr or ""})
                         _rows_dl.append({"Category": "Community", "Sub-category": "",
                                           "Revenue Split": int(round(_comm_rev)), "Enrollments": ""})
                         for _hk, _hd in _comm_heads.items():
