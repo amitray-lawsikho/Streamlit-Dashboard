@@ -4857,509 +4857,509 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                 else:
                     st.info("Drop leads sheet could not be loaded.")
     
-    with tab4:
-    # ── Services Input ──────────────────────────────────────────────────────
-    st.markdown("""
-    <div style='background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.2);
-                border-radius:10px;padding:.9rem 1.2rem;margin-bottom:.9rem;'>
-        <div style='font-size:.82rem;font-weight:700;color:#10B981;margin-bottom:.3rem;'>
-            💼 SERVICES REVENUE INPUT
-        </div>
-        <div style='font-size:.76rem;color:var(--text-muted,#6B7280);'>
-            Take This Value From Manager's Group Report by Finance and input below
-            before clicking Generate Revenue Update.
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
- 
-    services_raw = st.text_input(
-        "Services Revenue (₹)",
-        placeholder="e.g. 431211  or  4,31,211  or  4,31,211.50",
-        key="ru_services_input",
-        help="Numbers, commas and dots only. Commas are stripped; decimals are rounded.",
-    )
- 
-    # Parse & validate
-    _ru_services_val  = 0.0
-    _ru_services_ok   = True
-    if services_raw and services_raw.strip():
-        _cleaned = services_raw.strip().replace(',', '')
-        try:
-            _ru_services_val = round(float(_cleaned))
-        except ValueError:
-            st.error("⚠️  Invalid input — please enter a plain number (e.g. 431211 or 4,31,211).")
-            _ru_services_ok = False
-    st.caption(f"Services value: ₹{int(_ru_services_val):,}")
- 
-    if not gen_update:
-        st.markdown("""
-        <div style='text-align:center;padding:5rem 1rem;opacity:.6;'>
-            <div style='font-size:4rem;margin-bottom:1rem;'>📋</div>
-            <div style='font-size:.9rem;font-weight:600;'>
-                Enter the Services revenue above, then click
-                <b>📋 Generate Revenue Update</b> in the sidebar.
+        with tab4:
+            # ── Services Input ──────────────────────────────────────────────────────
+            st.markdown("""
+            <div style='background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.2);
+                        border-radius:10px;padding:.9rem 1.2rem;margin-bottom:.9rem;'>
+                <div style='font-size:.82rem;font-weight:700;color:#10B981;margin-bottom:.3rem;'>
+                    💼 SERVICES REVENUE INPUT
+                </div>
+                <div style='font-size:.76rem;color:var(--text-muted,#6B7280);'>
+                    Take This Value From Manager's Group Report by Finance and input below
+                    before clicking Generate Revenue Update.
+                </div>
             </div>
-        </div>""", unsafe_allow_html=True)
- 
-    else:
-        if not _ru_services_ok:
-            st.error("Please enter a valid Services revenue value before generating the report.")
-        else:
-            with st.spinner("Building Revenue Update…"):
- 
-                # ── heading ──────────────────────────────────────────────────
-                _from_d = date(start_date.year, start_date.month, 1)
-                if start_date == end_date:
-                    _hd_str = _from_d.strftime('%d/%m/%Y')
-                else:
-                    _hd_str = f"{_from_d.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')}"
-                _ru_heading = f"REVENUE UPDATE — ({_hd_str})"
- 
-                # ── fetch data ────────────────────────────────────────────────
-                _df_ru  = fetch_revenue_data(start_date, end_date)
-                _df_tru = _load_rev_update_team_sheet()
- 
-            if _df_ru.empty:
-                st.warning("No revenue data found for the selected period.")
+            """, unsafe_allow_html=True)
+         
+            services_raw = st.text_input(
+                "Services Revenue (₹)",
+                placeholder="e.g. 431211  or  4,31,211  or  4,31,211.50",
+                key="ru_services_input",
+                help="Numbers, commas and dots only. Commas are stripped; decimals are rounded.",
+            )
+         
+            # Parse & validate
+            _ru_services_val  = 0.0
+            _ru_services_ok   = True
+            if services_raw and services_raw.strip():
+                _cleaned = services_raw.strip().replace(',', '')
+                try:
+                    _ru_services_val = round(float(_cleaned))
+                except ValueError:
+                    st.error("⚠️  Invalid input — please enter a plain number (e.g. 431211 or 4,31,211).")
+                    _ru_services_ok = False
+            st.caption(f"Services value: ₹{int(_ru_services_val):,}")
+         
+            if not gen_update:
+                st.markdown("""
+                <div style='text-align:center;padding:5rem 1rem;opacity:.6;'>
+                    <div style='font-size:4rem;margin-bottom:1rem;'>📋</div>
+                    <div style='font-size:.9rem;font-weight:600;'>
+                        Enter the Services revenue above, then click
+                        <b>📋 Generate Revenue Update</b> in the sidebar.
+                    </div>
+                </div>""", unsafe_allow_html=True)
+         
             else:
-                # ── normalise revenue sheet ───────────────────────────────────
-                _dr = _df_ru.copy()
-                _enr_l    = _dr['Enrollment'].astype(str).str.strip().str.lower()
-                _src_l    = _dr['Source'].astype(str).str.lower()
-                _caller_l = _dr['Caller_name'].str.strip().str.lower()
-                _eotm     = (
-                    _dr['Enrollment_of_this_month'].astype(str).str.strip().str.lower()
-                    if 'Enrollment_of_this_month' in _dr.columns
-                    else pd.Series([''] * len(_dr), index=_dr.index)
-                )
-                _ch_l = (
-                    _dr['community_head'].astype(str).str.strip().str.lower()
-                    if 'community_head' in _dr.columns
-                    else pd.Series([''] * len(_dr), index=_dr.index)
-                )
- 
-                # ── build lookup from gid=0 team sheet ────────────────────────
-                _dt = _df_tru.copy()
-                _dedup_dt = (
-                    _dt.drop_duplicates(subset='merge_key', keep='first')
-                    if 'merge_key' in _dt.columns else _dt
-                )
- 
-                def _mk_map(col):
-                    if col in _dedup_dt.columns and 'merge_key' in _dedup_dt.columns:
-                        return _dedup_dt.dropna(subset=['merge_key']).set_index('merge_key')[col].to_dict()
-                    return {}
- 
-                _vert_map  = _mk_map('Vertical')
-                _team_map  = _mk_map('Team Name')
-                _desig_col = next(
-                    (c for c in _dedup_dt.columns if 'academic' in c.lower() or 'counselor' in c.lower()),
-                    None
-                )
-                _desig_map = _mk_map(_desig_col) if _desig_col else {}
- 
-                _dr['_vert'] = _caller_l.map(_vert_map).fillna('').astype(str)
-                _dr['_team'] = _caller_l.map(_team_map).fillna('').astype(str)
- 
-                # community manager callers (for Abhipsha extra)
-                _cm_callers = {
-                    k for k, v in _desig_map.items()
-                    if str(v).strip().lower() == 'community manager'
-                }
- 
-                # ── tiny helpers ──────────────────────────────────────────────
-                def _sf(m):
-                    return float(_dr.loc[m, 'Fee_paid'].sum())
- 
-                def _cnew(m):
-                    return int((m & (_enr_l == 'new enrollment')).sum())
- 
-                def _vc(kw):
-                    return _dr['_vert'].str.contains(kw, case=False, na=False)
- 
-                def _fnum(v):
-                    if v is None:
-                        return ""
-                    return f"{int(round(v)):,}"
- 
-                def _fenr(v):
-                    try:
-                        return str(int(v)) if int(v) > 0 else ""
-                    except Exception:
-                        return ""
- 
-                # ─── OLD SALES TEAM ────────────────────────────────────────────
-                _uzair_m    = _vc('Uzair')
-                _old_enr_f  = _enr_l.isin(['new enrollment', 'new enrollment - balance payment'])
-                _old_rev    = _sf(_uzair_m & _old_enr_f)
-                _old_enr    = _cnew(_uzair_m)
- 
-                _uz_teams = (
-                    _dedup_dt[
-                        _dedup_dt['Vertical'].astype(str).str.contains('Uzair', case=False, na=False)
-                    ]['Team Name'].dropna().unique().tolist()
-                    if 'Vertical' in _dedup_dt.columns and 'Team Name' in _dedup_dt.columns
-                    else []
-                )
-                _corp_t = sorted([t for t in _uz_teams if 'corporate' in t.lower()])
-                _ncorp_t = sorted([t for t in _uz_teams if 'corporate' not in t.lower()])
- 
-                _old_sub = {}
-                if _corp_t:
-                    _cm2 = _dr['_team'].isin(_corp_t)
-                    _cr  = _sf(_cm2 & _old_enr_f)
-                    _ce  = _cnew(_cm2)
-                    _cfr = _sf(_cm2 & _src_l.str.contains('funnel', na=False))
-                    _old_sub['Corporate Law'] = {
-                        'rev': _cr, 'enr': _ce,
-                        'funnel_rev': _cfr, 'has_funnel': _cfr > 0,
-                    }
-                for _t in _ncorp_t:
-                    _tm = _dr['_team'] == _t
-                    _old_sub[_t] = {
-                        'rev': _sf(_tm & _old_enr_f),
-                        'enr': _cnew(_tm),
-                        'funnel_rev': 0, 'has_funnel': False,
-                    }
-                # filter zero rows, sort by revenue desc
-                _old_sub = dict(
-                    sorted(
-                        {k: v for k, v in _old_sub.items() if v['rev'] > 0 or v['enr'] > 0}.items(),
-                        key=lambda x: x[1]['rev'], reverse=True,
-                    )
-                )
- 
-                # ─── NEW SALES TEAM ────────────────────────────────────────────
-                _ns_kws   = ['Deepanshi', 'Darshan', 'Shivya', 'Anmol']
-                _ns_m     = pd.Series(False, index=_dr.index)
-                for _kw in _ns_kws:
-                    _ns_m |= _vc(_kw)
-                _ns_excl  = _enr_l.isin([
-                    'bootcamp collections - balance payments',
-                    'community collections - balance payments',
-                ])
-                _ns_rev   = _sf(_ns_m & ~_ns_excl)
-                _ns_enr   = _cnew(_ns_m)
- 
-                _ns_teams = (
-                    _dedup_dt[
-                        _dedup_dt['Vertical'].astype(str).str.contains(
-                            '|'.join(_ns_kws), case=False, na=False
+                if not _ru_services_ok:
+                    st.error("Please enter a valid Services revenue value before generating the report.")
+                else:
+                    with st.spinner("Building Revenue Update…"):
+         
+                        # ── heading ──────────────────────────────────────────────────
+                        _from_d = date(start_date.year, start_date.month, 1)
+                        if start_date == end_date:
+                            _hd_str = _from_d.strftime('%d/%m/%Y')
+                        else:
+                            _hd_str = f"{_from_d.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')}"
+                        _ru_heading = f"REVENUE UPDATE — ({_hd_str})"
+         
+                        # ── fetch data ────────────────────────────────────────────────
+                        _df_ru  = fetch_revenue_data(start_date, end_date)
+                        _df_tru = _load_rev_update_team_sheet()
+         
+                    if _df_ru.empty:
+                        st.warning("No revenue data found for the selected period.")
+                    else:
+                        # ── normalise revenue sheet ───────────────────────────────────
+                        _dr = _df_ru.copy()
+                        _enr_l    = _dr['Enrollment'].astype(str).str.strip().str.lower()
+                        _src_l    = _dr['Source'].astype(str).str.lower()
+                        _caller_l = _dr['Caller_name'].str.strip().str.lower()
+                        _eotm     = (
+                            _dr['Enrollment_of_this_month'].astype(str).str.strip().str.lower()
+                            if 'Enrollment_of_this_month' in _dr.columns
+                            else pd.Series([''] * len(_dr), index=_dr.index)
                         )
-                    ]['Team Name'].dropna().unique().tolist()
-                    if 'Vertical' in _dedup_dt.columns and 'Team Name' in _dedup_dt.columns
-                    else []
-                )
-                _us_t  = [t for t in _ns_teams if 'us accounting' in t.lower() or 'us acc' in t.lower()]
-                _id_t  = [t for t in _ns_teams
-                          if re.match(r'^id[\s\-]', t.strip().lower()) or t.strip().lower() == 'id']
-                _oth_t = [t for t in _ns_teams if t not in _us_t and t not in _id_t]
- 
-                _ns_sub = {}
-                if _us_t:
-                    _um = _dr['_team'].isin(_us_t)
-                    _ns_sub['US Accounting'] = {'rev': _sf(_um & ~_ns_excl), 'enr': _cnew(_um)}
-                if _id_t:
-                    _im = _dr['_team'].isin(_id_t)
-                    _ns_sub['ID'] = {'rev': _sf(_im & ~_ns_excl), 'enr': _cnew(_im)}
-                for _t in _oth_t:
-                    _tm = _dr['_team'] == _t
-                    _ns_sub[_t] = {'rev': _sf(_tm & ~_ns_excl), 'enr': _cnew(_tm)}
-                _ns_sub = dict(
-                    sorted(
-                        {k: v for k, v in _ns_sub.items() if v['rev'] > 0 or v['enr'] > 0}.items(),
-                        key=lambda x: x[1]['rev'], reverse=True,
-                    )
-                )
- 
-                # ─── BOOTCAMP BOOKING FEES ─────────────────────────────────────
-                _boot_m   = (_caller_l == 'bootcamp - direct') & (_enr_l == 'new enrollment')
-                _boot_rev = _sf(_boot_m)
-                _boot_enr = int(_boot_m.sum())
- 
-                # ─── MAYUR (CHANGEMAKERS) ──────────────────────────────────────
-                _chm          = _dr['_team'].str.contains('Changemakers', case=False, na=False)
-                _mayur_rev    = _sf(_chm & (_enr_l == 'bootcamp collections - balance payments'))
-                _mayur_enr    = _cnew(_chm)
-                _mayur_call_r = _sf(_chm & _enr_l.isin(['new enrollment', 'new enrollment - balance payment']))
-                _mayur_call_e = _cnew(_chm)
-                _mayur_curr   = _sf(_chm & (_enr_l == 'bootcamp collections - balance payments') & (_eotm == 'yes'))
-                _mayur_prev   = _sf(_chm & (_enr_l == 'bootcamp collections - balance payments') & (_eotm == 'no'))
- 
-                # ─── ANMOL ─────────────────────────────────────────────────────
-                _anm_m      = _vc('Anmol')
-                _anmol_rev  = _sf(_anm_m & (_enr_l == 'bootcamp collections - balance payments'))
-                _anmol_curr = _sf(_anm_m & (_enr_l == 'bootcamp collections - balance payments') & (_eotm == 'yes'))
-                _anmol_prev = _sf(_anm_m & (_enr_l == 'bootcamp collections - balance payments') & (_eotm == 'no'))
- 
-                # ─── DEEPANSHI (Previous balances) ─────────────────────────────
-                _dep_m      = _vc('Deepanshi')
-                _dep_rev    = _sf(_dep_m & (_enr_l == 'bootcamp collections - balance payments'))
- 
-                # ─── COLLECTIONS ───────────────────────────────────────────────
-                _coll_rev = _mayur_rev + _anmol_rev + _dep_rev
- 
-                # ─── COMMUNITY (total) ──────────────────────────────────────────
-                _src_comm      = _src_l.str.contains('community', na=False)
-                _comm_all      = _sf(_src_comm)
-                _comm_nd_new   = _sf(
-                    _src_comm
-                    & ~_caller_l.isin(['direct', 'bootcamp - direct'])
-                    & _enr_l.isin(['new enrollment', 'new enrollment - balance payment'])
-                )
-                _comm_rev      = _comm_all - _comm_nd_new
- 
-                # ─── COMMUNITY HEADS ────────────────────────────────────────────
-                _comm_heads = {}
-                for _hkw, _hfull in [
-                    ('komal',     'Komal Shah'),
-                    ('jayantika', 'Jayantika Ganguly'),
-                    ('garima',    'Garima'),
-                    ('abhipsha',  'Abhipsha'),
-                ]:
-                    _hm      = _ch_l.str.contains(_hkw, case=False, na=False)
-                    _oth_r   = _sf(_hm & _src_comm & (_enr_l == 'other revenue'))
-                    _dir_m   = (_caller_l == 'direct') & _hm & (_enr_l == 'new enrollment')
-                    _dir_r   = _sf(_dir_m)
-                    _dir_e   = int(_dir_m.sum())
-                    _curr_h  = _sf(_hm & _src_comm & (_enr_l == 'community collections - balance payments') & (_eotm == 'yes'))
-                    _prev_h  = _sf(_hm & _src_comm & (_enr_l == 'community collections - balance payments') & (_eotm == 'no'))
-                    _nd_new  = _sf(
-                        _hm & _src_comm
-                        & _enr_l.isin(['new enrollment', 'new enrollment - balance payment'])
-                        & (_caller_l != 'direct')
-                    )
-                    _extra   = _sf(_caller_l.isin(_cm_callers)) if _hkw == 'abhipsha' else 0.0
-                    _htotal  = _oth_r + _dir_r + _curr_h + _prev_h + _extra - _nd_new
-                    _comm_heads[_hkw] = {
-                        'full': _hfull, 'total': _htotal,
-                        'dir_r': _dir_r, 'dir_e': _dir_e,
-                        'curr': _curr_h, 'prev': _prev_h,
-                    }
- 
-                # ─── DIRECT-FUNNEL ──────────────────────────────────────────────
-                _dfunnel_rev = _sf(
-                    _src_l.str.contains('funnel', na=False)
-                    & (_caller_l == 'direct')
-                    & _enr_l.isin(['new enrollment', 'new enrollment - balance payment', 'other revenue'])
-                )
- 
-                # ─── DIRECT ────────────────────────────────────────────────────
-                _direct_rev = _sf(
-                    ~_src_l.str.contains('funnel', na=False)
-                    & ~_src_l.str.contains('community', na=False)
-                    & (_caller_l == 'direct')
-                    & _enr_l.isin(['new enrollment', 'new enrollment - balance payment', 'other revenue'])
-                )
- 
-                # ─── LEAD DETAILS NOT AVAILABLE ─────────────────────────────────
-                _dna_m = (
-                    _dr['Caller_name'].astype(str).str.strip().isin(['', 'nan', 'None', 'NaN'])
-                    | _dr['Enrollment'].astype(str).str.strip().isin(['', 'nan', 'None', 'NaN'])
-                    | _dr['Source'].astype(str).str.strip().isin(['', 'nan', 'None', 'NaN'])
-                )
-                _dna_rev = _sf(_dna_m)
- 
-                # ─── TOTAL REVENUE ───────────────────────────────────────────────
-                _total_rev = (
-                    _old_rev + _ns_rev + _boot_rev
-                    + _coll_rev + _comm_rev
-                    + _dfunnel_rev + _direct_rev
-                    + _ru_services_val + _dna_rev
-                )
-                _total_enr = _old_enr + _ns_enr   # matches image (121+84=205)
- 
-                # ── Render HTML table ─────────────────────────────────────────
-                _TITLE  = "#1c3a5f"
-                _COLHDR = "#2d6a4f"
-                _BOLD   = "#d4e9f7"
-                _SUB    = "#ffffff"
-                _SUB2   = "#f0f7ff"
-                _TOTAL  = "#1c3a5f"
-                _TBOLD  = "#0d2137"
- 
-                def _hs(extra=""):
-                    return (
-                        f"background:{_COLHDR};color:#fff;font-size:.78rem;"
-                        f"font-weight:700;padding:8px 14px;border:1px solid #1a4d3a;{extra}"
-                    )
- 
-                def _bs(extra=""):
-                    return (
-                        f"background:{_BOLD};color:{_TBOLD};font-weight:700;"
-                        f"font-size:.8rem;padding:6px 12px;border:1px solid #b8d4e8;{extra}"
-                    )
- 
-                def _ss(extra=""):
-                    return (
-                        f"background:{_SUB};color:#1a1a2e;font-size:.77rem;"
-                        f"padding:5px 12px 5px 28px;border:1px solid #e0ecf5;{extra}"
-                    )
- 
-                def _ss2(extra=""):
-                    return (
-                        f"background:{_SUB2};color:#1a1a2e;font-size:.76rem;"
-                        f"padding:5px 12px 5px 44px;border:1px solid #e0ecf5;{extra}"
-                    )
- 
-                def _ts(extra=""):
-                    return (
-                        f"background:{_TOTAL};color:#fff;font-weight:700;"
-                        f"font-size:.82rem;padding:8px 12px;border:1px solid #0d2137;{extra}"
-                    )
- 
-                _NR = "text-align:right;font-family:'DM Mono',monospace;"
- 
-                def _tr(lbl_css, num_css, label, rev=None, enr=None):
-                    rv = _fnum(rev) if rev is not None else ""
-                    en = _fenr(enr) if enr is not None else ""
-                    return (
-                        f"<tr>"
-                        f"<td style='{lbl_css}'>{label}</td>"
-                        f"<td style='{num_css}{_NR}'>{rv}</td>"
-                        f"<td style='{num_css}{_NR}'>{en}</td>"
-                        f"</tr>"
-                    )
- 
-                _html = f"""
-<div style='overflow-x:auto;margin:1rem 0;'>
-<table style='width:100%;border-collapse:collapse;font-family:"DM Sans",sans-serif;'>
-<thead>
-<tr>
-  <th colspan='3' style='background:{_TITLE};color:#fff;text-align:center;
-      padding:12px 16px;font-size:.92rem;font-weight:700;letter-spacing:.5px;
-      border:2px solid {_TITLE};'>{_ru_heading}</th>
-</tr>
-<tr>
-  <th style='{_hs("text-align:left;width:55%;")}'>&nbsp;</th>
-  <th style='{_hs("text-align:right;width:25%;")}'> Revenue Split</th>
-  <th style='{_hs("text-align:right;width:20%;")}'> Enrollments</th>
-</tr>
-</thead>
-<tbody>
-"""
-                # Old Sales
-                _html += _tr(_bs(), _bs(), "Old Sales team", _old_rev, _old_enr)
-                for _tn, _td in _old_sub.items():
-                    _lbl = _tn
-                    if _td['has_funnel']:
-                        _lbl = f"{_tn} ({_fnum(_td['funnel_rev'])} - Funnel included)"
-                    _html += _tr(_ss(), _ss(), _lbl, _td['rev'], _td['enr'])
- 
-                # New Sales
-                _html += _tr(_bs(), _bs(), "New Sales team", _ns_rev, _ns_enr)
-                for _tn, _td in _ns_sub.items():
-                    _html += _tr(_ss(), _ss(), _tn, _td['rev'], _td['enr'])
- 
-                # Bootcamp
-                _html += _tr(_bs(), _bs(), "Bootcamp booking fees", _boot_rev, _boot_enr)
- 
-                # Mayur
-                _html += _tr(_bs(), _bs(), "Mayur", _mayur_rev)
-                _html += _tr(_ss(), _ss(), "Calling Revenue",           _mayur_call_r, _mayur_call_e)
-                _html += _tr(_ss(), _ss(), "Current month collections",  _mayur_curr)
-                _html += _tr(_ss(), _ss(), "Previous month collections", _mayur_prev)
- 
-                # Anmol
-                _html += _tr(_bs(), _bs(), "Anmol", _anmol_rev)
-                _html += _tr(_ss(), _ss(), "Current month collections",  _anmol_curr)
-                _html += _tr(_ss(), _ss(), "Previous month collections", _anmol_prev)
- 
-                # Deepanshi
-                _html += _tr(_bs(), _bs(), "Deepanshi (Previous balances)", _dep_rev)
- 
-                # Collections
-                _html += _tr(_bs(), _bs(), "Collections", _coll_rev)
- 
-                # Community
-                _html += _tr(_bs(), _bs(), "Community", _comm_rev)
-                for _hk, _hd in _comm_heads.items():
-                    _html += _tr(_ss(),  _ss(),  _hd['full'],                               _hd['total'])
-                    _html += _tr(_ss2(), _ss2(), f"{_hd['full']} Community-Direct",          _hd['dir_r'],   _hd['dir_e'])
-                    _html += _tr(_ss2(), _ss2(), "Current month collections",                _hd['curr'])
-                    _html += _tr(_ss2(), _ss2(), "Previous month collections",               _hd['prev'])
- 
-                # Direct-Funnel & Direct
-                _html += _tr(_bs(), _bs(), "Direct-Funnel",                _dfunnel_rev)
-                _html += _tr(_bs(), _bs(), "Direct",                        _direct_rev)
- 
-                # Services
-                _html += _tr(_bs(), _bs(), "Services",                      _ru_services_val)
- 
-                # DNA
-                _html += _tr(_bs(), _bs(), "Lead Details not Available",    _dna_rev)
- 
-                # Total
-                _html += _tr(_ts(), _ts(), "Total Revenue", _total_rev, _total_enr)
- 
-                _html += "</tbody></table></div>"
- 
-                section_header(f"📋 {_ru_heading}")
-                st.markdown(_html, unsafe_allow_html=True)
- 
-                # ── CSV download ──────────────────────────────────────────────
-                _rows_dl = []
-                _rows_dl.append({"Category": "Old Sales team", "Sub-category": "",
-                                  "Revenue Split": int(round(_old_rev)), "Enrollments": _old_enr or ""})
-                for _tn, _td in _old_sub.items():
-                    _lbl = f"{_tn} ({_fnum(_td['funnel_rev'])} - Funnel included)" if _td['has_funnel'] else _tn
-                    _rows_dl.append({"Category": "", "Sub-category": _lbl,
-                                     "Revenue Split": int(round(_td['rev'])), "Enrollments": _td['enr'] or ""})
-                _rows_dl.append({"Category": "New Sales team", "Sub-category": "",
-                                  "Revenue Split": int(round(_ns_rev)), "Enrollments": _ns_enr or ""})
-                for _tn, _td in _ns_sub.items():
-                    _rows_dl.append({"Category": "", "Sub-category": _tn,
-                                     "Revenue Split": int(round(_td['rev'])), "Enrollments": _td['enr'] or ""})
-                _rows_dl.append({"Category": "Bootcamp booking fees", "Sub-category": "",
-                                  "Revenue Split": int(round(_boot_rev)), "Enrollments": _boot_enr or ""})
-                _rows_dl.append({"Category": "Mayur", "Sub-category": "",
-                                  "Revenue Split": int(round(_mayur_rev)), "Enrollments": ""})
-                _rows_dl.append({"Category": "", "Sub-category": "Calling Revenue",
-                                  "Revenue Split": int(round(_mayur_call_r)), "Enrollments": _mayur_call_e or ""})
-                _rows_dl.append({"Category": "", "Sub-category": "Current month collections",
-                                  "Revenue Split": int(round(_mayur_curr)), "Enrollments": ""})
-                _rows_dl.append({"Category": "", "Sub-category": "Previous month collections",
-                                  "Revenue Split": int(round(_mayur_prev)), "Enrollments": ""})
-                _rows_dl.append({"Category": "Anmol", "Sub-category": "",
-                                  "Revenue Split": int(round(_anmol_rev)), "Enrollments": ""})
-                _rows_dl.append({"Category": "", "Sub-category": "Current month collections",
-                                  "Revenue Split": int(round(_anmol_curr)), "Enrollments": ""})
-                _rows_dl.append({"Category": "", "Sub-category": "Previous month collections",
-                                  "Revenue Split": int(round(_anmol_prev)), "Enrollments": ""})
-                _rows_dl.append({"Category": "Deepanshi (Previous balances)", "Sub-category": "",
-                                  "Revenue Split": int(round(_dep_rev)), "Enrollments": ""})
-                _rows_dl.append({"Category": "Collections", "Sub-category": "",
-                                  "Revenue Split": int(round(_coll_rev)), "Enrollments": ""})
-                _rows_dl.append({"Category": "Community", "Sub-category": "",
-                                  "Revenue Split": int(round(_comm_rev)), "Enrollments": ""})
-                for _hk, _hd in _comm_heads.items():
-                    _rows_dl.append({"Category": "", "Sub-category": _hd['full'],
-                                     "Revenue Split": int(round(_hd['total'])), "Enrollments": ""})
-                    _rows_dl.append({"Category": "", "Sub-category": f"  {_hd['full']} Community-Direct",
-                                     "Revenue Split": int(round(_hd['dir_r'])), "Enrollments": _hd['dir_e'] or ""})
-                    _rows_dl.append({"Category": "", "Sub-category": "  Current month collections",
-                                     "Revenue Split": int(round(_hd['curr'])), "Enrollments": ""})
-                    _rows_dl.append({"Category": "", "Sub-category": "  Previous month collections",
-                                     "Revenue Split": int(round(_hd['prev'])), "Enrollments": ""})
-                _rows_dl.append({"Category": "Direct-Funnel", "Sub-category": "",
-                                  "Revenue Split": int(round(_dfunnel_rev)), "Enrollments": ""})
-                _rows_dl.append({"Category": "Direct", "Sub-category": "",
-                                  "Revenue Split": int(round(_direct_rev)), "Enrollments": ""})
-                _rows_dl.append({"Category": "Services", "Sub-category": "",
-                                  "Revenue Split": int(round(_ru_services_val)), "Enrollments": ""})
-                _rows_dl.append({"Category": "Lead Details not Available", "Sub-category": "",
-                                  "Revenue Split": int(round(_dna_rev)), "Enrollments": ""})
-                _rows_dl.append({"Category": "Total Revenue", "Sub-category": "",
-                                  "Revenue Split": int(round(_total_rev)), "Enrollments": _total_enr or ""})
- 
-                st.download_button(
-                    label="📥 Download Revenue Update (CSV)",
-                    data=pd.DataFrame(_rows_dl).to_csv(index=False).encode('utf-8'),
-                    file_name=f"Revenue_Update_{display_start}_to_{display_end}.csv",
-                    mime='text/csv',
-                    key='dl_rev_update_csv',
-                )
-                
+                        _ch_l = (
+                            _dr['community_head'].astype(str).str.strip().str.lower()
+                            if 'community_head' in _dr.columns
+                            else pd.Series([''] * len(_dr), index=_dr.index)
+                        )
+         
+                        # ── build lookup from gid=0 team sheet ────────────────────────
+                        _dt = _df_tru.copy()
+                        _dedup_dt = (
+                            _dt.drop_duplicates(subset='merge_key', keep='first')
+                            if 'merge_key' in _dt.columns else _dt
+                        )
+         
+                        def _mk_map(col):
+                            if col in _dedup_dt.columns and 'merge_key' in _dedup_dt.columns:
+                                return _dedup_dt.dropna(subset=['merge_key']).set_index('merge_key')[col].to_dict()
+                            return {}
+         
+                        _vert_map  = _mk_map('Vertical')
+                        _team_map  = _mk_map('Team Name')
+                        _desig_col = next(
+                            (c for c in _dedup_dt.columns if 'academic' in c.lower() or 'counselor' in c.lower()),
+                            None
+                        )
+                        _desig_map = _mk_map(_desig_col) if _desig_col else {}
+         
+                        _dr['_vert'] = _caller_l.map(_vert_map).fillna('').astype(str)
+                        _dr['_team'] = _caller_l.map(_team_map).fillna('').astype(str)
+         
+                        # community manager callers (for Abhipsha extra)
+                        _cm_callers = {
+                            k for k, v in _desig_map.items()
+                            if str(v).strip().lower() == 'community manager'
+                        }
+         
+                        # ── tiny helpers ──────────────────────────────────────────────
+                        def _sf(m):
+                            return float(_dr.loc[m, 'Fee_paid'].sum())
+         
+                        def _cnew(m):
+                            return int((m & (_enr_l == 'new enrollment')).sum())
+         
+                        def _vc(kw):
+                            return _dr['_vert'].str.contains(kw, case=False, na=False)
+         
+                        def _fnum(v):
+                            if v is None:
+                                return ""
+                            return f"{int(round(v)):,}"
+         
+                        def _fenr(v):
+                            try:
+                                return str(int(v)) if int(v) > 0 else ""
+                            except Exception:
+                                return ""
+         
+                        # ─── OLD SALES TEAM ────────────────────────────────────────────
+                        _uzair_m    = _vc('Uzair')
+                        _old_enr_f  = _enr_l.isin(['new enrollment', 'new enrollment - balance payment'])
+                        _old_rev    = _sf(_uzair_m & _old_enr_f)
+                        _old_enr    = _cnew(_uzair_m)
+         
+                        _uz_teams = (
+                            _dedup_dt[
+                                _dedup_dt['Vertical'].astype(str).str.contains('Uzair', case=False, na=False)
+                            ]['Team Name'].dropna().unique().tolist()
+                            if 'Vertical' in _dedup_dt.columns and 'Team Name' in _dedup_dt.columns
+                            else []
+                        )
+                        _corp_t = sorted([t for t in _uz_teams if 'corporate' in t.lower()])
+                        _ncorp_t = sorted([t for t in _uz_teams if 'corporate' not in t.lower()])
+         
+                        _old_sub = {}
+                        if _corp_t:
+                            _cm2 = _dr['_team'].isin(_corp_t)
+                            _cr  = _sf(_cm2 & _old_enr_f)
+                            _ce  = _cnew(_cm2)
+                            _cfr = _sf(_cm2 & _src_l.str.contains('funnel', na=False))
+                            _old_sub['Corporate Law'] = {
+                                'rev': _cr, 'enr': _ce,
+                                'funnel_rev': _cfr, 'has_funnel': _cfr > 0,
+                            }
+                        for _t in _ncorp_t:
+                            _tm = _dr['_team'] == _t
+                            _old_sub[_t] = {
+                                'rev': _sf(_tm & _old_enr_f),
+                                'enr': _cnew(_tm),
+                                'funnel_rev': 0, 'has_funnel': False,
+                            }
+                        # filter zero rows, sort by revenue desc
+                        _old_sub = dict(
+                            sorted(
+                                {k: v for k, v in _old_sub.items() if v['rev'] > 0 or v['enr'] > 0}.items(),
+                                key=lambda x: x[1]['rev'], reverse=True,
+                            )
+                        )
+         
+                        # ─── NEW SALES TEAM ────────────────────────────────────────────
+                        _ns_kws   = ['Deepanshi', 'Darshan', 'Shivya', 'Anmol']
+                        _ns_m     = pd.Series(False, index=_dr.index)
+                        for _kw in _ns_kws:
+                            _ns_m |= _vc(_kw)
+                        _ns_excl  = _enr_l.isin([
+                            'bootcamp collections - balance payments',
+                            'community collections - balance payments',
+                        ])
+                        _ns_rev   = _sf(_ns_m & ~_ns_excl)
+                        _ns_enr   = _cnew(_ns_m)
+         
+                        _ns_teams = (
+                            _dedup_dt[
+                                _dedup_dt['Vertical'].astype(str).str.contains(
+                                    '|'.join(_ns_kws), case=False, na=False
+                                )
+                            ]['Team Name'].dropna().unique().tolist()
+                            if 'Vertical' in _dedup_dt.columns and 'Team Name' in _dedup_dt.columns
+                            else []
+                        )
+                        _us_t  = [t for t in _ns_teams if 'us accounting' in t.lower() or 'us acc' in t.lower()]
+                        _id_t  = [t for t in _ns_teams
+                                  if re.match(r'^id[\s\-]', t.strip().lower()) or t.strip().lower() == 'id']
+                        _oth_t = [t for t in _ns_teams if t not in _us_t and t not in _id_t]
+         
+                        _ns_sub = {}
+                        if _us_t:
+                            _um = _dr['_team'].isin(_us_t)
+                            _ns_sub['US Accounting'] = {'rev': _sf(_um & ~_ns_excl), 'enr': _cnew(_um)}
+                        if _id_t:
+                            _im = _dr['_team'].isin(_id_t)
+                            _ns_sub['ID'] = {'rev': _sf(_im & ~_ns_excl), 'enr': _cnew(_im)}
+                        for _t in _oth_t:
+                            _tm = _dr['_team'] == _t
+                            _ns_sub[_t] = {'rev': _sf(_tm & ~_ns_excl), 'enr': _cnew(_tm)}
+                        _ns_sub = dict(
+                            sorted(
+                                {k: v for k, v in _ns_sub.items() if v['rev'] > 0 or v['enr'] > 0}.items(),
+                                key=lambda x: x[1]['rev'], reverse=True,
+                            )
+                        )
+         
+                        # ─── BOOTCAMP BOOKING FEES ─────────────────────────────────────
+                        _boot_m   = (_caller_l == 'bootcamp - direct') & (_enr_l == 'new enrollment')
+                        _boot_rev = _sf(_boot_m)
+                        _boot_enr = int(_boot_m.sum())
+         
+                        # ─── MAYUR (CHANGEMAKERS) ──────────────────────────────────────
+                        _chm          = _dr['_team'].str.contains('Changemakers', case=False, na=False)
+                        _mayur_rev    = _sf(_chm & (_enr_l == 'bootcamp collections - balance payments'))
+                        _mayur_enr    = _cnew(_chm)
+                        _mayur_call_r = _sf(_chm & _enr_l.isin(['new enrollment', 'new enrollment - balance payment']))
+                        _mayur_call_e = _cnew(_chm)
+                        _mayur_curr   = _sf(_chm & (_enr_l == 'bootcamp collections - balance payments') & (_eotm == 'yes'))
+                        _mayur_prev   = _sf(_chm & (_enr_l == 'bootcamp collections - balance payments') & (_eotm == 'no'))
+         
+                        # ─── ANMOL ─────────────────────────────────────────────────────
+                        _anm_m      = _vc('Anmol')
+                        _anmol_rev  = _sf(_anm_m & (_enr_l == 'bootcamp collections - balance payments'))
+                        _anmol_curr = _sf(_anm_m & (_enr_l == 'bootcamp collections - balance payments') & (_eotm == 'yes'))
+                        _anmol_prev = _sf(_anm_m & (_enr_l == 'bootcamp collections - balance payments') & (_eotm == 'no'))
+         
+                        # ─── DEEPANSHI (Previous balances) ─────────────────────────────
+                        _dep_m      = _vc('Deepanshi')
+                        _dep_rev    = _sf(_dep_m & (_enr_l == 'bootcamp collections - balance payments'))
+         
+                        # ─── COLLECTIONS ───────────────────────────────────────────────
+                        _coll_rev = _mayur_rev + _anmol_rev + _dep_rev
+         
+                        # ─── COMMUNITY (total) ──────────────────────────────────────────
+                        _src_comm      = _src_l.str.contains('community', na=False)
+                        _comm_all      = _sf(_src_comm)
+                        _comm_nd_new   = _sf(
+                            _src_comm
+                            & ~_caller_l.isin(['direct', 'bootcamp - direct'])
+                            & _enr_l.isin(['new enrollment', 'new enrollment - balance payment'])
+                        )
+                        _comm_rev      = _comm_all - _comm_nd_new
+         
+                        # ─── COMMUNITY HEADS ────────────────────────────────────────────
+                        _comm_heads = {}
+                        for _hkw, _hfull in [
+                            ('komal',     'Komal Shah'),
+                            ('jayantika', 'Jayantika Ganguly'),
+                            ('garima',    'Garima'),
+                            ('abhipsha',  'Abhipsha'),
+                        ]:
+                            _hm      = _ch_l.str.contains(_hkw, case=False, na=False)
+                            _oth_r   = _sf(_hm & _src_comm & (_enr_l == 'other revenue'))
+                            _dir_m   = (_caller_l == 'direct') & _hm & (_enr_l == 'new enrollment')
+                            _dir_r   = _sf(_dir_m)
+                            _dir_e   = int(_dir_m.sum())
+                            _curr_h  = _sf(_hm & _src_comm & (_enr_l == 'community collections - balance payments') & (_eotm == 'yes'))
+                            _prev_h  = _sf(_hm & _src_comm & (_enr_l == 'community collections - balance payments') & (_eotm == 'no'))
+                            _nd_new  = _sf(
+                                _hm & _src_comm
+                                & _enr_l.isin(['new enrollment', 'new enrollment - balance payment'])
+                                & (_caller_l != 'direct')
+                            )
+                            _extra   = _sf(_caller_l.isin(_cm_callers)) if _hkw == 'abhipsha' else 0.0
+                            _htotal  = _oth_r + _dir_r + _curr_h + _prev_h + _extra - _nd_new
+                            _comm_heads[_hkw] = {
+                                'full': _hfull, 'total': _htotal,
+                                'dir_r': _dir_r, 'dir_e': _dir_e,
+                                'curr': _curr_h, 'prev': _prev_h,
+                            }
+         
+                        # ─── DIRECT-FUNNEL ──────────────────────────────────────────────
+                        _dfunnel_rev = _sf(
+                            _src_l.str.contains('funnel', na=False)
+                            & (_caller_l == 'direct')
+                            & _enr_l.isin(['new enrollment', 'new enrollment - balance payment', 'other revenue'])
+                        )
+         
+                        # ─── DIRECT ────────────────────────────────────────────────────
+                        _direct_rev = _sf(
+                            ~_src_l.str.contains('funnel', na=False)
+                            & ~_src_l.str.contains('community', na=False)
+                            & (_caller_l == 'direct')
+                            & _enr_l.isin(['new enrollment', 'new enrollment - balance payment', 'other revenue'])
+                        )
+         
+                        # ─── LEAD DETAILS NOT AVAILABLE ─────────────────────────────────
+                        _dna_m = (
+                            _dr['Caller_name'].astype(str).str.strip().isin(['', 'nan', 'None', 'NaN'])
+                            | _dr['Enrollment'].astype(str).str.strip().isin(['', 'nan', 'None', 'NaN'])
+                            | _dr['Source'].astype(str).str.strip().isin(['', 'nan', 'None', 'NaN'])
+                        )
+                        _dna_rev = _sf(_dna_m)
+         
+                        # ─── TOTAL REVENUE ───────────────────────────────────────────────
+                        _total_rev = (
+                            _old_rev + _ns_rev + _boot_rev
+                            + _coll_rev + _comm_rev
+                            + _dfunnel_rev + _direct_rev
+                            + _ru_services_val + _dna_rev
+                        )
+                        _total_enr = _old_enr + _ns_enr   # matches image (121+84=205)
+         
+                        # ── Render HTML table ─────────────────────────────────────────
+                        _TITLE  = "#1c3a5f"
+                        _COLHDR = "#2d6a4f"
+                        _BOLD   = "#d4e9f7"
+                        _SUB    = "#ffffff"
+                        _SUB2   = "#f0f7ff"
+                        _TOTAL  = "#1c3a5f"
+                        _TBOLD  = "#0d2137"
+         
+                        def _hs(extra=""):
+                            return (
+                                f"background:{_COLHDR};color:#fff;font-size:.78rem;"
+                                f"font-weight:700;padding:8px 14px;border:1px solid #1a4d3a;{extra}"
+                            )
+         
+                        def _bs(extra=""):
+                            return (
+                                f"background:{_BOLD};color:{_TBOLD};font-weight:700;"
+                                f"font-size:.8rem;padding:6px 12px;border:1px solid #b8d4e8;{extra}"
+                            )
+         
+                        def _ss(extra=""):
+                            return (
+                                f"background:{_SUB};color:#1a1a2e;font-size:.77rem;"
+                                f"padding:5px 12px 5px 28px;border:1px solid #e0ecf5;{extra}"
+                            )
+         
+                        def _ss2(extra=""):
+                            return (
+                                f"background:{_SUB2};color:#1a1a2e;font-size:.76rem;"
+                                f"padding:5px 12px 5px 44px;border:1px solid #e0ecf5;{extra}"
+                            )
+         
+                        def _ts(extra=""):
+                            return (
+                                f"background:{_TOTAL};color:#fff;font-weight:700;"
+                                f"font-size:.82rem;padding:8px 12px;border:1px solid #0d2137;{extra}"
+                            )
+         
+                        _NR = "text-align:right;font-family:'DM Mono',monospace;"
+         
+                        def _tr(lbl_css, num_css, label, rev=None, enr=None):
+                            rv = _fnum(rev) if rev is not None else ""
+                            en = _fenr(enr) if enr is not None else ""
+                            return (
+                                f"<tr>"
+                                f"<td style='{lbl_css}'>{label}</td>"
+                                f"<td style='{num_css}{_NR}'>{rv}</td>"
+                                f"<td style='{num_css}{_NR}'>{en}</td>"
+                                f"</tr>"
+                            )
+         
+                        _html = f"""
+        <div style='overflow-x:auto;margin:1rem 0;'>
+        <table style='width:100%;border-collapse:collapse;font-family:"DM Sans",sans-serif;'>
+        <thead>
+        <tr>
+          <th colspan='3' style='background:{_TITLE};color:#fff;text-align:center;
+              padding:12px 16px;font-size:.92rem;font-weight:700;letter-spacing:.5px;
+              border:2px solid {_TITLE};'>{_ru_heading}</th>
+        </tr>
+        <tr>
+          <th style='{_hs("text-align:left;width:55%;")}'>&nbsp;</th>
+          <th style='{_hs("text-align:right;width:25%;")}'> Revenue Split</th>
+          <th style='{_hs("text-align:right;width:20%;")}'> Enrollments</th>
+        </tr>
+        </thead>
+        <tbody>
+        """
+                        # Old Sales
+                        _html += _tr(_bs(), _bs(), "Old Sales team", _old_rev, _old_enr)
+                        for _tn, _td in _old_sub.items():
+                            _lbl = _tn
+                            if _td['has_funnel']:
+                                _lbl = f"{_tn} ({_fnum(_td['funnel_rev'])} - Funnel included)"
+                            _html += _tr(_ss(), _ss(), _lbl, _td['rev'], _td['enr'])
+         
+                        # New Sales
+                        _html += _tr(_bs(), _bs(), "New Sales team", _ns_rev, _ns_enr)
+                        for _tn, _td in _ns_sub.items():
+                            _html += _tr(_ss(), _ss(), _tn, _td['rev'], _td['enr'])
+         
+                        # Bootcamp
+                        _html += _tr(_bs(), _bs(), "Bootcamp booking fees", _boot_rev, _boot_enr)
+         
+                        # Mayur
+                        _html += _tr(_bs(), _bs(), "Mayur", _mayur_rev)
+                        _html += _tr(_ss(), _ss(), "Calling Revenue",           _mayur_call_r, _mayur_call_e)
+                        _html += _tr(_ss(), _ss(), "Current month collections",  _mayur_curr)
+                        _html += _tr(_ss(), _ss(), "Previous month collections", _mayur_prev)
+         
+                        # Anmol
+                        _html += _tr(_bs(), _bs(), "Anmol", _anmol_rev)
+                        _html += _tr(_ss(), _ss(), "Current month collections",  _anmol_curr)
+                        _html += _tr(_ss(), _ss(), "Previous month collections", _anmol_prev)
+         
+                        # Deepanshi
+                        _html += _tr(_bs(), _bs(), "Deepanshi (Previous balances)", _dep_rev)
+         
+                        # Collections
+                        _html += _tr(_bs(), _bs(), "Collections", _coll_rev)
+         
+                        # Community
+                        _html += _tr(_bs(), _bs(), "Community", _comm_rev)
+                        for _hk, _hd in _comm_heads.items():
+                            _html += _tr(_ss(),  _ss(),  _hd['full'],                               _hd['total'])
+                            _html += _tr(_ss2(), _ss2(), f"{_hd['full']} Community-Direct",          _hd['dir_r'],   _hd['dir_e'])
+                            _html += _tr(_ss2(), _ss2(), "Current month collections",                _hd['curr'])
+                            _html += _tr(_ss2(), _ss2(), "Previous month collections",               _hd['prev'])
+         
+                        # Direct-Funnel & Direct
+                        _html += _tr(_bs(), _bs(), "Direct-Funnel",                _dfunnel_rev)
+                        _html += _tr(_bs(), _bs(), "Direct",                        _direct_rev)
+         
+                        # Services
+                        _html += _tr(_bs(), _bs(), "Services",                      _ru_services_val)
+         
+                        # DNA
+                        _html += _tr(_bs(), _bs(), "Lead Details not Available",    _dna_rev)
+         
+                        # Total
+                        _html += _tr(_ts(), _ts(), "Total Revenue", _total_rev, _total_enr)
+         
+                        _html += "</tbody></table></div>"
+         
+                        section_header(f"📋 {_ru_heading}")
+                        st.markdown(_html, unsafe_allow_html=True)
+         
+                        # ── CSV download ──────────────────────────────────────────────
+                        _rows_dl = []
+                        _rows_dl.append({"Category": "Old Sales team", "Sub-category": "",
+                                          "Revenue Split": int(round(_old_rev)), "Enrollments": _old_enr or ""})
+                        for _tn, _td in _old_sub.items():
+                            _lbl = f"{_tn} ({_fnum(_td['funnel_rev'])} - Funnel included)" if _td['has_funnel'] else _tn
+                            _rows_dl.append({"Category": "", "Sub-category": _lbl,
+                                             "Revenue Split": int(round(_td['rev'])), "Enrollments": _td['enr'] or ""})
+                        _rows_dl.append({"Category": "New Sales team", "Sub-category": "",
+                                          "Revenue Split": int(round(_ns_rev)), "Enrollments": _ns_enr or ""})
+                        for _tn, _td in _ns_sub.items():
+                            _rows_dl.append({"Category": "", "Sub-category": _tn,
+                                             "Revenue Split": int(round(_td['rev'])), "Enrollments": _td['enr'] or ""})
+                        _rows_dl.append({"Category": "Bootcamp booking fees", "Sub-category": "",
+                                          "Revenue Split": int(round(_boot_rev)), "Enrollments": _boot_enr or ""})
+                        _rows_dl.append({"Category": "Mayur", "Sub-category": "",
+                                          "Revenue Split": int(round(_mayur_rev)), "Enrollments": ""})
+                        _rows_dl.append({"Category": "", "Sub-category": "Calling Revenue",
+                                          "Revenue Split": int(round(_mayur_call_r)), "Enrollments": _mayur_call_e or ""})
+                        _rows_dl.append({"Category": "", "Sub-category": "Current month collections",
+                                          "Revenue Split": int(round(_mayur_curr)), "Enrollments": ""})
+                        _rows_dl.append({"Category": "", "Sub-category": "Previous month collections",
+                                          "Revenue Split": int(round(_mayur_prev)), "Enrollments": ""})
+                        _rows_dl.append({"Category": "Anmol", "Sub-category": "",
+                                          "Revenue Split": int(round(_anmol_rev)), "Enrollments": ""})
+                        _rows_dl.append({"Category": "", "Sub-category": "Current month collections",
+                                          "Revenue Split": int(round(_anmol_curr)), "Enrollments": ""})
+                        _rows_dl.append({"Category": "", "Sub-category": "Previous month collections",
+                                          "Revenue Split": int(round(_anmol_prev)), "Enrollments": ""})
+                        _rows_dl.append({"Category": "Deepanshi (Previous balances)", "Sub-category": "",
+                                          "Revenue Split": int(round(_dep_rev)), "Enrollments": ""})
+                        _rows_dl.append({"Category": "Collections", "Sub-category": "",
+                                          "Revenue Split": int(round(_coll_rev)), "Enrollments": ""})
+                        _rows_dl.append({"Category": "Community", "Sub-category": "",
+                                          "Revenue Split": int(round(_comm_rev)), "Enrollments": ""})
+                        for _hk, _hd in _comm_heads.items():
+                            _rows_dl.append({"Category": "", "Sub-category": _hd['full'],
+                                             "Revenue Split": int(round(_hd['total'])), "Enrollments": ""})
+                            _rows_dl.append({"Category": "", "Sub-category": f"  {_hd['full']} Community-Direct",
+                                             "Revenue Split": int(round(_hd['dir_r'])), "Enrollments": _hd['dir_e'] or ""})
+                            _rows_dl.append({"Category": "", "Sub-category": "  Current month collections",
+                                             "Revenue Split": int(round(_hd['curr'])), "Enrollments": ""})
+                            _rows_dl.append({"Category": "", "Sub-category": "  Previous month collections",
+                                             "Revenue Split": int(round(_hd['prev'])), "Enrollments": ""})
+                        _rows_dl.append({"Category": "Direct-Funnel", "Sub-category": "",
+                                          "Revenue Split": int(round(_dfunnel_rev)), "Enrollments": ""})
+                        _rows_dl.append({"Category": "Direct", "Sub-category": "",
+                                          "Revenue Split": int(round(_direct_rev)), "Enrollments": ""})
+                        _rows_dl.append({"Category": "Services", "Sub-category": "",
+                                          "Revenue Split": int(round(_ru_services_val)), "Enrollments": ""})
+                        _rows_dl.append({"Category": "Lead Details not Available", "Sub-category": "",
+                                          "Revenue Split": int(round(_dna_rev)), "Enrollments": ""})
+                        _rows_dl.append({"Category": "Total Revenue", "Sub-category": "",
+                                          "Revenue Split": int(round(_total_rev)), "Enrollments": _total_enr or ""})
+         
+                        st.download_button(
+                            label="📥 Download Revenue Update (CSV)",
+                            data=pd.DataFrame(_rows_dl).to_csv(index=False).encode('utf-8'),
+                            file_name=f"Revenue_Update_{display_start}_to_{display_end}.csv",
+                            mime='text/csv',
+                            key='dl_rev_update_csv',
+                        )
+                        
 def run_leads_dashboard():
     st.markdown("""
     <style>
