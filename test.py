@@ -5286,7 +5286,6 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         _html += _tr(_bs(), _bs(), "Collections", _coll_rev)
                         if _show(_boot_rev, _boot_enr):
                             _html += _tr(_ss(), _ss(), "Bootcamp booking fees", _boot_rev, _boot_enr)
-                        if _show(_mayur_call_r, _mayur_call_e):
 
                         # Community
                         _html += _tr(_bs(), _bs(), "Community", _comm_rev)
