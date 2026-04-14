@@ -4880,7 +4880,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                 help="Numbers, commas and dots only. Commas are stripped; decimals are rounded.",
             )
          
-            # Parse & validate
+            # Parse & validate Services
             _ru_services_val  = 0.0
             _ru_services_ok   = True
             if services_raw and services_raw.strip():
@@ -4891,20 +4891,56 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                     st.error("⚠️  Invalid input — please enter a plain number (e.g. 431211 or 4,31,211).")
                     _ru_services_ok = False
             st.caption(f"Services value: ₹{int(_ru_services_val):,}")
+
+            # ── Total Revenue Till Today Input ──────────────────────────────
+            st.markdown("""
+            <div style='background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.2);
+                        border-radius:10px;padding:.9rem 1.2rem;margin-bottom:.9rem;margin-top:.4rem;'>
+                <div style='font-size:.82rem;font-weight:700;color:#3B82F6;margin-bottom:.3rem;'>
+                    📊 TOTAL REVENUE TILL TODAY
+                </div>
+                <div style='font-size:.76rem;color:var(--text-muted,#6B7280);'>
+                    Enter the total revenue figure from the Manager's/Finance report for today.
+                    Required to compute the Difference in Revenue.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            total_rev_raw = st.text_input(
+                "Total Revenue Till Today (₹)",
+                placeholder="e.g. 1231000  or  12,31,000  or  12,31,000.50",
+                key="ru_total_rev_input",
+                help="Numbers, commas and dots only. Commas are stripped; decimals are rounded.",
+            )
+
+            # Parse & validate Total Revenue Till Today
+            _ru_total_rev_val = 0.0
+            _ru_total_rev_ok  = True
+            if total_rev_raw and total_rev_raw.strip():
+                _tcleaned = total_rev_raw.strip().replace(',', '')
+                try:
+                    _ru_total_rev_val = round(float(_tcleaned))
+                except ValueError:
+                    st.error("⚠️  Invalid input — please enter a plain number (e.g. 1231000 or 12,31,000).")
+                    _ru_total_rev_ok = False
+            st.caption(f"Total Revenue Till Today: ₹{int(_ru_total_rev_val):,}")
          
             if not gen_update:
                 st.markdown("""
                 <div style='text-align:center;padding:5rem 1rem;opacity:.6;'>
                     <div style='font-size:4rem;margin-bottom:1rem;'>📋</div>
                     <div style='font-size:.9rem;font-weight:600;'>
-                        Enter the Services revenue above, then click
+                        Enter both Services Revenue and Total Revenue Till Today above, then click
                         <b>📋 Generate Revenue Update</b> in the sidebar.
                     </div>
                 </div>""", unsafe_allow_html=True)
          
             else:
-                if not _ru_services_ok:
-                    st.error("Please enter a valid Services revenue value before generating the report.")
+                if not _ru_services_ok or not _ru_total_rev_ok:
+                    if not _ru_services_ok:
+                        st.error("Please enter a valid Services revenue value before generating the report.")
+                    if not _ru_total_rev_ok:
+                        st.error("Please enter a valid Total Revenue Till Today value before generating the report.")
                 else:
                     with st.spinner("Building Revenue Update…"):
          
@@ -5052,15 +5088,33 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                             else []
                         )
                         _us_t  = [t for t in _ns_teams if 'us accounting' in t.lower() or 'us acc' in t.lower()]
-                        _id_t  = [t for t in _ns_teams
-                                  if re.match(r'^id[\s\-]', t.strip().lower()) or t.strip().lower() == 'id']
+
+                        # Split ID teams: those whose Vertical contains "Anmol" vs those that don't
+                        _all_id_t = [t for t in _ns_teams
+                                     if re.match(r'^id[\s\-]', t.strip().lower()) or t.strip().lower() == 'id']
+                        if 'Vertical' in _dedup_dt.columns and 'Team Name' in _dedup_dt.columns:
+                            _anmol_vert_teams = (
+                                _dedup_dt[
+                                    _dedup_dt['Vertical'].astype(str).str.contains('Anmol', case=False, na=False)
+                                ]['Team Name'].dropna().unique().tolist()
+                            )
+                        else:
+                            _anmol_vert_teams = []
+                        _id_anmol_t = [t for t in _all_id_t if t in _anmol_vert_teams]
+                        _id_t       = [t for t in _all_id_t if t not in _anmol_vert_teams]
+
                         _dsv_t = [t for t in _ns_teams if t.strip().lower().startswith('dsv')]
-                        _oth_t = [t for t in _ns_teams if t not in _us_t and t not in _id_t and t not in _dsv_t]
+                        _oth_t = [t for t in _ns_teams
+                                  if t not in _us_t and t not in _all_id_t and t not in _dsv_t]
 
                         _ns_sub = {}
                         if _us_t:
                             _um = _dr['_team'].isin(_us_t)
                             _ns_sub['US Accounting'] = {'rev': _sf(_um & ~_ns_excl), 'enr': _cnew(_um)}
+                        # ID-Anmol appears before ID
+                        if _id_anmol_t:
+                            _iam = _dr['_team'].isin(_id_anmol_t)
+                            _ns_sub['ID-Anmol'] = {'rev': _sf(_iam & ~_ns_excl), 'enr': _cnew(_iam)}
                         if _id_t:
                             _im = _dr['_team'].isin(_id_t)
                             _ns_sub['ID'] = {'rev': _sf(_im & ~_ns_excl), 'enr': _cnew(_im)}
@@ -5070,12 +5124,17 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         for _t in _oth_t:
                             _tm = _dr['_team'] == _t
                             _ns_sub[_t] = {'rev': _sf(_tm & ~_ns_excl), 'enr': _cnew(_tm)}
-                        _ns_sub = dict(
+                        # Keep ID-Anmol and ID always in fixed order (don't sort them away)
+                        _fixed_order = ['ID-Anmol', 'ID']
+                        _fixed_entries = {k: _ns_sub[k] for k in _fixed_order if k in _ns_sub and (_ns_sub[k]['rev'] > 0 or _ns_sub[k]['enr'] > 0)}
+                        _other_entries = dict(
                             sorted(
-                                {k: v for k, v in _ns_sub.items() if v['rev'] > 0 or v['enr'] > 0}.items(),
+                                {k: v for k, v in _ns_sub.items()
+                                 if k not in _fixed_order and (v['rev'] > 0 or v['enr'] > 0)}.items(),
                                 key=lambda x: x[1]['rev'], reverse=True,
                             )
                         )
+                        _ns_sub = {**_other_entries, **_fixed_entries}
          
                         # ─── BOOTCAMP BOOKING FEES ─────────────────────────────────────
                         _boot_m   = (_caller_l == 'bootcamp - direct') & (_enr_l == 'new enrollment')
@@ -5446,7 +5505,11 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                             ws.freeze_panes = "A3"
                             buf = io.BytesIO(); wb.save(buf); return buf.getvalue()
 
-                        _dl_col, _ = st.columns([1, 3])
+                        _diff_rev = _ru_total_rev_val - _total_rev
+                        _diff_color = "#10B981" if _diff_rev >= 0 else "#EF4444"
+                        _diff_sign  = "+" if _diff_rev >= 0 else ""
+
+                        _dl_col, _diff_col = st.columns([1, 2])
                         with _dl_col:
                             st.download_button(
                                 label="📥 Download Revenue Update",
@@ -5454,6 +5517,27 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                                 file_name=f"Revenue_Update_{display_start}_to_{display_end}.xlsx",
                                 mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                                 key='dl_rev_update_xlsx',
+                            )
+                        with _diff_col:
+                            st.markdown(
+                                f"""
+                                <div style='display:flex;align-items:center;height:100%;padding-top:.25rem;'>
+                                    <div style='background:rgba(0,0,0,.04);border:1px solid {_diff_color}33;
+                                                border-radius:10px;padding:.55rem 1.1rem;
+                                                display:inline-flex;align-items:center;gap:.8rem;'>
+                                        <span style='font-size:.75rem;color:var(--text-muted,#6B7280);font-weight:600;
+                                                     white-space:nowrap;'>Difference in Revenue</span>
+                                        <span style='font-family:"DM Mono",monospace;font-size:.88rem;
+                                                     font-weight:700;color:{_diff_color};white-space:nowrap;'>
+                                            {_diff_sign}₹{abs(int(_diff_rev)):,}
+                                        </span>
+                                        <span style='font-size:.65rem;color:var(--text-muted,#9CA3AF);white-space:nowrap;'>
+                                            (Today: ₹{int(_ru_total_rev_val):,} − Report: ₹{int(_total_rev):,})
+                                        </span>
+                                    </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True,
                             )
                         
 def run_leads_dashboard():
