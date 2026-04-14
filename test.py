@@ -679,12 +679,30 @@ def show_homepage_with_login():
 @st.cache_data(ttl=300, show_spinner=False)
 
 def _load_rev_update_team_sheet():
-    _url = (
+    _url_active = (
         "https://docs.google.com/spreadsheets/d/e/"
         "2PACX-1vRT73ztvPNZSvIu5WLxo-3WQ76JMAnt4P9dITd4EAbjSvuDytfgvdfri1WPXotCjm_Etnb80_Q7S-wf"
         "/pub?gid=0&single=true&output=csv"
     )
-    df = pd.read_csv(_url)
+    _url_resigned = (
+        "https://docs.google.com/spreadsheets/d/e/"
+        "2PACX-1vRT73ztvPNZSvIu5WLxo-3WQ76JMAnt4P9dITd4EAbjSvuDytfgvdfri1WPXotCjm_Etnb80_Q7S-wf"
+        "/pub?gid=973926168&single=true&output=csv"
+    )
+    try:
+        df_active = pd.read_csv(_url_active)
+    except Exception:
+        df_active = pd.DataFrame()
+        
+    try:
+        df_resigned = pd.read_csv(_url_resigned)
+    except Exception:
+        df_resigned = pd.DataFrame()
+        
+    df = pd.concat([df_active, df_resigned], ignore_index=True)
+    if df.empty:
+        return pd.DataFrame()
+
     df.columns = df.columns.str.strip()
     mc = next((c for c in df.columns if c.strip().lower() == 'month'), None)
     if mc:
@@ -692,6 +710,9 @@ def _load_rev_update_team_sheet():
         df = df.sort_values(mc, ascending=False, na_position='last')
     if 'Caller Name' in df.columns:
         df['merge_key'] = df['Caller Name'].str.strip().str.lower()
+        if mc:
+            # Sort by month desc before dropping duplicates if month is available
+            df = df.sort_values(mc, ascending=False, na_position='last')
         df = df.drop_duplicates(subset='merge_key', keep='first').reset_index(drop=True)
     return df
 def run_calling_dashboard():
@@ -5538,7 +5559,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         _diff_color = "#10B981" if _diff_rev >= 0 else "#EF4444"
                         _diff_sign  = "+" if _diff_rev >= 0 else ""
 
-                        _dl_col, _diff_col = st.columns([1, 2])
+                        _dl_col, _diff_col, _raw_dl_col = st.columns([1, 2, 1])
                         with _dl_col:
                             st.download_button(
                                 label="📥 Download Revenue Update",
@@ -5567,6 +5588,21 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                                 </div>
                                 """,
                                 unsafe_allow_html=True,
+                            )
+                        
+                        with _raw_dl_col:
+                            def to_excel_bytes_raw(df):
+                                output = io.BytesIO()
+                                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                                    df.to_excel(writer, index=False, sheet_name='Raw Revenue Data')
+                                return output.getvalue()
+                            
+                            st.download_button(
+                                label="📥 Download Revenue Sheet",
+                                data=to_excel_bytes_raw(_dr),
+                                file_name=f"Raw_Revenue_Sheet_{display_start}_to_{display_end}.xlsx",
+                                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                key='dl_raw_revenue_sheet_xlsx',
                             )
                         
 def run_leads_dashboard():
