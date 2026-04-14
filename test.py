@@ -4977,10 +4977,22 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
          
                         # ── build lookup from gid=0 team sheet ────────────────────────
                         _dt = _df_tru.copy()
-                        _dedup_dt = (
-                            _dt.drop_duplicates(subset='merge_key', keep='first')
-                            if 'merge_key' in _dt.columns else _dt
-                        )
+                        # Smart dedup: prefer rows that have a non-empty Team Name for each caller.
+                        # This ensures resigned callers whose most-recent sheet row has a blank/different
+                        # team (post-resignation update) still get their original team mapping.
+                        if 'merge_key' in _dt.columns and 'Team Name' in _dt.columns:
+                            _dt_has_team = _dt[
+                                _dt['Team Name'].astype(str).str.strip().fillna('').ne('')
+                            ].drop_duplicates(subset='merge_key', keep='first')
+                            _dt_fallback = _dt[
+                                ~_dt['merge_key'].isin(_dt_has_team['merge_key'])
+                            ].drop_duplicates(subset='merge_key', keep='first')
+                            _dedup_dt = pd.concat([_dt_has_team, _dt_fallback], ignore_index=True)
+                        else:
+                            _dedup_dt = (
+                                _dt.drop_duplicates(subset='merge_key', keep='first')
+                                if 'merge_key' in _dt.columns else _dt
+                            )
          
                         def _mk_map(col):
                             if col in _dedup_dt.columns and 'merge_key' in _dedup_dt.columns:
