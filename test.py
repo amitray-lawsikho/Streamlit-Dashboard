@@ -5571,14 +5571,126 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         _diff_color = "#10B981" if _diff_rev >= 0 else "#EF4444"
                         _diff_sign  = "+" if _diff_rev >= 0 else ""
 
-                        _dl_col, _diff_col, _raw_dl_col = st.columns([1, 2, 1])
-                        with _dl_col:
+                        # ── Raw source data download ──────────────────────────────
+                        _EXPORT_COLS = [
+                            'Date', 'Name', 'Contact_No', 'Email_Id', 'Course',
+                            'Fee_paid', 'Caller_name', 'Enrollment', 'Source',
+                            'Course_Price', 'LawSikho_Skill_Arbitrage',
+                            'Full_Installment', 'Enrollment_of_this_month',
+                            '_vert', '_team',
+                        ]
+                        _dr_export = _dr.copy()
+
+                        # Force Contact_No to numeric (strip non-digits, convert to int where possible)
+                        if 'Contact_No' in _dr_export.columns:
+                            _dr_export['Contact_No'] = (
+                                _dr_export['Contact_No']
+                                .astype(str)
+                                .str.replace(r'\D', '', regex=True)
+                                .str.strip()
+                            )
+                            _dr_export['Contact_No'] = pd.to_numeric(
+                                _dr_export['Contact_No'], errors='coerce'
+                            ).astype('Int64')
+
+                        _export_existing = [c for c in _EXPORT_COLS if c in _dr_export.columns]
+                        _dr_export = _dr_export[_export_existing].reset_index(drop=True)
+
+                        def _build_ru_raw_excel(df, heading):
+                            HDR_FILL  = PatternFill("solid", start_color="1c3a5f", end_color="1c3a5f")
+                            ALT_FILL  = PatternFill("solid", start_color="f0f7ff", end_color="f0f7ff")
+                            WHT_FILL  = PatternFill("solid", start_color="ffffff", end_color="ffffff")
+                            HDR_FONT  = Font(bold=True, color="FFFFFF", name="Arial", size=9)
+                            DATA_FONT = Font(name="Arial", size=9)
+                            CENTER    = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                            LEFT      = Alignment(horizontal='left', vertical='center', wrap_text=True)
+                            BORDER    = Border(
+                                left=Side(style='thin', color='bfdbfe'),
+                                right=Side(style='thin', color='bfdbfe'),
+                                top=Side(style='thin', color='bfdbfe'),
+                                bottom=Side(style='thin', color='bfdbfe'),
+                            )
+                            COL_WIDTHS = {
+                                'Date': 12, 'Name': 28, 'Contact_No': 16,
+                                'Email_Id': 32, 'Course': 28, 'Fee_paid': 12,
+                                'Caller_name': 22, 'Enrollment': 28, 'Source': 20,
+                                'Course_Price': 14, 'LawSikho_Skill_Arbitrage': 18,
+                                'Full_Installment': 16, 'Enrollment_of_this_month': 20,
+                                '_vert': 18, '_team': 22,
+                            }
+                            wb = Workbook()
+                            ws = wb.active
+                            ws.title = "Revenue Source Data"
+
+                            # Title row
+                            ws.merge_cells(f"A1:{get_column_letter(len(df.columns))}1")
+                            tc = ws["A1"]
+                            tc.value = heading
+                            tc.fill = HDR_FILL
+                            tc.font = Font(bold=True, color="FFFFFF", name="Arial", size=11)
+                            tc.alignment = CENTER
+                            tc.border = BORDER
+                            ws.row_dimensions[1].height = 24
+
+                            # Header row
+                            for ci, col in enumerate(df.columns, 1):
+                                c = ws.cell(2, ci, col.upper().replace('_', ' '))
+                                c.fill = PatternFill("solid", start_color="1e4d6b", end_color="1e4d6b")
+                                c.font = HDR_FONT
+                                c.alignment = CENTER
+                                c.border = BORDER
+                            ws.row_dimensions[2].height = 20
+
+                            # Data rows
+                            for ri, (_, row) in enumerate(df.iterrows(), 3):
+                                fill = ALT_FILL if ri % 2 == 0 else WHT_FILL
+                                for ci, col in enumerate(df.columns, 1):
+                                    val = row[col]
+                                    # Handle NA/NaT
+                                    try:
+                                        if pd.isna(val):
+                                            val = ''
+                                    except (TypeError, ValueError):
+                                        pass
+                                    if hasattr(val, 'strftime'):
+                                        val = val.strftime('%Y-%m-%d')
+                                    # Keep Contact_No as integer in Excel
+                                    if col == 'Contact_No' and val != '':
+                                        try:
+                                            val = int(val)
+                                        except (ValueError, TypeError):
+                                            pass
+                                    cell = ws.cell(ri, ci, val)
+                                    cell.fill = fill
+                                    cell.font = DATA_FONT
+                                    cell.border = BORDER
+                                    cell.alignment = LEFT if col in ('Name', 'Course', 'Email_Id', 'Caller_name', 'Enrollment', 'Source', '_vert', '_team') else CENTER
+
+                            # Column widths
+                            for ci, col in enumerate(df.columns, 1):
+                                ws.column_dimensions[get_column_letter(ci)].width = COL_WIDTHS.get(col, 16)
+
+                            ws.freeze_panes = "A3"
+                            buf = io.BytesIO()
+                            wb.save(buf)
+                            return buf.getvalue()
+
+                        _dl_col1, _dl_col2, _ = st.columns([1, 1, 2])
+                        with _dl_col1:
                             st.download_button(
                                 label="📥 Download Revenue Update",
                                 data=_build_ru_excel(_rows_dl, _ru_heading),
                                 file_name=f"Revenue_Update_{display_start}_to_{display_end}.xlsx",
                                 mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                                 key='dl_rev_update_xlsx',
+                            )
+                        with _dl_col2:
+                            st.download_button(
+                                label="📥 Download Source Data",
+                                data=_build_ru_raw_excel(_dr_export, _ru_heading),
+                                file_name=f"Revenue_Source_{display_start}_to_{display_end}.xlsx",
+                                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                key='dl_rev_source_xlsx',
                             )
                         with _diff_col:
                             st.markdown(
