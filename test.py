@@ -5222,26 +5222,26 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                                 f"</tr>"
                             )
         
-                        _html = f"""
-        <div style='overflow-x:auto;margin:.5rem 0;max-width:700px;'>
-        <table style='width:100%;border-collapse:collapse;font-family:"DM Sans",sans-serif;'>
-        <thead>
-        <tr>
-          <th colspan='3' style='background:{_TITLE};color:#fff;text-align:center;
-              padding:8px 12px;font-size:.82rem;font-weight:700;letter-spacing:.4px;
-              border:2px solid {_TITLE};'>{_ru_heading}</th>
-        </tr>
-        <tr>
-          <th style='{_hs("text-align:left;width:58%;")}'>&nbsp;</th>
-          <th style='{_hs("text-align:right;width:26%;")}'> Revenue Split</th>
-          <th style='{_hs("text-align:right;width:16%;")}'> Enrollments</th>
-        </tr>
-        </thead>
-        <tbody>
-        """
-                     def _show(rev, enr=0):
-                            """True if at least one of rev/enr is non-zero."""
+                        def _show(rev, enr=0):
                             return (rev or 0) != 0 or (enr or 0) != 0
+
+                        _html = f"""
+    <div style='overflow-x:auto;margin:.5rem 0;max-width:700px;'>
+    <table style='width:100%;border-collapse:collapse;font-family:"DM Sans",sans-serif;'>
+    <thead>
+    <tr>
+      <th colspan='3' style='background:{_TITLE};color:#fff;text-align:center;
+          padding:8px 12px;font-size:.82rem;font-weight:700;letter-spacing:.4px;
+          border:2px solid {_TITLE};'>{_ru_heading}</th>
+    </tr>
+    <tr>
+      <th style='{_hs("text-align:left;width:58%;")}'>&nbsp;</th>
+      <th style='{_hs("text-align:right;width:26%;")}'> Revenue Split</th>
+      <th style='{_hs("text-align:right;width:16%;")}'> Enrollments</th>
+    </tr>
+    </thead>
+    <tbody>
+    """
 
                         # Old Sales
                         _html += _tr(_bs(), _bs(), "Old Sales team", _old_rev, _old_enr)
