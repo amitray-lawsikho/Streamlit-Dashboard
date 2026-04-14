@@ -5040,7 +5040,10 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         _cm_callers = {
                             k for k, v in _desig_map.items()
                             if str(v).strip().lower() == 'community manager'
-                        }
+                        }.union({
+                            k for k, v in _team_map.items()
+                            if 'community manager' in str(v).strip().lower()
+                        })
          
                         # ── tiny helpers ──────────────────────────────────────────────
                         def _sf(m):
@@ -5592,7 +5595,21 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         
                         with _raw_dl_col:
                             def to_excel_bytes_raw(df):
-                                _df = df.copy()
+                                _allowed_cols = [
+                                    "Date", "Name", "Contact_No", "Email_Id", "Course", "Fee_paid", 
+                                    "Caller_name", "Enrollment", "Source", "Course_Price", 
+                                    "LawSikho_Skill_Arbitrage", "Full_Installment", 
+                                    "Enrollment_of_this_month", "Rev_Month", "community_head", 
+                                    "updated_at", "updated_at_ampm", "merge_key", "is_new_enrollment", 
+                                    "is_balance_payment", "is_bootcamp_collection", 
+                                    "is_community_collection", "is_other_revenue", 
+                                    "is_empty_enrollment", "source_has_community", "is_new", 
+                                    "_vert", "_team"
+                                ]
+                                # Keep only allowed columns that actually exist in df
+                                _keep = [c for c in _allowed_cols if c in df.columns]
+                                _df = df[_keep].copy()
+                                
                                 # Excel doesn't support timezone-aware datetimes
                                 for col in _df.select_dtypes(include=['datetimetz']).columns:
                                     _df[col] = _df[col].dt.tz_localize(None)
