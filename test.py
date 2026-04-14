@@ -5239,79 +5239,79 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         </thead>
         <tbody>
         """
-                        def _show(rev, enr=0):
-                    """True if at least one of rev/enr is non-zero."""
-                    return (rev or 0) != 0 or (enr or 0) != 0
+                     def _show(rev, enr=0):
+                            """True if at least one of rev/enr is non-zero."""
+                            return (rev or 0) != 0 or (enr or 0) != 0
 
-                # Old Sales
-                    _html += _tr(_bs(), _bs(), "Old Sales team", _old_rev, _old_enr)
-                    for _tn, _td in _old_sub.items():
-                        if not _show(_td['rev'], _td['enr']): continue
-                        _lbl = _tn
-                        if _td['has_funnel']:
-                            _lbl = f"{_tn} ({_fnum(_td['funnel_rev'])} - Funnel included)"
-                        _html += _tr(_ss(), _ss(), _lbl, _td['rev'], _td['enr'])
-    
-                    # New Sales
-                    _html += _tr(_bs(), _bs(), "New Sales team", _ns_rev, _ns_enr)
-                    for _tn, _td in _ns_sub.items():
-                        if not _show(_td['rev'], _td['enr']): continue
-                        _html += _tr(_ss(), _ss(), _tn, _td['rev'], _td['enr'])
-    
-                    # Bootcamp
-                    if _show(_boot_rev, _boot_enr):
-                        _html += _tr(_bs(), _bs(), "Bootcamp booking fees", _boot_rev, _boot_enr)
-    
-                    # Mayur
-                    _html += _tr(_bs(), _bs(), "Mayur", _mayur_rev)
-                    if _show(_mayur_call_r, _mayur_call_e):
-                        _html += _tr(_ss(), _ss(), "Calling Revenue", _mayur_call_r, _mayur_call_e)
-                    if _show(_mayur_curr):
-                        _html += _tr(_ss(), _ss(), "Current month collections", _mayur_curr)
-                    if _show(_mayur_prev):
-                        _html += _tr(_ss(), _ss(), "Previous month collections", _mayur_prev)
-    
-                    # Anmol
-                    _html += _tr(_bs(), _bs(), "Anmol", _anmol_rev)
-                    if _show(_anmol_curr):
-                        _html += _tr(_ss(), _ss(), "Current month collections", _anmol_curr)
-                    if _show(_anmol_prev):
-                        _html += _tr(_ss(), _ss(), "Previous month collections", _anmol_prev)
-    
-                    # Deepanshi
-                    if _show(_dep_rev):
-                        _html += _tr(_bs(), _bs(), "Deepanshi (Previous balances)", _dep_rev)
-    
-                    # Collections
-                    _html += _tr(_bs(), _bs(), "Collections", _coll_rev)
-    
-                    # Community
-                    _html += _tr(_bs(), _bs(), "Community", _comm_rev)
-                    for _hk, _hd in _comm_heads.items():
-                        if not _show(_hd['total'], _hd['dir_e']): continue
-                        _html += _tr(_ss(), _ss(), _hd['full'], _hd['total'])
-                        if _show(_hd['dir_r'], _hd['dir_e']):
-                            _html += _tr(_ss2(), _ss2(), f"{_hd['full']} Community-Direct", _hd['dir_r'], _hd['dir_e'])
-                        if _show(_hd['curr']):
-                            _html += _tr(_ss2(), _ss2(), "Current month collections", _hd['curr'])
-                        if _show(_hd['prev']):
-                            _html += _tr(_ss2(), _ss2(), "Previous month collections", _hd['prev'])
-    
-                    # Direct-Funnel & Direct
-                    if _show(_dfunnel_rev):
-                        _html += _tr(_bs(), _bs(), "Direct-Funnel", _dfunnel_rev)
-                    if _show(_direct_rev):
-                        _html += _tr(_bs(), _bs(), "Direct", _direct_rev)
-    
-                    # Services
-                    _html += _tr(_bs(), _bs(), "Services", _ru_services_val)
-    
-                    # DNA
-                    if _show(_dna_rev):
-                        _html += _tr(_bs(), _bs(), "Lead Details not Available", _dna_rev)
-    
-                    # Total
-                    _html += _tr(_ts(), _ts(), "Total Revenue", _total_rev, _total_enr)
+                        # Old Sales
+                        _html += _tr(_bs(), _bs(), "Old Sales team", _old_rev, _old_enr)
+                        for _tn, _td in _old_sub.items():
+                            if not _show(_td['rev'], _td['enr']): continue
+                            _lbl = _tn
+                            if _td['has_funnel']:
+                                _lbl = f"{_tn} ({_fnum(_td['funnel_rev'])} - Funnel included)"
+                            _html += _tr(_ss(), _ss(), _lbl, _td['rev'], _td['enr'])
+
+                        # New Sales
+                        _html += _tr(_bs(), _bs(), "New Sales team", _ns_rev, _ns_enr)
+                        for _tn, _td in _ns_sub.items():
+                            if not _show(_td['rev'], _td['enr']): continue
+                            _html += _tr(_ss(), _ss(), _tn, _td['rev'], _td['enr'])
+
+                        # Bootcamp
+                        if _show(_boot_rev, _boot_enr):
+                            _html += _tr(_bs(), _bs(), "Bootcamp booking fees", _boot_rev, _boot_enr)
+
+                        # Mayur
+                        _html += _tr(_bs(), _bs(), "Mayur", _mayur_rev)
+                        if _show(_mayur_call_r, _mayur_call_e):
+                            _html += _tr(_ss(), _ss(), "Calling Revenue", _mayur_call_r, _mayur_call_e)
+                        if _show(_mayur_curr):
+                            _html += _tr(_ss(), _ss(), "Current month collections", _mayur_curr)
+                        if _show(_mayur_prev):
+                            _html += _tr(_ss(), _ss(), "Previous month collections", _mayur_prev)
+
+                        # Anmol
+                        _html += _tr(_bs(), _bs(), "Anmol", _anmol_rev)
+                        if _show(_anmol_curr):
+                            _html += _tr(_ss(), _ss(), "Current month collections", _anmol_curr)
+                        if _show(_anmol_prev):
+                            _html += _tr(_ss(), _ss(), "Previous month collections", _anmol_prev)
+
+                        # Deepanshi
+                        if _show(_dep_rev):
+                            _html += _tr(_bs(), _bs(), "Deepanshi (Previous balances)", _dep_rev)
+
+                        # Collections
+                        _html += _tr(_bs(), _bs(), "Collections", _coll_rev)
+
+                        # Community
+                        _html += _tr(_bs(), _bs(), "Community", _comm_rev)
+                        for _hk, _hd in _comm_heads.items():
+                            if not _show(_hd['total'], _hd['dir_e']): continue
+                            _html += _tr(_ss(), _ss(), _hd['full'], _hd['total'])
+                            if _show(_hd['dir_r'], _hd['dir_e']):
+                                _html += _tr(_ss2(), _ss2(), f"{_hd['full']} Community-Direct", _hd['dir_r'], _hd['dir_e'])
+                            if _show(_hd['curr']):
+                                _html += _tr(_ss2(), _ss2(), "Current month collections", _hd['curr'])
+                            if _show(_hd['prev']):
+                                _html += _tr(_ss2(), _ss2(), "Previous month collections", _hd['prev'])
+
+                        # Direct-Funnel & Direct
+                        if _show(_dfunnel_rev):
+                            _html += _tr(_bs(), _bs(), "Direct-Funnel", _dfunnel_rev)
+                        if _show(_direct_rev):
+                            _html += _tr(_bs(), _bs(), "Direct", _direct_rev)
+
+                        # Services
+                        _html += _tr(_bs(), _bs(), "Services", _ru_services_val)
+
+                        # DNA
+                        if _show(_dna_rev):
+                            _html += _tr(_bs(), _bs(), "Lead Details not Available", _dna_rev)
+
+                        # Total
+                        _html += _tr(_ts(), _ts(), "Total Revenue", _total_rev, _total_enr)
          
                         _html += "</tbody></table></div>"
          
