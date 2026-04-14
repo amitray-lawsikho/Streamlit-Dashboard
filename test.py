@@ -5087,7 +5087,19 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                             if 'Vertical' in _dedup_dt.columns and 'Team Name' in _dedup_dt.columns
                             else []
                         )
-                        _us_t  = [t for t in _ns_teams if 'us accounting' in t.lower() or 'us acc' in t.lower()]
+                        # US Accounting: ONLY teams under Deepanshi's vertical (excludes Uzair's US teams)
+                        if 'Vertical' in _dedup_dt.columns and 'Team Name' in _dedup_dt.columns:
+                            _deepanshi_teams = (
+                                _dedup_dt[
+                                    _dedup_dt['Vertical'].astype(str).str.contains('Deepanshi', case=False, na=False)
+                                ]['Team Name'].dropna().unique().tolist()
+                            )
+                        else:
+                            _deepanshi_teams = []
+                        _us_t = [
+                            t for t in _deepanshi_teams
+                            if 'us accounting' in t.lower() or 'us acc' in t.lower()
+                        ]
 
                         # Split ID teams: those whose Vertical contains "Anmol" vs those that don't
                         _all_id_t = [t for t in _ns_teams
