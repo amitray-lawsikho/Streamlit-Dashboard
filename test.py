@@ -4981,13 +4981,18 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         # This ensures resigned callers whose most-recent sheet row has a blank/different
                         # team (post-resignation update) still get their original team mapping.
                         if 'merge_key' in _dt.columns and 'Team Name' in _dt.columns:
+                            _dt['_clean_team'] = _dt['Team Name'].astype(str).str.strip().str.lower()
                             _dt_has_team = _dt[
-                                _dt['Team Name'].astype(str).str.strip().fillna('').ne('')
+                                (_dt['_clean_team'] != '') &
+                                (_dt['_clean_team'] != 'nan') &
+                                (_dt['_clean_team'] != 'none')
                             ].drop_duplicates(subset='merge_key', keep='first')
                             _dt_fallback = _dt[
                                 ~_dt['merge_key'].isin(_dt_has_team['merge_key'])
                             ].drop_duplicates(subset='merge_key', keep='first')
                             _dedup_dt = pd.concat([_dt_has_team, _dt_fallback], ignore_index=True)
+                            if '_clean_team' in _dedup_dt.columns:
+                                _dedup_dt = _dedup_dt.drop(columns=['_clean_team'])
                         else:
                             _dedup_dt = (
                                 _dt.drop_duplicates(subset='merge_key', keep='first')
