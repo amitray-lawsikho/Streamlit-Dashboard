@@ -5226,7 +5226,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                             return (rev or 0) != 0 or (enr or 0) != 0
 
                         _html = f"""
-    <div style='overflow-x:auto;margin:.5rem 0;max-width:700px;'>
+    <div style='overflow-x:auto;margin:.5rem auto;max-width:720px;'>
     <table style='width:100%;border-collapse:collapse;font-family:"DM Sans",sans-serif;'>
     <thead>
     <tr>
@@ -5373,16 +5373,86 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         _rows_dl.append({"Category": "Total Revenue", "Sub-category": "",
                                           "Revenue Split": int(round(_total_rev)), "Enrollments": _total_enr or ""})
          
-                        st.markdown("<div style='margin-top:.6rem;max-width:700px;'>", unsafe_allow_html=True)
-                        st.download_button(
-                            label="📥 Download Revenue Update (CSV)",
-                            data=pd.DataFrame(_rows_dl).to_csv(index=False).encode('utf-8'),
-                            file_name=f"Revenue_Update_{display_start}_to_{display_end}.csv",
-                            mime='text/csv',
-                            key='dl_rev_update_csv',
-                            use_container_width=True,
-                        )
-                        st.markdown("</div>", unsafe_allow_html=True)
+                        def _build_ru_excel(rows, heading):
+                            TITLE_FILL = PatternFill("solid", start_color="1c3a5f", end_color="1c3a5f")
+                            HDR_FILL   = PatternFill("solid", start_color="1e4d6b", end_color="1e4d6b")
+                            SEC_FILL   = PatternFill("solid", start_color="dbeafe", end_color="dbeafe")
+                            SUB_FILL   = PatternFill("solid", start_color="ffffff", end_color="ffffff")
+                            SUB2_FILL  = PatternFill("solid", start_color="f8faff", end_color="f8faff")
+                            TOT_FILL   = PatternFill("solid", start_color="1c3a5f", end_color="1c3a5f")
+                            W_FONT     = Font(bold=True, color="FFFFFF", name="Arial", size=9)
+                            S_FONT     = Font(bold=True, color="0d2137", name="Arial", size=9)
+                            D_FONT     = Font(name="Arial", size=9, color="1a1a2e")
+                            CENTER     = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                            LEFT       = Alignment(horizontal='left',   vertical='center')
+                            RIGHT      = Alignment(horizontal='right',  vertical='center')
+                            BDR        = Border(
+                                left=Side(style='thin', color='bfdbfe'),
+                                right=Side(style='thin', color='bfdbfe'),
+                                top=Side(style='thin', color='bfdbfe'),
+                                bottom=Side(style='thin', color='bfdbfe'),
+                            )
+                            wb = Workbook(); ws = wb.active; ws.title = "Revenue Update"
+                            ws.merge_cells("A1:C1")
+                            tc = ws["A1"]
+                            tc.value = heading
+                            tc.fill  = TITLE_FILL
+                            tc.font  = Font(bold=True, color="FFFFFF", name="Arial", size=11)
+                            tc.alignment = CENTER; tc.border = BDR
+                            ws.row_dimensions[1].height = 26
+                            for ci, h in enumerate(["CATEGORY / SUB-CATEGORY", "REVENUE SPLIT (₹)", "ENROLLMENTS"], 1):
+                                c = ws.cell(2, ci, h)
+                                c.fill = HDR_FILL; c.font = W_FONT; c.border = BDR
+                                c.alignment = LEFT if ci == 1 else CENTER
+                            ws.row_dimensions[2].height = 20
+                            for ri, row in enumerate(rows, 3):
+                                cat  = str(row.get("Category", "")).strip()
+                                sub  = str(row.get("Sub-category", "")).strip()
+                                rev  = row.get("Revenue Split", "")
+                                enr  = row.get("Enrollments", "")
+                                is_total   = cat == "Total Revenue"
+                                is_section = cat != "" and sub == ""
+                                is_sub2    = sub.startswith("  ")
+                                label      = cat if (is_section or is_total) else sub.strip()
+                                indent     = "" if (is_section or is_total) else ("      " if is_sub2 else "   ")
+                                if is_total:
+                                    fill, lfont, nfont = TOT_FILL, W_FONT, W_FONT
+                                elif is_section:
+                                    fill, lfont, nfont = SEC_FILL, S_FONT, S_FONT
+                                elif is_sub2:
+                                    fill, lfont, nfont = SUB2_FILL, D_FONT, D_FONT
+                                else:
+                                    fill, lfont, nfont = SUB_FILL, D_FONT, D_FONT
+                                lc = ws.cell(ri, 1, indent + label)
+                                lc.fill = fill; lc.font = lfont; lc.alignment = LEFT; lc.border = BDR
+                                try:
+                                    rev_v = int(str(rev).replace(",","")) if str(rev).strip() else ""
+                                except Exception:
+                                    rev_v = str(rev)
+                                rc = ws.cell(ri, 2, rev_v)
+                                rc.fill = fill; rc.font = nfont; rc.alignment = RIGHT; rc.border = BDR
+                                if isinstance(rev_v, int): rc.number_format = '#,##0'
+                                try:
+                                    enr_v = int(str(enr)) if str(enr).strip() not in ("", "0") else ""
+                                except Exception:
+                                    enr_v = ""
+                                ec = ws.cell(ri, 3, enr_v)
+                                ec.fill = fill; ec.font = nfont; ec.alignment = RIGHT; ec.border = BDR
+                            ws.column_dimensions["A"].width = 44
+                            ws.column_dimensions["B"].width = 22
+                            ws.column_dimensions["C"].width = 14
+                            ws.freeze_panes = "A3"
+                            buf = io.BytesIO(); wb.save(buf); return buf.getvalue()
+
+                        _dl_col, _ = st.columns([1, 3])
+                        with _dl_col:
+                            st.download_button(
+                                label="📥 Download Revenue Update",
+                                data=_build_ru_excel(_rows_dl, _ru_heading),
+                                file_name=f"Revenue_Update_{display_start}_to_{display_end}.xlsx",
+                                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                                key='dl_rev_update_xlsx',
+                            )
                         
 def run_leads_dashboard():
     st.markdown("""
