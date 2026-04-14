@@ -5675,7 +5675,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                             wb.save(buf)
                             return buf.getvalue()
 
-                        _dl_col1, _dl_col2, _ = st.columns([1, 1, 2])
+                        _dl_col1, _dl_col2 = st.columns([1, 1])
                         with _dl_col1:
                             st.download_button(
                                 label="📥 Download Revenue Update",
@@ -5692,7 +5692,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                                 mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                                 key='dl_rev_source_xlsx',
                             )
-                        with _diff_col:
+                        with _dl_col2:
                             st.markdown(
                                 f"""
                                 <div style='display:flex;align-items:center;height:100%;padding-top:.25rem;'>
