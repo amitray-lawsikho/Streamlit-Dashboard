@@ -5374,6 +5374,10 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                             if not _show(_td['rev'], _td['enr']): continue
                             _html += _tr(_ss(), _ss(), _tn, _td['rev'], _td['enr'])
 
+                        # Bootcamp
+                        if _show(_boot_rev, _boot_enr):
+                            _html += _tr(_bs(), _bs(), "Bootcamp booking fees", _boot_rev, _boot_enr)
+
                         # Mayur
                         _html += _tr(_bs(), _bs(), "Mayur", _mayur_rev)
                         if _show(_mayur_call_r, _mayur_call_e):
@@ -5394,10 +5398,10 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         if _show(_dep_rev):
                             _html += _tr(_bs(), _bs(), "Deepanshi (Previous balances)", _dep_rev)
 
-                        # Collections
                         _html += _tr(_bs(), _bs(), "Collections", _coll_rev)
-                        if _show(_boot_rev, _boot_enr):
-                            _html += _tr(_ss(), _ss(), "Bootcamp booking fees", _boot_rev, _boot_enr)
+
+                        # Community
+
 
                         # Community
                         _html += _tr(_bs(), _bs(), "Community", _comm_rev)
@@ -5445,6 +5449,8 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         for _tn, _td in _ns_sub.items():
                             _rows_dl.append({"Category": "", "Sub-category": _tn,
                                              "Revenue Split": int(round(_td['rev'])), "Enrollments": _td['enr'] or ""})
+                        _rows_dl.append({"Category": "Bootcamp booking fees", "Sub-category": "",
+                                          "Revenue Split": int(round(_boot_rev)), "Enrollments": _boot_enr or ""})
                         _rows_dl.append({"Category": "Mayur", "Sub-category": "",
                                           "Revenue Split": int(round(_mayur_rev)), "Enrollments": ""})
                         _rows_dl.append({"Category": "", "Sub-category": "Calling Revenue",
@@ -5463,8 +5469,6 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                                           "Revenue Split": int(round(_dep_rev)), "Enrollments": ""})
                         _rows_dl.append({"Category": "Collections", "Sub-category": "",
                                           "Revenue Split": int(round(_coll_rev)), "Enrollments": ""})
-                        _rows_dl.append({"Category": "", "Sub-category": "Bootcamp booking fees",
-                                          "Revenue Split": int(round(_boot_rev)), "Enrollments": _boot_enr or ""})
                         _rows_dl.append({"Category": "Community", "Sub-category": "",
                                           "Revenue Split": int(round(_comm_rev)), "Enrollments": ""})
                         for _hk, _hd in _comm_heads.items():
