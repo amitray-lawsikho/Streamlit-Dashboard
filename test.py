@@ -5592,9 +5592,14 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         
                         with _raw_dl_col:
                             def to_excel_bytes_raw(df):
+                                _df = df.copy()
+                                # Excel doesn't support timezone-aware datetimes
+                                for col in _df.select_dtypes(include=['datetimetz']).columns:
+                                    _df[col] = _df[col].dt.tz_localize(None)
+                                    
                                 output = io.BytesIO()
                                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                                    df.to_excel(writer, index=False, sheet_name='Raw Revenue Data')
+                                    _df.to_excel(writer, index=False, sheet_name='Raw Revenue Data')
                                 return output.getvalue()
                             
                             st.download_button(
