@@ -5172,45 +5172,45 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
          
                         # ── Render HTML table ─────────────────────────────────────────
                         _TITLE  = "#1c3a5f"
-                        _COLHDR = "#2d6a4f"
-                        _BOLD   = "#d4e9f7"
+                        _COLHDR = "#1e4d6b"
+                        _BOLD   = "#dbeafe"
                         _SUB    = "#ffffff"
-                        _SUB2   = "#f0f7ff"
+                        _SUB2   = "#f8faff"
                         _TOTAL  = "#1c3a5f"
                         _TBOLD  = "#0d2137"
-         
+        
                         def _hs(extra=""):
                             return (
-                                f"background:{_COLHDR};color:#fff;font-size:.78rem;"
-                                f"font-weight:700;padding:8px 14px;border:1px solid #1a4d3a;{extra}"
+                                f"background:{_COLHDR};color:#fff;font-size:.72rem;"
+                                f"font-weight:700;padding:5px 10px;border:1px solid #163d5a;{extra}"
                             )
-         
+        
                         def _bs(extra=""):
                             return (
                                 f"background:{_BOLD};color:{_TBOLD};font-weight:700;"
-                                f"font-size:.8rem;padding:6px 12px;border:1px solid #b8d4e8;{extra}"
+                                f"font-size:.75rem;padding:4px 8px;border:1px solid #bfdbfe;{extra}"
                             )
-         
+        
                         def _ss(extra=""):
                             return (
-                                f"background:{_SUB};color:#1a1a2e;font-size:.77rem;"
-                                f"padding:5px 12px 5px 28px;border:1px solid #e0ecf5;{extra}"
+                                f"background:{_SUB};color:#1a1a2e;font-size:.73rem;"
+                                f"padding:3px 8px 3px 22px;border:1px solid #e8f0fe;{extra}"
                             )
-         
+        
                         def _ss2(extra=""):
                             return (
-                                f"background:{_SUB2};color:#1a1a2e;font-size:.76rem;"
-                                f"padding:5px 12px 5px 44px;border:1px solid #e0ecf5;{extra}"
+                                f"background:{_SUB2};color:#1a1a2e;font-size:.71rem;"
+                                f"padding:3px 8px 3px 36px;border:1px solid #e8f0fe;{extra}"
                             )
-         
+        
                         def _ts(extra=""):
                             return (
                                 f"background:{_TOTAL};color:#fff;font-weight:700;"
-                                f"font-size:.82rem;padding:8px 12px;border:1px solid #0d2137;{extra}"
+                                f"font-size:.76rem;padding:5px 8px;border:1px solid #0d2137;{extra}"
                             )
-         
-                        _NR = "text-align:right;font-family:'DM Mono',monospace;"
-         
+        
+                        _NR = "text-align:right;font-family:'DM Mono',monospace;min-width:90px;"
+        
                         def _tr(lbl_css, num_css, label, rev=None, enr=None):
                             rv = _fnum(rev) if rev is not None else ""
                             en = _fenr(enr) if enr is not None else ""
@@ -5221,77 +5221,97 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                                 f"<td style='{num_css}{_NR}'>{en}</td>"
                                 f"</tr>"
                             )
-         
+        
                         _html = f"""
-        <div style='overflow-x:auto;margin:1rem 0;'>
+        <div style='overflow-x:auto;margin:.5rem 0;max-width:700px;'>
         <table style='width:100%;border-collapse:collapse;font-family:"DM Sans",sans-serif;'>
         <thead>
         <tr>
           <th colspan='3' style='background:{_TITLE};color:#fff;text-align:center;
-              padding:12px 16px;font-size:.92rem;font-weight:700;letter-spacing:.5px;
+              padding:8px 12px;font-size:.82rem;font-weight:700;letter-spacing:.4px;
               border:2px solid {_TITLE};'>{_ru_heading}</th>
         </tr>
         <tr>
-          <th style='{_hs("text-align:left;width:55%;")}'>&nbsp;</th>
-          <th style='{_hs("text-align:right;width:25%;")}'> Revenue Split</th>
-          <th style='{_hs("text-align:right;width:20%;")}'> Enrollments</th>
+          <th style='{_hs("text-align:left;width:58%;")}'>&nbsp;</th>
+          <th style='{_hs("text-align:right;width:26%;")}'> Revenue Split</th>
+          <th style='{_hs("text-align:right;width:16%;")}'> Enrollments</th>
         </tr>
         </thead>
         <tbody>
         """
-                        # Old Sales
-                        _html += _tr(_bs(), _bs(), "Old Sales team", _old_rev, _old_enr)
-                        for _tn, _td in _old_sub.items():
-                            _lbl = _tn
-                            if _td['has_funnel']:
-                                _lbl = f"{_tn} ({_fnum(_td['funnel_rev'])} - Funnel included)"
-                            _html += _tr(_ss(), _ss(), _lbl, _td['rev'], _td['enr'])
-         
-                        # New Sales
-                        _html += _tr(_bs(), _bs(), "New Sales team", _ns_rev, _ns_enr)
-                        for _tn, _td in _ns_sub.items():
-                            _html += _tr(_ss(), _ss(), _tn, _td['rev'], _td['enr'])
-         
-                        # Bootcamp
+                        def _show(rev, enr=0):
+                    """True if at least one of rev/enr is non-zero."""
+                    return (rev or 0) != 0 or (enr or 0) != 0
+
+                # Old Sales
+                    _html += _tr(_bs(), _bs(), "Old Sales team", _old_rev, _old_enr)
+                    for _tn, _td in _old_sub.items():
+                        if not _show(_td['rev'], _td['enr']): continue
+                        _lbl = _tn
+                        if _td['has_funnel']:
+                            _lbl = f"{_tn} ({_fnum(_td['funnel_rev'])} - Funnel included)"
+                        _html += _tr(_ss(), _ss(), _lbl, _td['rev'], _td['enr'])
+    
+                    # New Sales
+                    _html += _tr(_bs(), _bs(), "New Sales team", _ns_rev, _ns_enr)
+                    for _tn, _td in _ns_sub.items():
+                        if not _show(_td['rev'], _td['enr']): continue
+                        _html += _tr(_ss(), _ss(), _tn, _td['rev'], _td['enr'])
+    
+                    # Bootcamp
+                    if _show(_boot_rev, _boot_enr):
                         _html += _tr(_bs(), _bs(), "Bootcamp booking fees", _boot_rev, _boot_enr)
-         
-                        # Mayur
-                        _html += _tr(_bs(), _bs(), "Mayur", _mayur_rev)
-                        _html += _tr(_ss(), _ss(), "Calling Revenue",           _mayur_call_r, _mayur_call_e)
-                        _html += _tr(_ss(), _ss(), "Current month collections",  _mayur_curr)
+    
+                    # Mayur
+                    _html += _tr(_bs(), _bs(), "Mayur", _mayur_rev)
+                    if _show(_mayur_call_r, _mayur_call_e):
+                        _html += _tr(_ss(), _ss(), "Calling Revenue", _mayur_call_r, _mayur_call_e)
+                    if _show(_mayur_curr):
+                        _html += _tr(_ss(), _ss(), "Current month collections", _mayur_curr)
+                    if _show(_mayur_prev):
                         _html += _tr(_ss(), _ss(), "Previous month collections", _mayur_prev)
-         
-                        # Anmol
-                        _html += _tr(_bs(), _bs(), "Anmol", _anmol_rev)
-                        _html += _tr(_ss(), _ss(), "Current month collections",  _anmol_curr)
+    
+                    # Anmol
+                    _html += _tr(_bs(), _bs(), "Anmol", _anmol_rev)
+                    if _show(_anmol_curr):
+                        _html += _tr(_ss(), _ss(), "Current month collections", _anmol_curr)
+                    if _show(_anmol_prev):
                         _html += _tr(_ss(), _ss(), "Previous month collections", _anmol_prev)
-         
-                        # Deepanshi
+    
+                    # Deepanshi
+                    if _show(_dep_rev):
                         _html += _tr(_bs(), _bs(), "Deepanshi (Previous balances)", _dep_rev)
-         
-                        # Collections
-                        _html += _tr(_bs(), _bs(), "Collections", _coll_rev)
-         
-                        # Community
-                        _html += _tr(_bs(), _bs(), "Community", _comm_rev)
-                        for _hk, _hd in _comm_heads.items():
-                            _html += _tr(_ss(),  _ss(),  _hd['full'],                               _hd['total'])
-                            _html += _tr(_ss2(), _ss2(), f"{_hd['full']} Community-Direct",          _hd['dir_r'],   _hd['dir_e'])
-                            _html += _tr(_ss2(), _ss2(), "Current month collections",                _hd['curr'])
-                            _html += _tr(_ss2(), _ss2(), "Previous month collections",               _hd['prev'])
-         
-                        # Direct-Funnel & Direct
-                        _html += _tr(_bs(), _bs(), "Direct-Funnel",                _dfunnel_rev)
-                        _html += _tr(_bs(), _bs(), "Direct",                        _direct_rev)
-         
-                        # Services
-                        _html += _tr(_bs(), _bs(), "Services",                      _ru_services_val)
-         
-                        # DNA
-                        _html += _tr(_bs(), _bs(), "Lead Details not Available",    _dna_rev)
-         
-                        # Total
-                        _html += _tr(_ts(), _ts(), "Total Revenue", _total_rev, _total_enr)
+    
+                    # Collections
+                    _html += _tr(_bs(), _bs(), "Collections", _coll_rev)
+    
+                    # Community
+                    _html += _tr(_bs(), _bs(), "Community", _comm_rev)
+                    for _hk, _hd in _comm_heads.items():
+                        if not _show(_hd['total'], _hd['dir_e']): continue
+                        _html += _tr(_ss(), _ss(), _hd['full'], _hd['total'])
+                        if _show(_hd['dir_r'], _hd['dir_e']):
+                            _html += _tr(_ss2(), _ss2(), f"{_hd['full']} Community-Direct", _hd['dir_r'], _hd['dir_e'])
+                        if _show(_hd['curr']):
+                            _html += _tr(_ss2(), _ss2(), "Current month collections", _hd['curr'])
+                        if _show(_hd['prev']):
+                            _html += _tr(_ss2(), _ss2(), "Previous month collections", _hd['prev'])
+    
+                    # Direct-Funnel & Direct
+                    if _show(_dfunnel_rev):
+                        _html += _tr(_bs(), _bs(), "Direct-Funnel", _dfunnel_rev)
+                    if _show(_direct_rev):
+                        _html += _tr(_bs(), _bs(), "Direct", _direct_rev)
+    
+                    # Services
+                    _html += _tr(_bs(), _bs(), "Services", _ru_services_val)
+    
+                    # DNA
+                    if _show(_dna_rev):
+                        _html += _tr(_bs(), _bs(), "Lead Details not Available", _dna_rev)
+    
+                    # Total
+                    _html += _tr(_ts(), _ts(), "Total Revenue", _total_rev, _total_enr)
          
                         _html += "</tbody></table></div>"
          
@@ -5353,13 +5373,16 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         _rows_dl.append({"Category": "Total Revenue", "Sub-category": "",
                                           "Revenue Split": int(round(_total_rev)), "Enrollments": _total_enr or ""})
          
+                        st.markdown("<div style='margin-top:.6rem;max-width:700px;'>", unsafe_allow_html=True)
                         st.download_button(
                             label="📥 Download Revenue Update (CSV)",
                             data=pd.DataFrame(_rows_dl).to_csv(index=False).encode('utf-8'),
                             file_name=f"Revenue_Update_{display_start}_to_{display_end}.csv",
                             mime='text/csv',
                             key='dl_rev_update_csv',
+                            use_container_width=True,
                         )
+                        st.markdown("</div>", unsafe_allow_html=True)
                         
 def run_leads_dashboard():
     st.markdown("""
