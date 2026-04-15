@@ -5367,11 +5367,10 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         # Deepanshi
                         if _show(_dep_rev):
                             _html += _tr(_bs(), _bs(), "Deepanshi (Previous balances)", _dep_rev)
+                            _html += _tr(_bs(), _bs(), "Collections", _coll_rev)
 
-                       _html += _tr(_bs(), _bs(), "Collections", _coll_rev)
-
-                        # Community
-                        _html += _tr(_bs(), _bs(), "Community", _comm_rev)
+                            # Community
+                            _html += _tr(_bs(), _bs(), "Community", _comm_rev)
                         for _hk, _hd in _comm_heads.items():
                             if not _show(_hd['total'], _hd['dir_e']): continue
                             _html += _tr(_ss(), _ss(), _hd['full'], _hd['total'])
