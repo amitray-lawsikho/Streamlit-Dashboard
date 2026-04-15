@@ -5529,12 +5529,93 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                             buf = io.BytesIO(); wb.save(buf); return buf.getvalue()
 
                         # ── Raw source data download ──────────────────────────────
+                        # ── Segment classification ────────────────────────────────
+                        _seg_team = pd.Series('', index=_dr.index, dtype=str)
+                        _seg_sub  = pd.Series('', index=_dr.index, dtype=str)
+
+                        # Bootcamp booking fees
+                        _seg_team[_boot_m] = 'Bootcamp booking fees'
+
+                        # Mayur — bootcamp collections + calling
+                        _m_bc = _chm & (_enr_l == 'bootcamp collections - balance payments')
+                        _seg_team[_m_bc] = 'Mayur'
+                        _seg_sub[_m_bc & (_eotm == 'yes')] = 'Current month collections'
+                        _seg_sub[_m_bc & (_eotm == 'no')]  = 'Previous month collections'
+                        _m_call = _chm & _enr_l.isin(['new enrollment', 'new enrollment - balance payment'])
+                        _seg_team[_m_call] = 'Mayur'
+                        _seg_sub[_m_call]  = 'Calling Revenue'
+
+                        # Anmol — bootcamp collections
+                        _a_bc = _anm_m & (_enr_l == 'bootcamp collections - balance payments') & ~_chm
+                        _seg_team[_a_bc] = 'Anmol'
+                        _seg_sub[_a_bc & (_eotm == 'yes')] = 'Current month collections'
+                        _seg_sub[_a_bc & (_eotm == 'no')]  = 'Previous month collections'
+
+                        # Deepanshi — bootcamp collections
+                        _d_bc = _dep_m & (_enr_l == 'bootcamp collections - balance payments') & ~_chm
+                        _seg_team[_d_bc] = 'Deepanshi (Previous balances)'
+
+                        # Old Sales team
+                        _old_seg = _uzair_m & _old_enr_f
+                        _seg_team[_old_seg] = 'Old Sales team'
+                        for _st in _corp_t:
+                            _seg_sub[_old_seg & (_dr['_team'] == _st)] = 'Corporate Law'
+                        for _st in _ncorp_t:
+                            _seg_sub[_old_seg & (_dr['_team'] == _st)] = _st
+
+                        # New Sales team
+                        _ns_seg = _ns_m & ~_ns_excl & ~_chm
+                        _seg_team[_ns_seg] = 'New Sales team'
+                        if _us_t:
+                            _seg_sub[_ns_seg & _dr['_team'].isin(_us_t)] = 'US Accounting'
+                        if _id_anmol_t:
+                            _seg_sub[_ns_seg & _dr['_team'].isin(_id_anmol_t)] = 'ID-Anmol'
+                        if _id_t:
+                            _seg_sub[_ns_seg & _dr['_team'].isin(_id_t)] = 'ID'
+                        if _dsv_t:
+                            _seg_sub[_ns_seg & _dr['_team'].isin(_dsv_t)] = 'DSV'
+                        for _st in _oth_t:
+                            _seg_sub[_ns_seg & (_dr['_team'] == _st)] = _st
+
+                        # Community Manager callers (Abhipsha extra)
+                        _cm_seg = _caller_l.isin(_cm_callers)
+                        _seg_team[_cm_seg] = 'Community'
+                        _seg_sub[_cm_seg]  = 'Abhipsha (Community Managers)'
+
+                        # Community source rows (excluding nd_new already in NS/OS)
+                        _src_c_seg = _src_l.str.contains('community', na=False)
+                        _nd_excl   = _src_c_seg & ~_caller_l.isin(['direct', 'bootcamp - direct']) & _enr_l.isin(['new enrollment', 'new enrollment - balance payment'])
+                        _comm_seg  = _src_c_seg & ~_nd_excl & ~_cm_seg
+                        _seg_team[_comm_seg] = 'Community'
+                        for _hkw2, _hfull2 in [('komal','Komal Shah'),('jayantika','Jayantika Ganguly'),('garima','Garima'),('abhipsha','Abhipsha')]:
+                            _hm2 = _ch_l.str.contains(_hkw2, case=False, na=False)
+                            _seg_sub[_comm_seg & _hm2 & (_enr_l == 'other revenue')] = _hfull2
+                            _seg_sub[_comm_seg & _hm2 & (_caller_l == 'direct') & (_enr_l == 'new enrollment')] = f'{_hfull2} — Community-Direct'
+                            _seg_sub[_comm_seg & _hm2 & (_enr_l == 'community collections - balance payments') & (_eotm == 'yes')] = f'{_hfull2} — Current month collections'
+                            _seg_sub[_comm_seg & _hm2 & (_enr_l == 'community collections - balance payments') & (_eotm == 'no')] = f'{_hfull2} — Previous month collections'
+
+                        # Direct-Funnel
+                        _df_seg = _src_l.str.contains('funnel', na=False) & (_caller_l == 'direct') & _enr_l.isin(['new enrollment', 'new enrollment - balance payment', 'other revenue'])
+                        _seg_team[_df_seg] = 'Direct-Funnel'
+
+                        # Direct
+                        _dir_seg = ~_src_l.str.contains('funnel', na=False) & ~_src_l.str.contains('community', na=False) & (_caller_l == 'direct') & _enr_l.isin(['new enrollment', 'new enrollment - balance payment', 'other revenue'])
+                        _seg_team[_dir_seg] = 'Direct'
+
+                        # DNA / Lead Details not Available
+                        _seg_team[_dna_m] = 'Lead Details not Available'
+
+                        _dr['Considered under Team']     = _seg_team.values
+                        _dr['Considered under Sub-Team'] = _seg_sub.values
+
+                        # ── Raw source data download ──────────────────────────────
                         _EXPORT_COLS = [
                             'Date', 'Name', 'Contact_No', 'Email_Id', 'Course',
                             'Fee_paid', 'Caller_name', 'Enrollment', 'Source',
                             'Course_Price', 'LawSikho_Skill_Arbitrage',
                             'Full_Installment', 'Enrollment_of_this_month',
                             '_vert', '_team',
+                            'Considered under Team', 'Considered under Sub-Team',
                         ]
                         _dr_export = _dr.copy()
 
@@ -5574,6 +5655,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                                 'Course_Price': 14, 'LawSikho_Skill_Arbitrage': 18,
                                 'Full_Installment': 16, 'Enrollment_of_this_month': 20,
                                 '_vert': 18, '_team': 22,
+                                'Considered under Team': 26, 'Considered under Sub-Team': 32,
                             }
                             wb = Workbook()
                             ws = wb.active
@@ -5621,7 +5703,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                                     cell.fill = fill
                                     cell.font = DATA_FONT
                                     cell.border = BORDER
-                                    cell.alignment = LEFT if col in ('Name', 'Course', 'Email_Id', 'Caller_name', 'Enrollment', 'Source', '_vert', '_team') else CENTER
+                                    cell.alignment = LEFT if col in ('Name', 'Course', 'Email_Id', 'Caller_name', 'Enrollment', 'Source', '_vert', '_team', 'Considered under Team', 'Considered under Sub-Team') else CENTER
 
                             # Column widths
                             for ci, col in enumerate(df.columns, 1):
