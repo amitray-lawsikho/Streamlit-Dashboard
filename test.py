@@ -6006,12 +6006,12 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                                 _rev_yst_v = float(_tva_rev_yst.loc[_yf, 'Fee_paid'].sum())
                                 _enr_yst_v = int((_tva_rev_yst.loc[_yf, 'Enrollment'].astype(str).str.strip().str.lower() == 'new enrollment').sum())
 
-                            # Exclude if both target=0 and revenue=0
-                            if _tgt_v == 0.0 and _rev_mtd_v == 0.0:
+                            # Exclude if both target<=0 and revenue<=0
+                            if _tgt_v <= 0 and _rev_mtd_v <= 0:
                                 continue
 
                             _till_v    = round((_tgt_v / 20) * _tva_wd_val) if _tgt_v > 0 else 0
-                            _pct_v     = round(_rev_mtd_v / _tgt_v * 100) if _tgt_v > 0 else 0
+                            _pct_v     = round(_rev_mtd_v / _tgt_v * 100) if _tgt_v > 0 else (100 if _rev_mtd_v > 0 else 0)
                             _deficit_v = _till_v - _rev_mtd_v
                             _pend_v    = _pending_map_tva.get(_cnl, 0)
 
