@@ -4914,27 +4914,6 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                     _ru_services_ok = False
             st.caption(f"Services value: ₹{int(_ru_services_val):,}")
 
-            # ── Total Revenue Till Today Input ──────────────────────────────
-            st.markdown("""
-            <div style='background:rgba(59,130,246,.07);border:1px solid rgba(59,130,246,.2);
-                        border-radius:10px;padding:.9rem 1.2rem;margin-bottom:.9rem;margin-top:.4rem;'>
-                <div style='font-size:.82rem;font-weight:700;color:#3B82F6;margin-bottom:.3rem;'>
-                    📊 TOTAL REVENUE TILL TODAY
-                </div>
-                <div style='font-size:.76rem;color:var(--text-muted,#6B7280);'>
-                    Enter the total revenue figure from the Manager's/Finance report for today.
-                    Required to compute the Difference in Revenue.
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            total_rev_raw = st.text_input(
-                "Total Revenue Till Today (₹)",
-                placeholder="e.g. 1231000  or  12,31,000  or  12,31,000.50",
-                key="ru_total_rev_input",
-                help="Numbers, commas and dots only. Commas are stripped; decimals are rounded.",
-            )
-
             # Parse & validate Total Revenue Till Today
             _ru_total_rev_val = 0.0
             _ru_total_rev_ok  = True
