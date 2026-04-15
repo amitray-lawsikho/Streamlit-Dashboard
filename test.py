@@ -5181,15 +5181,15 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         _coll_rev = _boot_rev + _mayur_rev + _anmol_rev + _dep_rev
          
                         # ─── COMMUNITY (total) ──────────────────────────────────────────
-                        __src_comm    = _src_l.str.contains('community', na=False)
-                        _comm_all    = _sf(_src_comm)
-                        _comm_nd_new = _sf(
+                        _src_comm     = _src_l.str.contains('community', na=False)
+                        _comm_all     = _sf(_src_comm)
+                        _comm_nd_new  = _sf(
                             _src_comm
                             & ~_caller_l.isin(['direct', 'bootcamp - direct'])
                             & _enr_l.isin(['new enrollment', 'new enrollment - balance payment'])
-                        ) 
+                        )
                         _cm_extra_rev = _sf(_caller_l.isin(_cm_callers))
-                        _comm_rev    = _comm_all - _comm_nd_new + _cm_extra_rev
+                        _comm_rev     = _comm_all - _comm_nd_new + _cm_extra_rev
          
                         # ─── COMMUNITY HEADS ────────────────────────────────────────────
                         _comm_heads = {}
