@@ -4147,11 +4147,12 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
     </div>
     """, unsafe_allow_html=True)
 
-    tab1, tab2, tab3, tab4 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
     "💰 Revenue Dashboard",
     "🧠 Insights & Leaderboard",
     "📊 Callerwise Pending Revenue",
     "📋 Revenue Update",
+    "🎯 Target Vs Achievement",
 ])
 
     with tab1:
@@ -5825,8 +5826,372 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                                 key='dl_rev_source_xlsx',
                                 width='stretch',
                             )
-                        
-                        
+
+    with tab5:
+        gen_tva = st.button("🎯 Generate Target Vs Achievement", key="rev_tva_btn", width='content')
+
+        st.markdown("""
+        <div style='background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.2);
+                    border-radius:10px;padding:.9rem 1.2rem;margin-bottom:.9rem;'>
+            <div style='font-size:.82rem;font-weight:700;color:#10B981;margin-bottom:.3rem;'>
+                📅 WORKING DAYS INPUT
+            </div>
+            <div style='font-size:.76rem;color:var(--text-muted,#6B7280);'>
+                Please enter the number of working days of this month.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        _tva_wd_raw = st.text_input(
+            "Number of Working Days",
+            placeholder="e.g. 20",
+            key="tva_working_days_input",
+            help="Enter a number between 0 and 31.",
+        )
+
+        _tva_wd_val = None
+        _tva_wd_ok  = True
+        if _tva_wd_raw and _tva_wd_raw.strip():
+            try:
+                _tva_wd_val = int(_tva_wd_raw.strip())
+                if not (0 <= _tva_wd_val <= 31):
+                    st.error("⚠️ Please enter a valid number of working days (0–31).")
+                    _tva_wd_ok = False
+            except ValueError:
+                st.error("⚠️ Please enter a valid number of working days (0–31).")
+                _tva_wd_ok = False
+
+        if _tva_wd_val is not None and _tva_wd_ok:
+            st.caption(f"Working days: {_tva_wd_val}")
+
+        if not gen_tva:
+            st.markdown("""
+            <div style='text-align:center;padding:5rem 1rem;opacity:.6;'>
+                <div style='font-size:4rem;margin-bottom:1rem;'>🎯</div>
+                <div style='font-size:.9rem;font-weight:600;'>
+                    Enter the number of working days and click
+                    <b>🎯 Generate Target Vs Achievement</b>.
+                </div>
+            </div>""", unsafe_allow_html=True)
+
+        else:
+            if start_date.year != end_date.year or start_date.month != end_date.month:
+                st.error("⚠️ Please input valid dates and Generate Report Again. The date range must be within a single month.")
+            elif _tva_wd_val is None:
+                st.error("⚠️ Please enter the number of working days before generating.")
+            elif not _tva_wd_ok:
+                pass
+            else:
+                with st.spinner("Building Target Vs Achievement…"):
+
+                    # ── Load teamsheet for the specific month ──────────────────
+                    _, _, _df_meta_tva = get_metadata()
+                    _tva_month_start = date(start_date.year, start_date.month, 1)
+                    _month_col_tva  = next((c for c in _df_meta_tva.columns if c.strip().lower() == 'month'), None)
+                    _status_col_tva = next((c for c in _df_meta_tva.columns if c.strip().lower() == 'status'), None)
+
+                    def _tva_ym(val):
+                        try:
+                            if pd.isna(val): return False
+                            d = pd.to_datetime(val, dayfirst=True, errors='coerce')
+                            if pd.isna(d): return False
+                            return d.year == _tva_month_start.year and d.month == _tva_month_start.month
+                        except: return False
+
+                    _tva_sheet = (
+                        _df_meta_tva[_df_meta_tva[_month_col_tva].apply(_tva_ym)].copy()
+                        if _month_col_tva else _df_meta_tva.copy()
+                    )
+                    if _status_col_tva:
+                        _tva_sheet = _tva_sheet[
+                            _tva_sheet[_status_col_tva].astype(str).str.strip().str.lower() == 'active'
+                        ].copy()
+
+                    if _tva_sheet.empty:
+                        st.warning("No active callers found for the selected month in the team sheet.")
+                        st.stop()
+
+                    # Target column
+                    _tgt_col_tva = None
+                    for _tc in ['Target','target','TARGET','Monthly Target','Monthly target','Sales Target']:
+                        if _tc in _tva_sheet.columns:
+                            _tgt_col_tva = _tc; break
+
+                    # ── Revenue data ───────────────────────────────────────────
+                    _tva_rev_full = fetch_revenue_data(start_date, end_date)
+                    _yesterday_tva = end_date - timedelta(days=1)
+                    _tva_rev_yst  = fetch_revenue_data(_yesterday_tva, _yesterday_tva)
+
+                    # ── Pending revenue per caller ─────────────────────────────
+                    _pending_map_tva = {}
+                    try:
+                        _c2, _ce2, _p2, _pe2 = pending_months()
+                        _meta_tva2 = (
+                            _tva_sheet[['merge_key','Caller Name','Team Name','Vertical']]
+                            .drop_duplicates('merge_key').copy()
+                            if 'merge_key' in _tva_sheet.columns
+                            else pd.DataFrame(columns=['merge_key','Caller Name','Team Name','Vertical'])
+                        )
+                        _db2 = fetch_both_months_rev(_p2, _ce2)
+                        _dd2 = load_drop_leads()
+                        _ee2 = set(_dd2['drop_email'].dropna().astype(str).unique()) if not _dd2.empty else set()
+                        _ep2 = set(_dd2['drop_phone'].dropna().astype(str).unique()) if not _dd2.empty else set()
+                        if not _db2.empty:
+                            _dfc2 = _db2[_db2['Date'] >= _c2].copy()
+                            _dfp2 = _db2[(_db2['Date'] >= _p2) & (_db2['Date'] <= _pe2)].copy()
+                            _pc2  = pending_leads_for_month(_dfc2, _ee2, _ep2, _db2)
+                            _pp2  = pending_leads_for_month(_dfp2, _ee2, _ep2, _db2)
+                            _cb2  = build_combined_agg(_pc2, _pp2, _meta_tva2, _db2)
+                            if not _cb2.empty:
+                                for _, _pr in _cb2.iterrows():
+                                    _pending_map_tva[str(_pr.get('Caller_name','')).strip().lower()] = float(_pr.get('grand_bal', 0) or 0)
+                    except Exception:
+                        pass
+
+                    # ── Exclusions & role filters ──────────────────────────────
+                    _EXCL_TVA = {'direct', 'bootcamp - direct', 'bootcamp direct', 'lead details not available'}
+                    _ru_role_tva  = st.session_state.get('rf_role', 'admin')
+                    _ru_teams_tva = st.session_state.get('rf_teams', [])
+                    _ru_cname_tva = st.session_state.get('rf_caller_name', '')
+
+                    _all_tva_teams = sorted(_tva_sheet['Team Name'].dropna().unique())
+                    if _ru_role_tva in ('tl','trainer','vertical_head') and _ru_teams_tva:
+                        _all_tva_teams = [t for t in _all_tva_teams if t in _ru_teams_tva]
+                    if selected_team:
+                        _all_tva_teams = [t for t in _all_tva_teams if t in selected_team]
+
+                    _end_disp_tva = end_date.strftime('%d-%b-%Y')
+
+                    def _tf(v):
+                        if v is None or (isinstance(v, float) and pd.isna(v)): return "₹0"
+                        return f"₹{int(round(v)):,}"
+
+                    def _def_fmt(v):
+                        if v < 0: return f"-₹{int(abs(round(v))):,}"
+                        return f"₹{int(round(v)):,}"
+
+                    # ── Build per-team data ────────────────────────────────────
+                    _tva_all_data = {}
+
+                    for _tm in _all_tva_teams:
+                        _ts = _tva_sheet[_tva_sheet['Team Name'] == _tm].copy()
+                        _rows_tm = []
+
+                        for _, _cr in _ts.iterrows():
+                            _cn = str(_cr.get('Caller Name', '')).strip()
+                            if not _cn or _cn.lower() in _EXCL_TVA:
+                                continue
+                            if _ru_role_tva == 'caller' and _ru_cname_tva:
+                                if _cn.strip().lower() != _ru_cname_tva.strip().lower():
+                                    continue
+                            if search_query and search_query.lower() not in _cn.lower():
+                                continue
+
+                            _tgt_v = 0.0
+                            if _tgt_col_tva:
+                                try: _tgt_v = float(str(_cr.get(_tgt_col_tva, 0) or 0).replace(',',''))
+                                except: _tgt_v = 0.0
+
+                            _cnl = _cn.strip().lower()
+
+                            _rev_mtd_v = 0.0; _enr_mtd_v = 0
+                            if not _tva_rev_full.empty:
+                                _mf = _tva_rev_full['Caller_name'].str.strip().str.lower() == _cnl
+                                _rev_mtd_v = float(_tva_rev_full.loc[_mf, 'Fee_paid'].sum())
+                                _enr_mtd_v = int((_tva_rev_full.loc[_mf, 'Enrollment'].astype(str).str.strip().str.lower() == 'new enrollment').sum())
+
+                            _rev_yst_v = 0.0; _enr_yst_v = 0
+                            if not _tva_rev_yst.empty:
+                                _yf = _tva_rev_yst['Caller_name'].str.strip().str.lower() == _cnl
+                                _rev_yst_v = float(_tva_rev_yst.loc[_yf, 'Fee_paid'].sum())
+                                _enr_yst_v = int((_tva_rev_yst.loc[_yf, 'Enrollment'].astype(str).str.strip().str.lower() == 'new enrollment').sum())
+
+                            # Exclude if both target=0 and revenue=0
+                            if _tgt_v == 0.0 and _rev_mtd_v == 0.0:
+                                continue
+
+                            _till_v    = round((_tgt_v / 20) * _tva_wd_val) if _tgt_v > 0 else 0
+                            _pct_v     = round(_rev_mtd_v / _tgt_v * 100) if _tgt_v > 0 else 0
+                            _deficit_v = _till_v - _rev_mtd_v
+                            _pend_v    = _pending_map_tva.get(_cnl, 0)
+
+                            _rows_tm.append({
+                                'cn': _cn, 'tgt': _tgt_v, 'till': _till_v,
+                                'yst': _rev_yst_v, 'mtd': _rev_mtd_v, 'pct': _pct_v,
+                                'deficit': _deficit_v, 'ey': _enr_yst_v,
+                                'em': _enr_mtd_v, 'pend': _pend_v,
+                            })
+
+                        if _rows_tm:
+                            _tva_all_data[_tm] = _rows_tm
+
+                    if not _tva_all_data:
+                        st.warning("No data found for the selected filters.")
+                        st.stop()
+
+                    # ── Render HTML per team ───────────────────────────────────
+                    _HS = ("background:#1c3a5f;color:#fff;font-size:.68rem;font-weight:700;"
+                           "padding:7px 8px;text-align:center;border:1px solid #163d5a;"
+                           "white-space:normal;word-wrap:break-word;")
+                    _DS = ("font-size:.72rem;padding:5px 7px;text-align:center;"
+                           "border:1px solid #dbeafe;color:#111827;background:#ffffff;")
+                    _DA = _DS.replace('#ffffff','#f0f7ff')
+                    _TS = ("background:#1c3a5f;color:#fff;font-weight:700;font-size:.72rem;"
+                           "padding:6px 7px;text-align:center;border:1px solid #0d2137;")
+                    _COLS_H = [
+                        "COUNSELLORS","TARGET FOR<br>THE MONTH","TARGET<br>(TILL DATE)",
+                        "YESTERDAY","REVENUE<br>(MTD)","CURRENT<br>DEFICIT",
+                        "ENROLLMENTS<br>YESTERDAY","ENROLLMENTS<br>(MTD)",
+                        "Pending Revenue<br>(Current + Prev Month)"
+                    ]
+
+                    for _tm, _rows_tm in _tva_all_data.items():
+                        _hdg = f"Team {_tm} (Target Vs Achievement) {_end_disp_tva}"
+                        _html_tva = f"""
+<div style='margin:1.5rem 0 .3rem;'>
+<div style='text-align:center;font-size:.88rem;font-weight:800;letter-spacing:.4px;
+color:#fff;background:#1c3a5f;padding:10px 14px;border-radius:8px 8px 0 0;
+border:2px solid #0d2137;'>{_hdg}</div>
+<div style='overflow-x:auto;'>
+<table style='width:100%;border-collapse:collapse;font-family:"DM Sans",sans-serif;'>
+<thead><tr>{''.join(f"<th style='{_HS}'>{h}</th>" for h in _COLS_H)}</tr></thead>
+<tbody>"""
+                        _tt = _tl = _ty = _tm2 = _td = _tey = _tem = _tp = 0.0
+
+                        for _i, _r in enumerate(_rows_tm):
+                            _ds = _DA if _i % 2 == 1 else _DS
+                            _mtds = f"{_tf(_r['mtd'])} ({_r['pct']}%)"
+                            _defs = _def_fmt(_r['deficit'])
+                            _html_tva += (
+                                f"<tr>"
+                                f"<td style='{_ds}text-align:left;font-weight:500;padding-left:10px;'>{_r['cn']}</td>"
+                                f"<td style='{_ds}'>{_tf(_r['tgt'])}</td>"
+                                f"<td style='{_ds}'>{_tf(_r['till'])}</td>"
+                                f"<td style='{_ds}'>{_tf(_r['yst'])}</td>"
+                                f"<td style='{_ds}'>{_mtds}</td>"
+                                f"<td style='{_ds}'>{_defs}</td>"
+                                f"<td style='{_ds}'>{_r['ey']}</td>"
+                                f"<td style='{_ds}'>{_r['em']}</td>"
+                                f"<td style='{_ds}'>{_tf(_r['pend'])}</td>"
+                                f"</tr>"
+                            )
+                            _tt += _r['tgt']; _tl += _r['till']; _ty += _r['yst']
+                            _tm2 += _r['mtd']; _td += _r['deficit']
+                            _tey += _r['ey'];  _tem += _r['em'];  _tp  += _r['pend']
+
+                        _tpct = round(_tm2 / _tt * 100) if _tt > 0 else 0
+                        _html_tva += (
+                            f"<tr>"
+                            f"<td style='{_TS}text-align:left;padding-left:10px;'>TOTAL</td>"
+                            f"<td style='{_TS}'>{_tf(_tt)}</td>"
+                            f"<td style='{_TS}'>{_tf(_tl)}</td>"
+                            f"<td style='{_TS}'>{_tf(_ty)}</td>"
+                            f"<td style='{_TS}'>{_tf(_tm2)} ({_tpct}%)</td>"
+                            f"<td style='{_TS}'>{_def_fmt(_td)}</td>"
+                            f"<td style='{_TS}'>{int(_tey)}</td>"
+                            f"<td style='{_TS}'>{int(_tem)}</td>"
+                            f"<td style='{_TS}'>{_tf(_tp)}</td>"
+                            f"</tr>"
+                        )
+                        _html_tva += "</tbody></table></div></div>"
+                        st.markdown(_html_tva, unsafe_allow_html=True)
+
+                    st.markdown("<div style='margin:1.5rem 0;'></div>", unsafe_allow_html=True)
+
+                    # ── Single xlsx download ───────────────────────────────────
+                    def _build_tva_xlsx(all_data, end_disp):
+                        H_FILL  = PatternFill("solid", start_color="1c3a5f", end_color="1c3a5f")
+                        S_FILL  = PatternFill("solid", start_color="1e4d6b", end_color="1e4d6b")
+                        T_FILL  = PatternFill("solid", start_color="1c3a5f", end_color="1c3a5f")
+                        A_FILL  = PatternFill("solid", start_color="f0f7ff", end_color="f0f7ff")
+                        W_FILL  = PatternFill("solid", start_color="ffffff", end_color="ffffff")
+                        H_FONT  = Font(bold=True, color="FFFFFF", name="Arial", size=9)
+                        D_FONT  = Font(name="Arial", size=9)
+                        BW_FONT = Font(bold=True, color="FFFFFF", name="Arial", size=9)
+                        TH_FONT = Font(bold=True, color="FFFFFF", name="Arial", size=11)
+                        CENTER  = Alignment(horizontal='center', vertical='center', wrap_text=True)
+                        LEFT    = Alignment(horizontal='left',   vertical='center', wrap_text=True)
+                        BDR     = Border(
+                            left=Side(style='thin',  color='BFDBFE'),
+                            right=Side(style='thin', color='BFDBFE'),
+                            top=Side(style='thin',   color='BFDBFE'),
+                            bottom=Side(style='thin',color='BFDBFE'),
+                        )
+                        COLS_XL = [
+                            "COUNSELLORS","TARGET FOR THE MONTH (₹)","TARGET (TILL DATE) (₹)",
+                            "YESTERDAY (₹)","REVENUE MTD (₹)","REVENUE MTD %",
+                            "CURRENT DEFICIT (₹)","ENROLLMENTS YESTERDAY",
+                            "ENROLLMENTS (MTD)","PENDING REVENUE (₹)"
+                        ]
+                        CW = [28,22,20,16,18,12,20,20,16,24]
+
+                        wb = Workbook()
+                        ws = wb.active
+                        ws.title = "Target Vs Achievement"
+
+                        rn = 1
+                        for _tm, _rows in all_data.items():
+                            # Team heading
+                            ws.merge_cells(start_row=rn, start_column=1,
+                                           end_row=rn, end_column=len(COLS_XL))
+                            _hc = ws.cell(rn, 1, f"Team {_tm} (Target Vs Achievement) {end_disp}")
+                            _hc.fill = H_FILL; _hc.font = TH_FONT
+                            _hc.alignment = CENTER; _hc.border = BDR
+                            ws.row_dimensions[rn].height = 22; rn += 1
+
+                            # Column headers
+                            for ci, ch in enumerate(COLS_XL, 1):
+                                c = ws.cell(rn, ci, ch)
+                                c.fill = S_FILL; c.font = H_FONT
+                                c.alignment = CENTER; c.border = BDR
+                                ws.column_dimensions[get_column_letter(ci)].width = CW[ci-1]
+                            ws.row_dimensions[rn].height = 24; rn += 1
+
+                            _tt=_tl=_ty=_tm2=_td=_tey=_tem=_tp = 0.0
+                            for ri, _r in enumerate(_rows):
+                                fill = A_FILL if ri % 2 == 1 else W_FILL
+                                vals = [
+                                    _r['cn'], int(round(_r['tgt'])), int(round(_r['till'])),
+                                    int(round(_r['yst'])), int(round(_r['mtd'])),
+                                    f"{_r['pct']}%", int(round(_r['deficit'])),
+                                    _r['ey'], _r['em'], int(round(_r['pend'])),
+                                ]
+                                for ci, v in enumerate(vals, 1):
+                                    c = ws.cell(rn, ci, v)
+                                    c.fill = fill; c.font = D_FONT
+                                    c.border = BDR
+                                    c.alignment = LEFT if ci == 1 else CENTER
+                                rn += 1
+                                _tt+=_r['tgt']; _tl+=_r['till']; _ty+=_r['yst']
+                                _tm2+=_r['mtd']; _td+=_r['deficit']
+                                _tey+=_r['ey']; _tem+=_r['em']; _tp+=_r['pend']
+
+                            # TOTAL row
+                            _tpct_xl = f"{round(_tm2/_tt*100)}%" if _tt > 0 else "0%"
+                            tot = [
+                                "TOTAL", int(round(_tt)), int(round(_tl)),
+                                int(round(_ty)), int(round(_tm2)), _tpct_xl,
+                                int(round(_td)), int(_tey), int(_tem), int(round(_tp)),
+                            ]
+                            for ci, v in enumerate(tot, 1):
+                                c = ws.cell(rn, ci, v)
+                                c.fill = T_FILL; c.font = BW_FONT
+                                c.border = BDR
+                                c.alignment = LEFT if ci == 1 else CENTER
+                            rn += 2  # +1 blank row between teams
+
+                        buf = io.BytesIO(); wb.save(buf); return buf.getvalue()
+
+                    st.download_button(
+                        label="📥 Download Target Vs Achievement Report (.xlsx)",
+                        data=_build_tva_xlsx(_tva_all_data, _end_disp_tva),
+                        file_name=f"Target_Vs_Achievement_{display_start}_to_{display_end}.xlsx",
+                        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                        key='dl_tva_xlsx',
+                        width='stretch',
+                    )
+
+
 def run_leads_dashboard():
     st.markdown("""
     <style>
