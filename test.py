@@ -5181,14 +5181,15 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         _coll_rev = _boot_rev + _mayur_rev + _anmol_rev + _dep_rev
          
                         # ─── COMMUNITY (total) ──────────────────────────────────────────
-                        _src_comm    = _src_l.str.contains('community', na=False)
+                        __src_comm    = _src_l.str.contains('community', na=False)
                         _comm_all    = _sf(_src_comm)
                         _comm_nd_new = _sf(
                             _src_comm
                             & ~_caller_l.isin(['direct', 'bootcamp - direct'])
                             & _enr_l.isin(['new enrollment', 'new enrollment - balance payment'])
-                        )
-                        _comm_rev    = _comm_all - _comm_nd_new
+                        ) 
+                        _cm_extra_rev = _sf(_caller_l.isin(_cm_callers))
+                        _comm_rev    = _comm_all - _comm_nd_new + _cm_extra_rev
          
                         # ─── COMMUNITY HEADS ────────────────────────────────────────────
                         _comm_heads = {}
@@ -5577,10 +5578,10 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         for _st in _oth_t:
                             _seg_sub[_ns_seg & (_dr['_team'] == _st)] = _st
 
-                        # Community Manager callers (Abhipsha extra)
+                        # Community Manager callers
                         _cm_seg = _caller_l.isin(_cm_callers)
                         _seg_team[_cm_seg] = 'Community'
-                        _seg_sub[_cm_seg]  = 'Abhipsha (Community Managers)'
+                        _seg_sub[_cm_seg]  = 'Abhipsha — Community Managers'
 
                         # Community source rows (excluding nd_new already in NS/OS)
                         _src_c_seg = _src_l.str.contains('community', na=False)
