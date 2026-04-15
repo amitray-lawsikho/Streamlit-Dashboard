@@ -553,7 +553,7 @@ def show_homepage_with_login():
       <div class="sub">Real-time insights across Leads, Revenue &amp; Calling</div>
     </div>
     </body></html>"""
-    st.iframe(html_hero, height=420, scrolling=False)
+    st.components.v1.html(html_hero, height=420, scrolling=False)
 
     # ── AUTH PANEL ─────────────────────────────────────────────
     left, mid, right = st.columns([1, 1, 1])
