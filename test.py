@@ -5675,7 +5675,31 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                             wb.save(buf)
                             return buf.getvalue()
 
-                        _dl_col1, _dl_col2 = st.columns([1, 1])
+                        _total_fetched = float(_dr['Fee_paid'].sum())
+                        _diff          = _total_fetched - _total_rev
+                        _diff_color    = "#10B981" if _diff >= 0 else "#F87171"
+                        _diff_sign     = "+" if _diff >= 0 else ""
+                        _diff_html     = f"""
+                        <div style='text-align:center;padding:.55rem .8rem;
+                                    background:rgba(255,255,255,.04);
+                                    border:1px solid rgba(255,255,255,.10);
+                                    border-radius:10px;line-height:1.6;'>
+                            <span style='font-size:.72rem;color:rgba(255,255,255,.5);'>
+                                Difference in Revenue&nbsp;
+                            </span>
+                            <span style='font-size:.88rem;font-weight:700;
+                                         color:{_diff_color};font-family:DM Mono,monospace;'>
+                                {_diff_sign}₹{int(abs(round(_diff))):,}
+                            </span><br>
+                            <span style='font-size:.65rem;color:rgba(255,255,255,.3);
+                                         font-family:DM Mono,monospace;'>
+                                Today: ₹{int(round(_total_fetched)):,}
+                                &nbsp;−&nbsp;
+                                Report: ₹{int(round(_total_rev)):,}
+                            </span>
+                        </div>"""
+
+                        _dl_col1, _diff_col, _dl_col2 = st.columns([1, 1.4, 1])
                         with _dl_col1:
                             st.download_button(
                                 label="📥 Download Revenue Update",
@@ -5683,7 +5707,10 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                                 file_name=f"Revenue_Update_{display_start}_to_{display_end}.xlsx",
                                 mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                                 key='dl_rev_update_xlsx',
+                                use_container_width=True,
                             )
+                        with _diff_col:
+                            st.markdown(_diff_html, unsafe_allow_html=True)
                         with _dl_col2:
                             st.download_button(
                                 label="📥 Download Source Data",
@@ -5691,6 +5718,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                                 file_name=f"Revenue_Source_{display_start}_to_{display_end}.xlsx",
                                 mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                                 key='dl_rev_source_xlsx',
+                                use_container_width=True,
                             )
                         with _dl_col2:
                             st.markdown(
