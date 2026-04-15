@@ -4971,7 +4971,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
 
                         if _dr.empty:
                             st.warning("No data found for your access level and selected filters.")
-                        else:
+                            st.stop()
 
                         _enr_l    = _dr['Enrollment'].astype(str).str.strip().str.lower()
 
