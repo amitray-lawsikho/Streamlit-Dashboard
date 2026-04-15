@@ -4924,11 +4924,9 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                     </div>
                 </div>""", unsafe_allow_html=True)
          
-            else:
-                    if not _ru_services_ok:
-                        st.error("Please enter a valid Services revenue value before generating the report.")
-                    if not _ru_total_rev_ok:
-                        st.error("Please enter a valid Total Revenue Till Today value before generating the report.")
+           else:
+                if not _ru_services_ok:
+                    st.error("Please enter a valid Services revenue value before generating the report.")
                 else:
                     with st.spinner("Building Revenue Update…"):
          
@@ -5370,10 +5368,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         if _show(_dep_rev):
                             _html += _tr(_bs(), _bs(), "Deepanshi (Previous balances)", _dep_rev)
 
-                        _html += _tr(_bs(), _bs(), "Collections", _coll_rev)
-
-                        # Community
-
+                       _html += _tr(_bs(), _bs(), "Collections", _coll_rev)
 
                         # Community
                         _html += _tr(_bs(), _bs(), "Community", _comm_rev)
@@ -5533,10 +5528,6 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                             ws.column_dimensions["C"].width = 14
                             ws.freeze_panes = "A3"
                             buf = io.BytesIO(); wb.save(buf); return buf.getvalue()
-
-                        _diff_rev = _ru_total_rev_val - _total_rev
-                        _diff_color = "#10B981" if _diff_rev >= 0 else "#EF4444"
-                        _diff_sign  = "+" if _diff_rev >= 0 else ""
 
                         # ── Raw source data download ──────────────────────────────
                         _EXPORT_COLS = [
