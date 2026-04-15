@@ -674,7 +674,7 @@ def show_homepage_with_login():
       <div class="f2">Developed and Designed by Amit Ray<span class="fd"></span>Reach out for Support and Queries</div>
     </div>
     </body></html>"""
-    st.iframe(html_bottom, height=640, scrolling=False)
+    st.components.v1.html(html_bottom, height=640, scrolling=False)
 @st.cache_data(ttl=300, show_spinner=False)
 
 def _load_rev_update_team_sheet():
