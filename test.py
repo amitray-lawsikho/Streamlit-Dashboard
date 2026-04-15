@@ -6173,18 +6173,29 @@ border:2px solid #0d2137;'>{_hdg}</div>
                                 _tm2+=_r['mtd']; _td+=_r['deficit']
                                 _tey+=_r['ey']; _tem+=_r['em']; _tp+=_r['pend']
 
-                            _tt_final = int(round(pd.to_numeric(_tt, errors='coerce') or 0))
-                            _tl_final = int(round(pd.to_numeric(_tl, errors='coerce') or 0))
-                            _ty_final = int(round(pd.to_numeric(_ty, errors='coerce') or 0))
-                            _tm2_final = int(round(pd.to_numeric(_tm2, errors='coerce') or 0))
-                            _td_final = int(round(pd.to_numeric(_td, errors='coerce') or 0))
-                            _tp_final = int(round(pd.to_numeric(_tp, errors='coerce') or 0))
-                            _tpct_xl = f"{round(_tm2/_tt*100)}%" if _tt > 0 else "0%"
-                            tot = [
-                                "TOTAL", int(round(_tt)), int(round(_tl)),
-                                int(round(_ty)), int(round(_tm2)), _tpct_xl,
-                                int(round(_td)), int(_tey), int(_tem), int(round(_tp)),
-                            ]
+                                _tt_final = int(round(pd.Series([_tt]).apply(pd.to_numeric, errors='coerce').fillna(0).iloc[0]))
+                                _tl_final = int(round(pd.Series([_tl]).apply(pd.to_numeric, errors='coerce').fillna(0).iloc[0]))
+                                _ty_final = int(round(pd.Series([_ty]).apply(pd.to_numeric, errors='coerce').fillna(0).iloc[0]))
+                                _tm2_final = int(round(pd.Series([_tm2]).apply(pd.to_numeric, errors='coerce').fillna(0).iloc[0]))
+                                _td_final = int(round(pd.Series([_td]).apply(pd.to_numeric, errors='coerce').fillna(0).iloc[0]))
+                                _tp_final = int(round(pd.Series([_tp]).apply(pd.to_numeric, errors='coerce').fillna(0).iloc[0]))
+                                _tey_final = int(round(pd.Series([_tey]).apply(pd.to_numeric, errors='coerce').fillna(0).iloc[0]))
+                                _tem_final = int(round(pd.Series([_tem]).apply(pd.to_numeric, errors='coerce').fillna(0).iloc[0]))
+                        
+                                _tpct_xl = f"{round(_tm2_final / _tt_final * 100)}%" if _tt_final > 0 else "0%"
+                        
+                                tot = [
+                                    "TOTAL",
+                                    _tt_final,
+                                    _tl_final,
+                                    _ty_final,
+                                    _tm2_final,
+                                    _tpct_xl,
+                                    _td_final,
+                                    _tey_final,
+                                    _tem_final,
+                                    _tp_final,
+                                ]    
                             for ci, v in enumerate(tot, 1):
                                 c = ws.cell(rn, ci, v)
                                 c.fill = T_FILL; c.font = BW_FONT
