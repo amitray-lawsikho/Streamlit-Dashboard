@@ -4924,11 +4924,11 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                     </div>
                 </div>""", unsafe_allow_html=True)
          
-           else:
-                if not _ru_services_ok:
-                    st.error("Please enter a valid Services revenue value before generating the report.")
-                else:
-                    with st.spinner("Building Revenue Update…"):
+                   else:
+                        if not _ru_services_ok:
+                            st.error("Please enter a valid Services revenue value before generating the report.")
+                        else:
+                            with st.spinner("Building Revenue Update…"):    
          
                         # ── heading ──────────────────────────────────────────────────
                         _from_d = date(start_date.year, start_date.month, 1)
