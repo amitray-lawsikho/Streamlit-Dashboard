@@ -4914,18 +4914,6 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                     _ru_services_ok = False
             st.caption(f"Services value: ₹{int(_ru_services_val):,}")
 
-            # Parse & validate Total Revenue Till Today
-            _ru_total_rev_val = 0.0
-            _ru_total_rev_ok  = True
-            if total_rev_raw and total_rev_raw.strip():
-                _tcleaned = total_rev_raw.strip().replace(',', '')
-                try:
-                    _ru_total_rev_val = round(float(_tcleaned))
-                except ValueError:
-                    st.error("⚠️  Invalid input — please enter a plain number (e.g. 1231000 or 12,31,000).")
-                    _ru_total_rev_ok = False
-            st.caption(f"Total Revenue Till Today: ₹{int(_ru_total_rev_val):,}")
-         
             if not gen_update:
                 st.markdown("""
                 <div style='text-align:center;padding:5rem 1rem;opacity:.6;'>
