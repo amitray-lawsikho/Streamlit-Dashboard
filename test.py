@@ -4936,7 +4936,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                             _hd_str = _from_d.strftime('%d/%m/%Y')
                         else:
                             _hd_str = f"{_from_d.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')}"
-                        _ru_heading = f"REVENUE SHEET — ({_hd_str})"
+                        _ru_heading = f"REVENUE UPDATE — ({_hd_str})"
          
                         # ── fetch data ────────────────────────────────────────────────
                         _df_ru  = fetch_revenue_data(start_date, end_date)
