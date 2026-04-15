@@ -4935,7 +4935,8 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                             _hd_str = start_date.strftime('%d/%m/%Y')
                         else:
                             _hd_str = f"{start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')}"
-         
+                        _ru_heading = f"REVENUE SHEET — ({_hd_str})"
+
                         # ── fetch data ────────────────────────────────────────────────
                         _df_ru  = fetch_revenue_data(start_date, end_date)
                         _df_tru = _load_rev_update_team_sheet()
