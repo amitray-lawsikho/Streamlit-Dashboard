@@ -6150,17 +6150,18 @@ border:2px solid #0d2137;'>{_hdg}</div>
                             _tt=_tl=_ty=_tm2=_td=_tey=_tem=_tp = 0.0
                             for ri, _r in enumerate(_rows):
                                 fill = A_FILL if ri % 2 == 1 else W_FILL
+                                # Replace the 'vals' list inside the loop with this:
                                 vals = [
                                     _r['cn'], 
-                                    int(round(pd.to_numeric(_r['tgt'], errors='coerce') or 0)), 
-                                    int(round(pd.to_numeric(_r['till'], errors='coerce') or 0)), 
-                                    int(round(pd.to_numeric(_r['yst'], errors='coerce') or 0)), 
-                                    int(round(pd.to_numeric(_r['mtd'], errors='coerce') or 0)), 
+                                    int(round(pd.Series(_r['tgt']).apply(pd.to_numeric, errors='coerce').fillna(0).iloc[0])), 
+                                    int(round(pd.Series(_r['till']).apply(pd.to_numeric, errors='coerce').fillna(0).iloc[0])), 
+                                    int(round(pd.Series(_r['yst']).apply(pd.to_numeric, errors='coerce').fillna(0).iloc[0])), 
+                                    int(round(pd.Series(_r['mtd']).apply(pd.to_numeric, errors='coerce').fillna(0).iloc[0])), 
                                     f"{_r['pct']}%", 
-                                    int(round(pd.to_numeric(_r['deficit'], errors='coerce') or 0)), 
+                                    int(round(pd.Series(_r['deficit']).apply(pd.to_numeric, errors='coerce').fillna(0).iloc[0])), 
                                     _r['ey'], 
                                     _r['em'], 
-                                    int(round(pd.to_numeric(_r['pend'], errors='coerce') or 0)), 
+                                    int(round(pd.Series(_r['pend']).apply(pd.to_numeric, errors='coerce').fillna(0).iloc[0])), 
                                 ]
                                 for ci, v in enumerate(vals, 1):
                                     c = ws.cell(rn, ci, v)
