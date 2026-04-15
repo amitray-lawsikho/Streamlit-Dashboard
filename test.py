@@ -5012,7 +5012,6 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         else:
                             pass
 
-                        if not _dr.empty:
                         _enr_l    = _dr['Enrollment'].astype(str).str.strip().str.lower()
                         _src_l    = _dr['Source'].astype(str).str.lower()
                         _caller_l = _dr['Caller_name'].str.strip().str.lower()
