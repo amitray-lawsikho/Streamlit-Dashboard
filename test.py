@@ -5991,6 +5991,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                             if _tgt_col_tva:
                                 try: _tgt_v = float(str(_cr.get(_tgt_col_tva, 0) or 0).replace(',',''))
                                 except: _tgt_v = 0.0
+                            if pd.isna(_tgt_v): _tgt_v = 0.0
 
                             _cnl = _cn.strip().lower()
 
