@@ -4895,6 +4895,14 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
             """, unsafe_allow_html=True)
          
             # Parse & validate Services
+            services_raw = st.text_input(
+                "Services Revenue (₹)",
+                placeholder="e.g. 431211  or  4,31,211  or  4,31,211.50",
+                key="ru_services_input",
+                help="Numbers, commas and dots only. Commas are stripped; decimals are rounded.",
+            )
+
+            # Parse & validate
             _ru_services_val  = 0.0
             _ru_services_ok   = True
             if services_raw and services_raw.strip():
