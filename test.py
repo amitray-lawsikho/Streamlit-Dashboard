@@ -27,7 +27,6 @@ from supabase import create_client
 import re
 
 # --- GLOBAL CONFIG & CREDENTIALS ---
-import streamlit.components.v1 as components
 st.set_page_config(
     page_title="Analytics Dashboard — LawSikho",
     page_icon="📊",
