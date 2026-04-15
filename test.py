@@ -4931,12 +4931,10 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                     with st.spinner("Building Revenue Update…"):
          
                         # ── heading ──────────────────────────────────────────────────
-                        _from_d = date(start_date.year, start_date.month, 1)
-                        if start_date == end_date:
-                            _hd_str = _from_d.strftime('%d/%m/%Y')
+                       if start_date == end_date:
+                            _hd_str = start_date.strftime('%d/%m/%Y')
                         else:
-                            _hd_str = f"{_from_d.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')}"
-                        _ru_heading = f"REVENUE UPDATE — ({_hd_str})"
+                            _hd_str = f"{start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')}"
          
                         # ── fetch data ────────────────────────────────────────────────
                         _df_ru  = fetch_revenue_data(start_date, end_date)
@@ -5367,10 +5365,11 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         # Deepanshi
                         if _show(_dep_rev):
                             _html += _tr(_bs(), _bs(), "Deepanshi (Previous balances)", _dep_rev)
-                            _html += _tr(_bs(), _bs(), "Collections", _coll_rev)
 
-                            # Community
-                            _html += _tr(_bs(), _bs(), "Community", _comm_rev, None)
+                        _html += _tr(_bs(), _bs(), "Collections", _coll_rev)
+
+                        # Community
+                        _html += _tr(_bs(), _bs(), "Community", _comm_rev)
                         for _hk, _hd in _comm_heads.items():
                             if not _show(_hd['total'], _hd['dir_e']): continue
                             _html += _tr(_ss(), _ss(), _hd['full'], _hd['total'])
