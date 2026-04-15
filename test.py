@@ -4940,12 +4940,79 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         # ── fetch data ────────────────────────────────────────────────
                         _df_ru  = fetch_revenue_data(start_date, end_date)
                         _df_tru = _load_rev_update_team_sheet()
-         
+
                     if _df_ru.empty:
                         st.warning("No revenue data found for the selected period.")
                     else:
                         # ── normalise revenue sheet ───────────────────────────────────
                         _dr = _df_ru.copy()
+
+                        # ── Role-based + sidebar filters ──────────────────────────────
+                        _ru_role   = st.session_state.get('rf_role', 'admin')
+                        _ru_cname  = st.session_state.get('rf_caller_name', '')
+                        _ru_teams  = st.session_state.get('rf_teams', [])
+                        # Merge team info temporarily for filtering
+                        if not _df_tru.empty and 'merge_key' in _df_tru.columns:
+                            _tru_slim = _df_tru[['merge_key','Team Name','Vertical']].drop_duplicates('merge_key')
+                            _dr = _dr.merge(_tru_slim, on='merge_key', how='left')
+                        else:
+                            _dr['Team Name'] = ''
+                            _dr['Vertical']  = ''
+                        if _ru_role == 'caller' and _ru_cname:
+                            _dr = _dr[_dr['Caller_name'].str.strip().str.lower() == _ru_cname.strip().lower()]
+                        elif _ru_role in ('tl', 'trainer', 'vertical_head') and _ru_teams:
+                            _dr = _dr[_dr['Team Name'].isin(_ru_teams)]
+                        if selected_team:
+                            _dr = _dr[_dr['Team Name'].isin(selected_team)]
+                        if selected_vertical:
+                            _dr = _dr[_dr['Vertical'].isin(selected_vertical)]
+                        if search_query:
+                            _dr = _dr[_dr['Caller_name'].str.contains(search_query, case=False, na=False)]
+
+                        if _dr.empty:
+                            st.warning("No data found for your access level and selected filters.")
+                        else:
+
+                        _enr_l    = _dr['Enrollment'].astype(str).str.strip().str.lower()
+
+                        # ── Apply role-based filters (same as tab1/tab2) ──────────────
+                        # Merge team info first so we can filter by Team Name / Vertical
+                        _dr = pd.merge(
+                            _dr,
+                            _df_tru[['merge_key', 'Team Name', 'Vertical']].drop_duplicates('merge_key')
+                            if 'merge_key' in _df_tru.columns and not _df_tru.empty
+                            else pd.DataFrame(columns=['merge_key', 'Team Name', 'Vertical']),
+                            on='merge_key', how='left'
+                        )
+                        if 'Team Name' not in _dr.columns:
+                            _dr['Team Name'] = ''
+                        if 'Vertical' not in _dr.columns:
+                            _dr['Vertical'] = ''
+
+                        # Role filter: caller sees only their own rows
+                        _ru_role = st.session_state.get('rf_role', 'admin')
+                        _ru_cname = st.session_state.get('rf_caller_name', '')
+                        if _ru_role == 'caller' and _ru_cname:
+                            _dr = _dr[_dr['Caller_name'].str.strip().str.lower() == _ru_cname.strip().lower()]
+                        elif _ru_role in ('tl', 'trainer', 'vertical_head'):
+                            _ru_rf_teams = st.session_state.get('rf_teams', [])
+                            if _ru_rf_teams:
+                                _dr = _dr[_dr['Team Name'].isin(_ru_rf_teams)]
+
+                        # Sidebar filter overrides (admin uses multiselects)
+                        if selected_team:
+                            _dr = _dr[_dr['Team Name'].isin(selected_team)]
+                        if selected_vertical:
+                            _dr = _dr[_dr['Vertical'].isin(selected_vertical)]
+                        if search_query:
+                            _dr = _dr[_dr['Caller_name'].str.contains(search_query, case=False, na=False)]
+
+                        if _dr.empty:
+                            st.warning("No revenue data found for the selected filters.")
+                        else:
+                            pass
+
+                        if not _dr.empty:
                         _enr_l    = _dr['Enrollment'].astype(str).str.strip().str.lower()
                         _src_l    = _dr['Source'].astype(str).str.lower()
                         _caller_l = _dr['Caller_name'].str.strip().str.lower()
