@@ -6173,7 +6173,12 @@ border:2px solid #0d2137;'>{_hdg}</div>
                                 _tm2+=_r['mtd']; _td+=_r['deficit']
                                 _tey+=_r['ey']; _tem+=_r['em']; _tp+=_r['pend']
 
-                            # TOTAL row
+                            _tt_final = int(round(pd.to_numeric(_tt, errors='coerce') or 0))
+                            _tl_final = int(round(pd.to_numeric(_tl, errors='coerce') or 0))
+                            _ty_final = int(round(pd.to_numeric(_ty, errors='coerce') or 0))
+                            _tm2_final = int(round(pd.to_numeric(_tm2, errors='coerce') or 0))
+                            _td_final = int(round(pd.to_numeric(_td, errors='coerce') or 0))
+                            _tp_final = int(round(pd.to_numeric(_tp, errors='coerce') or 0))
                             _tpct_xl = f"{round(_tm2/_tt*100)}%" if _tt > 0 else "0%"
                             tot = [
                                 "TOTAL", int(round(_tt)), int(round(_tl)),
