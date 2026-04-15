@@ -27,7 +27,6 @@ from supabase import create_client
 import re
 
 # --- GLOBAL CONFIG & CREDENTIALS ---
-import streamlit.components.v1 as components
 st.set_page_config(
     page_title="Analytics Dashboard — LawSikho",
     page_icon="📊",
@@ -257,7 +256,7 @@ def _auth_sign_in_panel():
 
     c1, c2 = st.columns(2)
     with c1:
-        if st.button("Sign In →", key="si_btn", use_container_width=True):
+        if st.button("Sign In →", key="si_btn", width='stretch'):
             if not email or not pwd:
                 st.error("Enter both email and password."); return
             try:
@@ -266,7 +265,7 @@ def _auth_sign_in_panel():
             except Exception as ex:
                 st.error(f"Login failed: {ex}")
     with c2:
-        if st.button("Forgot / Change Password", key="si_otp_switch", use_container_width=True):
+        if st.button("Forgot / Change Password", key="si_otp_switch", width='stretch'):
             st.session_state['auth_tab']           = "otp"
             st.session_state['otp_prefill_email']  = email
             st.session_state['otp_step']           = 1
@@ -284,7 +283,7 @@ def _auth_otp_panel():
             value=st.session_state.get('otp_prefill_email', ''),
             placeholder="your@lawsikho.in"
         )
-        if st.button("Send OTP →", key="otp_send_btn", use_container_width=True):
+        if st.button("Send OTP →", key="otp_send_btn", width='stretch'):
             if not email:
                 st.error("Enter your email."); return
             # Pre-check: is the email in the sheet?
@@ -302,7 +301,7 @@ def _auth_otp_panel():
             except Exception as ex:
                 st.error(f"Could not send OTP: {ex}")
 
-        if st.button("← Back to Sign In", key="otp_back1", use_container_width=True):
+        if st.button("← Back to Sign In", key="otp_back1", width='stretch'):
             st.session_state['auth_tab'] = "signin"
             st.rerun()
 
@@ -317,7 +316,7 @@ def _auth_otp_panel():
 
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("Verify & Continue →", key="otp_verify_btn", use_container_width=True):
+            if st.button("Verify & Continue →", key="otp_verify_btn", width='stretch'):
                 if len(otp) != 8:
                     st.error("Enter the 8-digit code."); return
                 if pw1 != pw2:
@@ -337,7 +336,7 @@ def _auth_otp_panel():
                 except Exception as ex:
                     st.error(f"Verification failed — wrong code or it expired: {ex}")
         with c2:
-            if st.button("← Back", key="otp_back2", use_container_width=True):
+            if st.button("← Back", key="otp_back2", width='stretch'):
                 st.session_state['otp_step'] = 1
                 st.rerun()
 
@@ -554,7 +553,7 @@ def show_homepage_with_login():
       <div class="sub">Real-time insights across Leads, Revenue &amp; Calling</div>
     </div>
     </body></html>"""
-    components.html(html_hero, height=420, scrolling=False)
+    st.iframe(html_hero, height=420, scrolling=False)
 
     # ── AUTH PANEL ─────────────────────────────────────────────
     left, mid, right = st.columns([1, 1, 1])
@@ -675,7 +674,7 @@ def show_homepage_with_login():
       <div class="f2">Developed and Designed by Amit Ray<span class="fd"></span>Reach out for Support and Queries</div>
     </div>
     </body></html>"""
-    components.html(html_bottom, height=640, scrolling=False)
+    st.iframe(html_bottom, height=640, scrolling=False)
 @st.cache_data(ttl=300, show_spinner=False)
 
 def _load_rev_update_team_sheet():
@@ -1697,7 +1696,7 @@ def run_calling_dashboard():
                             final_df.style.apply(style_total, axis=1)
                                           .set_properties(**{'white-space': 'pre-wrap'}),
                             column_order=display_cols,
-                            use_container_width=True, hide_index=True
+                            width='stretch', hide_index=True
                         )
 
                         st.divider()
@@ -1755,7 +1754,7 @@ def run_calling_dashboard():
                             man_final = pd.concat([man_display, total_man_row], ignore_index=True)
                             st.dataframe(
                                 man_final.style.apply(style_total, axis=1),
-                                use_container_width=True, hide_index=True
+                                width='stretch', hide_index=True
                             )
 
         else:
@@ -1828,7 +1827,7 @@ def run_calling_dashboard():
                                     final_team_df.style.apply(style_static, axis=1)
                                                        .set_properties(**{'white-space': 'pre-wrap'}),
                                     column_order=static_display_cols,
-                                    use_container_width=True, hide_index=True, height=calc_h
+                                    width='stretch', hide_index=True, height=calc_h
                                 )
 
                                 target_cols = [
@@ -1870,7 +1869,7 @@ def run_calling_dashboard():
                                     final_tl_df.style.apply(style_static, axis=1)
                                                      .set_properties(**{'white-space': 'pre-wrap'}),
                                     column_order=static_display_cols,
-                                    use_container_width=True, hide_index=True, height=calc_h_tl
+                                    width='stretch', hide_index=True, height=calc_h_tl
                                 )
                                 valid_tls    = active_tl['CALLER'].unique()
                                 final_tl_cdr = tl_ad_pool[tl_ad_pool['call_owner'].isin(valid_tls)]
@@ -1965,7 +1964,7 @@ def run_calling_dashboard():
                 medals = (["🥇", "🥈", "🥉"] + [""] * max(0, len(lb) - 3))[:len(lb)]
                 lb.insert(0, "🏅", medals)
                 lb = lb.reset_index(drop=True)
-                st.dataframe(lb, use_container_width=True, hide_index=True)
+                st.dataframe(lb, width='stretch', hide_index=True)
 
         # ── Team Manual Calls ──
             manual_team_df = df_ins[df_ins['source'] == 'Manual'].copy()
@@ -2005,7 +2004,7 @@ def run_calling_dashboard():
                 team_man_final = pd.concat([team_man_display, total_team_man], ignore_index=True)
                 st.dataframe(
                     team_man_final.style.apply(style_team_manual_total, axis=1),
-                    use_container_width=True, hide_index=True
+                    width='stretch', hide_index=True
                 )
 
         else:
@@ -2690,7 +2689,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         st.dataframe(
             final.style.apply(style_total_rev, axis=1),
             column_order=all_cols,
-            use_container_width=True,
+            width='stretch',
             hide_index=True
         )
 
@@ -4645,7 +4644,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                                                   'Total Target', 'Till Day Target',
                                                   'Enrollment Rev', 'Balance Rev',
                                                   'Calling Revenue', 'Achievement %']
-                            st.dataframe(lb_calling.reset_index(drop=True), use_container_width=True, hide_index=True)
+                            st.dataframe(lb_calling.reset_index(drop=True), width='stretch', hide_index=True)
                         else:
                             st.info("No calling agent data available.")
 
@@ -4687,7 +4686,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                                                'Total Target', 'Till Day Target',
                                                'Calling Revenue', 'Community Collection',
                                                'Bootcamp Collection', 'Collection Revenue', 'Achievement %']
-                            st.dataframe(lb_coll.reset_index(drop=True), use_container_width=True, hide_index=True)
+                            st.dataframe(lb_coll.reset_index(drop=True), width='stretch', hide_index=True)
                         else:
                             st.info("No collection agent data available.")
 
@@ -4729,7 +4728,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                                                'Total Target', 'Till Day Target',
                                                'Calling Revenue', 'Community Collection',
                                                'Bootcamp Collection', 'Total Revenue', 'Achievement %']
-                            st.dataframe(lb_both.reset_index(drop=True), use_container_width=True, hide_index=True)
+                            st.dataframe(lb_both.reset_index(drop=True), width='stretch', hide_index=True)
                         else:
                             st.info("No calling+collection agent data available.")
 
@@ -4746,7 +4745,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         curr_label = c_start.strftime("%B %Y")
         prev_label = p_start.strftime("%B %Y")
 
-        gen_pending = st.button("📊 Generate Callerwise Pending", key="rev_pending_btn", use_container_width=False)
+        gen_pending = st.button("📊 Generate Callerwise Pending", key="rev_pending_btn", width='content')
 
         if gen_pending:
             st.session_state['pending_revenue_loaded'] = True
@@ -4880,7 +4879,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
     
         with tab4:
             # ── Services Input ──────────────────────────────────────────────────────
-            gen_update = st.button("📋 Generate Revenue Update", key="rev_update_btn", use_container_width=False)
+            gen_update = st.button("📋 Generate Revenue Update", key="rev_update_btn", width='content')
             st.markdown("""
             <div style='background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.2);
                         border-radius:10px;padding:.9rem 1.2rem;margin-bottom:.9rem;'>
@@ -5813,7 +5812,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                                 file_name=f"Revenue_Update_{display_start}_to_{display_end}.xlsx",
                                 mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                                 key='dl_rev_update_xlsx',
-                                use_container_width=True,
+                                width='stretch',
                             )
                         with _diff_col:
                             st.markdown(_diff_html, unsafe_allow_html=True)
@@ -5824,7 +5823,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                                 file_name=f"Revenue_Source_{display_start}_to_{display_end}.xlsx",
                                 mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                                 key='dl_rev_source_xlsx',
-                                use_container_width=True,
+                                width='stretch',
                             )
                         
                         
@@ -6035,14 +6034,14 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
         final = _append_caller_total_ld(df)
         h = min((len(final) + 1) * 35 + 20, 800)
         st.dataframe(final.style.apply(_style_caller, axis=1),
-                     use_container_width=True, hide_index=True, height=h)
+                     width='stretch', hide_index=True, height=h)
  
     def _show_team(df, msg="No data."):
         if df.empty: st.info(msg); return
         final = _append_team_total_ld(df)
         h = min((len(final) + 1) * 35 + 20, 600)
         st.dataframe(final.style.apply(_style_team, axis=1),
-                     use_container_width=True, hide_index=True, height=h)
+                     width='stretch', hide_index=True, height=h)
         
     def _build_leads_xlsx_bytes_ld(df_rows):
         EXPORT_COLS = [
