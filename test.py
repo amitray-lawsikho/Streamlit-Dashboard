@@ -6151,10 +6151,16 @@ border:2px solid #0d2137;'>{_hdg}</div>
                             for ri, _r in enumerate(_rows):
                                 fill = A_FILL if ri % 2 == 1 else W_FILL
                                 vals = [
-                                    _r['cn'], int(round(_r['tgt'])), int(round(_r['till'])),
-                                    int(round(_r['yst'])), int(round(_r['mtd'])),
-                                    f"{_r['pct']}%", int(round(_r['deficit'])),
-                                    _r['ey'], _r['em'], int(round(_r['pend'])),
+                                    _r['cn'], 
+                                    int(round(pd.to_numeric(_r['tgt'], errors='coerce') or 0)), 
+                                    int(round(pd.to_numeric(_r['till'], errors='coerce') or 0)), 
+                                    int(round(pd.to_numeric(_r['yst'], errors='coerce') or 0)), 
+                                    int(round(pd.to_numeric(_r['mtd'], errors='coerce') or 0)), 
+                                    f"{_r['pct']}%", 
+                                    int(round(pd.to_numeric(_r['deficit'], errors='coerce') or 0)), 
+                                    _r['ey'], 
+                                    _r['em'], 
+                                    int(round(pd.to_numeric(_r['pend'], errors='coerce') or 0)), 
                                 ]
                                 for ci, v in enumerate(vals, 1):
                                     c = ws.cell(rn, ci, v)
