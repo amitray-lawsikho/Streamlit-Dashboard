@@ -27,6 +27,7 @@ from supabase import create_client
 import re
 
 # --- GLOBAL CONFIG & CREDENTIALS ---
+import streamlit.components.v1 as components
 st.set_page_config(
     page_title="Analytics Dashboard — LawSikho",
     page_icon="📊",
@@ -256,7 +257,7 @@ def _auth_sign_in_panel():
 
     c1, c2 = st.columns(2)
     with c1:
-        if st.button("Sign In →", key="si_btn", width='stretch'):
+        if st.button("Sign In →", key="si_btn", use_container_width=True):
             if not email or not pwd:
                 st.error("Enter both email and password."); return
             try:
@@ -265,7 +266,7 @@ def _auth_sign_in_panel():
             except Exception as ex:
                 st.error(f"Login failed: {ex}")
     with c2:
-        if st.button("Forgot / Change Password", key="si_otp_switch", width='stretch'):
+        if st.button("Forgot / Change Password", key="si_otp_switch", use_container_width=True):
             st.session_state['auth_tab']           = "otp"
             st.session_state['otp_prefill_email']  = email
             st.session_state['otp_step']           = 1
@@ -283,7 +284,7 @@ def _auth_otp_panel():
             value=st.session_state.get('otp_prefill_email', ''),
             placeholder="your@lawsikho.in"
         )
-        if st.button("Send OTP →", key="otp_send_btn", width='stretch'):
+        if st.button("Send OTP →", key="otp_send_btn", use_container_width=True):
             if not email:
                 st.error("Enter your email."); return
             # Pre-check: is the email in the sheet?
@@ -301,7 +302,7 @@ def _auth_otp_panel():
             except Exception as ex:
                 st.error(f"Could not send OTP: {ex}")
 
-        if st.button("← Back to Sign In", key="otp_back1", width='stretch'):
+        if st.button("← Back to Sign In", key="otp_back1", use_container_width=True):
             st.session_state['auth_tab'] = "signin"
             st.rerun()
 
@@ -316,7 +317,7 @@ def _auth_otp_panel():
 
         c1, c2 = st.columns(2)
         with c1:
-            if st.button("Verify & Continue →", key="otp_verify_btn", width='stretch'):
+            if st.button("Verify & Continue →", key="otp_verify_btn", use_container_width=True):
                 if len(otp) != 8:
                     st.error("Enter the 8-digit code."); return
                 if pw1 != pw2:
@@ -336,7 +337,7 @@ def _auth_otp_panel():
                 except Exception as ex:
                     st.error(f"Verification failed — wrong code or it expired: {ex}")
         with c2:
-            if st.button("← Back", key="otp_back2", width='stretch'):
+            if st.button("← Back", key="otp_back2", use_container_width=True):
                 st.session_state['otp_step'] = 1
                 st.rerun()
 
@@ -379,6 +380,9 @@ def get_stats():
         return call_time, call_cnt, rev_time, rev_cnt, lead_time, lead_cnt
     except:
         return "N/A", "—", "N/A", "—", "N/A", "—"
+
+# ADD THIS FUNCTION AFTER get_stats() and BEFORE run_calling_dashboard()
+# ===========================================================================
 
 def show_homepage_with_login():
     # ── Full-page dark background + input styling ──
@@ -553,7 +557,7 @@ def show_homepage_with_login():
       <div class="sub">Real-time insights across Leads, Revenue &amp; Calling</div>
     </div>
     </body></html>"""
-    st.iframe(html_hero, height=420, scrolling=False)
+    components.html(html_hero, height=420, scrolling=False)
 
     # ── AUTH PANEL ─────────────────────────────────────────────
     left, mid, right = st.columns([1, 1, 1])
@@ -674,46 +678,8 @@ def show_homepage_with_login():
       <div class="f2">Developed and Designed by Amit Ray<span class="fd"></span>Reach out for Support and Queries</div>
     </div>
     </body></html>"""
-    st.iframe(html_bottom, height=640, scrolling=False)
-@st.cache_data(ttl=300, show_spinner=False)
+    components.html(html_bottom, height=640, scrolling=False)
 
-def _load_rev_update_team_sheet():
-    _url_active = (
-        "https://docs.google.com/spreadsheets/d/e/"
-        "2PACX-1vRT73ztvPNZSvIu5WLxo-3WQ76JMAnt4P9dITd4EAbjSvuDytfgvdfri1WPXotCjm_Etnb80_Q7S-wf"
-        "/pub?gid=0&single=true&output=csv"
-    )
-    _url_resigned = (
-        "https://docs.google.com/spreadsheets/d/e/"
-        "2PACX-1vRT73ztvPNZSvIu5WLxo-3WQ76JMAnt4P9dITd4EAbjSvuDytfgvdfri1WPXotCjm_Etnb80_Q7S-wf"
-        "/pub?gid=973926168&single=true&output=csv"
-    )
-    try:
-        df_active = pd.read_csv(_url_active)
-    except Exception:
-        df_active = pd.DataFrame()
-        
-    try:
-        df_resigned = pd.read_csv(_url_resigned)
-    except Exception:
-        df_resigned = pd.DataFrame()
-        
-    df = pd.concat([df_active, df_resigned], ignore_index=True)
-    if df.empty:
-        return pd.DataFrame()
-
-    df.columns = df.columns.str.strip()
-    mc = next((c for c in df.columns if c.strip().lower() == 'month'), None)
-    if mc:
-        df[mc] = pd.to_datetime(df[mc], dayfirst=True, errors='coerce')
-        df = df.sort_values(mc, ascending=False, na_position='last')
-    if 'Caller Name' in df.columns:
-        df['merge_key'] = df['Caller Name'].str.strip().str.lower()
-        if mc:
-            # Sort by month desc before dropping duplicates if month is available
-            df = df.sort_values(mc, ascending=False, na_position='last')
-        df = df.drop_duplicates(subset='merge_key', keep='first').reset_index(drop=True)
-    return df
 def run_calling_dashboard():
     # ADD THIS CSS BLOCK FIRST:
     st.markdown("""
@@ -1696,7 +1662,7 @@ def run_calling_dashboard():
                             final_df.style.apply(style_total, axis=1)
                                           .set_properties(**{'white-space': 'pre-wrap'}),
                             column_order=display_cols,
-                            width='stretch', hide_index=True
+                            use_container_width=True, hide_index=True
                         )
 
                         st.divider()
@@ -1754,7 +1720,7 @@ def run_calling_dashboard():
                             man_final = pd.concat([man_display, total_man_row], ignore_index=True)
                             st.dataframe(
                                 man_final.style.apply(style_total, axis=1),
-                                width='stretch', hide_index=True
+                                use_container_width=True, hide_index=True
                             )
 
         else:
@@ -1827,7 +1793,7 @@ def run_calling_dashboard():
                                     final_team_df.style.apply(style_static, axis=1)
                                                        .set_properties(**{'white-space': 'pre-wrap'}),
                                     column_order=static_display_cols,
-                                    width='stretch', hide_index=True, height=calc_h
+                                    use_container_width=True, hide_index=True, height=calc_h
                                 )
 
                                 target_cols = [
@@ -1869,7 +1835,7 @@ def run_calling_dashboard():
                                     final_tl_df.style.apply(style_static, axis=1)
                                                      .set_properties(**{'white-space': 'pre-wrap'}),
                                     column_order=static_display_cols,
-                                    width='stretch', hide_index=True, height=calc_h_tl
+                                    use_container_width=True, hide_index=True, height=calc_h_tl
                                 )
                                 valid_tls    = active_tl['CALLER'].unique()
                                 final_tl_cdr = tl_ad_pool[tl_ad_pool['call_owner'].isin(valid_tls)]
@@ -1964,7 +1930,7 @@ def run_calling_dashboard():
                 medals = (["🥇", "🥈", "🥉"] + [""] * max(0, len(lb) - 3))[:len(lb)]
                 lb.insert(0, "🏅", medals)
                 lb = lb.reset_index(drop=True)
-                st.dataframe(lb, width='stretch', hide_index=True)
+                st.dataframe(lb, use_container_width=True, hide_index=True)
 
         # ── Team Manual Calls ──
             manual_team_df = df_ins[df_ins['source'] == 'Manual'].copy()
@@ -2004,7 +1970,7 @@ def run_calling_dashboard():
                 team_man_final = pd.concat([team_man_display, total_team_man], ignore_index=True)
                 st.dataframe(
                     team_man_final.style.apply(style_team_manual_total, axis=1),
-                    width='stretch', hide_index=True
+                    use_container_width=True, hide_index=True
                 )
 
         else:
@@ -2689,7 +2655,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         st.dataframe(
             final.style.apply(style_total_rev, axis=1),
             column_order=all_cols,
-            width='stretch',
+            use_container_width=True,
             hide_index=True
         )
 
@@ -4115,6 +4081,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         st.sidebar.caption(f"👤 Viewing: {_rf_cname}")
 
     gen_report = st.sidebar.button("💰 Generate Revenue Report", key="rev_gen_btn")
+    gen_pending = st.sidebar.button("📊 Generate Callerwise Pending", key="rev_pending_btn")
     st.sidebar.download_button(
         label="📖 Metrics Guide (PDF)",
         data=generate_helper_pdf_bytes(),
@@ -4147,13 +4114,17 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
     </div>
     """, unsafe_allow_html=True)
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
-    "💰 Revenue Dashboard",
-    "🧠 Insights & Leaderboard",
-    "📊 Callerwise Pending Revenue",
-    "📋 Revenue Update",
-    "🎯 Target Vs Achievement",
-])
+
+    # ─────────────────────────────────────────────
+    # TABS
+    # ─────────────────────────────────────────────
+
+    tab1, tab2, tab3 = st.tabs(["💰 Revenue Dashboard", "🧠 Insights & Leaderboard", "📊 Callerwise Pending Revenue"])
+
+
+    # ══════════════════════════════════════════════
+    # TAB 1 — REVENUE DASHBOARD
+    # ══════════════════════════════════════════════
 
     with tab1:
         if gen_report:
@@ -4470,9 +4441,9 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
             </div>""", unsafe_allow_html=True)
 
 
-        # ══════════════════════════════════════════════
-        # TAB 2 — INSIGHTS & LEADERBOARD
-        # ══════════════════════════════════════════════
+    # ══════════════════════════════════════════════
+    # TAB 2 — INSIGHTS & LEADERBOARD
+    # ══════════════════════════════════════════════
 
     with tab2:
         if gen_report:
@@ -4645,7 +4616,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                                                   'Total Target', 'Till Day Target',
                                                   'Enrollment Rev', 'Balance Rev',
                                                   'Calling Revenue', 'Achievement %']
-                            st.dataframe(lb_calling.reset_index(drop=True), width='stretch', hide_index=True)
+                            st.dataframe(lb_calling.reset_index(drop=True), use_container_width=True, hide_index=True)
                         else:
                             st.info("No calling agent data available.")
 
@@ -4687,7 +4658,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                                                'Total Target', 'Till Day Target',
                                                'Calling Revenue', 'Community Collection',
                                                'Bootcamp Collection', 'Collection Revenue', 'Achievement %']
-                            st.dataframe(lb_coll.reset_index(drop=True), width='stretch', hide_index=True)
+                            st.dataframe(lb_coll.reset_index(drop=True), use_container_width=True, hide_index=True)
                         else:
                             st.info("No collection agent data available.")
 
@@ -4729,7 +4700,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                                                'Total Target', 'Till Day Target',
                                                'Calling Revenue', 'Community Collection',
                                                'Bootcamp Collection', 'Total Revenue', 'Achievement %']
-                            st.dataframe(lb_both.reset_index(drop=True), width='stretch', hide_index=True)
+                            st.dataframe(lb_both.reset_index(drop=True), use_container_width=True, hide_index=True)
                         else:
                             st.info("No calling+collection agent data available.")
 
@@ -4745,8 +4716,6 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         c_start, c_end, p_start, p_end = pending_months()
         curr_label = c_start.strftime("%B %Y")
         prev_label = p_start.strftime("%B %Y")
-
-        gen_pending = st.button("📊 Generate Callerwise Pending", key="rev_pending_btn", width='content')
 
         if gen_pending:
             st.session_state['pending_revenue_loaded'] = True
@@ -4877,1320 +4846,6 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         )
                 else:
                     st.info("Drop leads sheet could not be loaded.")
-    
-        with tab4:
-            # ── Services Input ──────────────────────────────────────────────────────
-            gen_update = st.button("📋 Generate Revenue Update", key="rev_update_btn", width='content')
-            st.markdown("""
-            <div style='background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.2);
-                        border-radius:10px;padding:.9rem 1.2rem;margin-bottom:.9rem;'>
-                <div style='font-size:.82rem;font-weight:700;color:#10B981;margin-bottom:.3rem;'>
-                    💼 SERVICES REVENUE INPUT
-                </div>
-                <div style='font-size:.76rem;color:var(--text-muted,#6B7280);'>
-                    Take This Value From Manager's Group Report by Finance and input below
-                    before clicking Generate Revenue Update.
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-         
-            # Parse & validate Services
-            services_raw = st.text_input(
-                "Services Revenue (₹)",
-                placeholder="e.g. 431211  or  4,31,211  or  4,31,211.50",
-                key="ru_services_input",
-                help="Numbers, commas and dots only. Commas are stripped; decimals are rounded.",
-            )
-
-            # Parse & validate
-            _ru_services_val  = 0.0
-            _ru_services_ok   = True
-            if services_raw and services_raw.strip():
-                _cleaned = services_raw.strip().replace(',', '')
-                try:
-                    _ru_services_val = round(float(_cleaned))
-                except ValueError:
-                    st.error("⚠️  Invalid input — please enter a plain number (e.g. 431211 or 4,31,211).")
-                    _ru_services_ok = False
-            st.caption(f"Services value: ₹{int(_ru_services_val):,}")
-
-            if not gen_update:
-                st.markdown("""
-                <div style='text-align:center;padding:5rem 1rem;opacity:.6;'>
-                    <div style='font-size:4rem;margin-bottom:1rem;'>📋</div>
-                    <div style='font-size:.9rem;font-weight:600;'>
-                        Enter both Services Revenue and Total Revenue Till Today above, then click
-                        <b>📋 Generate Revenue Update</b> in the sidebar.
-                    </div>
-                </div>""", unsafe_allow_html=True)
-         
-            else:
-                if not _ru_services_ok:
-                    st.error("Please enter a valid Services revenue value before generating the report.")
-                else:
-                    with st.spinner("Building Revenue Update…"):
-         
-                        # ── heading ──────────────────────────────────────────────────
-                        if start_date == end_date:
-                            _hd_str = start_date.strftime('%d/%m/%Y')
-                        else:
-                            _hd_str = f"{start_date.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')}"
-                        _ru_heading = f"REVENUE UPDATE — ({_hd_str})"
-
-                        # ── fetch data ────────────────────────────────────────────────
-                        _df_ru  = fetch_revenue_data(start_date, end_date)
-                        _df_tru = _load_rev_update_team_sheet()
-
-                    if _df_ru.empty:
-                        st.warning("No revenue data found for the selected period.")
-                    else:
-                        # ── normalise revenue sheet ───────────────────────────────────
-                        _dr = _df_ru.copy()
-
-                        # ── Role-based + sidebar filters ──────────────────────────────
-                        _ru_role   = st.session_state.get('rf_role', 'admin')
-                        _ru_cname  = st.session_state.get('rf_caller_name', '')
-                        _ru_teams  = st.session_state.get('rf_teams', [])
-                        # Merge team info temporarily for filtering
-                        if not _df_tru.empty and 'merge_key' in _df_tru.columns:
-                            _tru_slim = _df_tru[['merge_key','Team Name','Vertical']].drop_duplicates('merge_key')
-                            _dr = _dr.merge(_tru_slim, on='merge_key', how='left')
-                        else:
-                            _dr['Team Name'] = ''
-                            _dr['Vertical']  = ''
-                        if _ru_role == 'caller' and _ru_cname:
-                            _dr = _dr[_dr['Caller_name'].str.strip().str.lower() == _ru_cname.strip().lower()]
-                        elif _ru_role in ('tl', 'trainer', 'vertical_head') and _ru_teams:
-                            _dr = _dr[_dr['Team Name'].isin(_ru_teams)]
-                        if selected_team:
-                            _dr = _dr[_dr['Team Name'].isin(selected_team)]
-                        if selected_vertical:
-                            _dr = _dr[_dr['Vertical'].isin(selected_vertical)]
-                        if search_query:
-                            _dr = _dr[_dr['Caller_name'].str.contains(search_query, case=False, na=False)]
-
-                        if _dr.empty:
-                            st.warning("No data found for your access level and selected filters.")
-                            st.stop()
-
-                        _enr_l    = _dr['Enrollment'].astype(str).str.strip().str.lower()
-
-                        # ── Apply role-based filters (same as tab1/tab2) ──────────────
-                        # Merge team info first so we can filter by Team Name / Vertical
-                        _dr = pd.merge(
-                            _dr,
-                            _df_tru[['merge_key', 'Team Name', 'Vertical']].drop_duplicates('merge_key')
-                            if 'merge_key' in _df_tru.columns and not _df_tru.empty
-                            else pd.DataFrame(columns=['merge_key', 'Team Name', 'Vertical']),
-                            on='merge_key', how='left'
-                        )
-                        if 'Team Name' not in _dr.columns:
-                            _dr['Team Name'] = ''
-                        if 'Vertical' not in _dr.columns:
-                            _dr['Vertical'] = ''
-
-                        # Role filter: caller sees only their own rows
-                        _ru_role = st.session_state.get('rf_role', 'admin')
-                        _ru_cname = st.session_state.get('rf_caller_name', '')
-                        if _ru_role == 'caller' and _ru_cname:
-                            _dr = _dr[_dr['Caller_name'].str.strip().str.lower() == _ru_cname.strip().lower()]
-                        elif _ru_role in ('tl', 'trainer', 'vertical_head'):
-                            _ru_rf_teams = st.session_state.get('rf_teams', [])
-                            if _ru_rf_teams:
-                                _dr = _dr[_dr['Team Name'].isin(_ru_rf_teams)]
-
-                        # Sidebar filter overrides (admin uses multiselects)
-                        if selected_team:
-                            _dr = _dr[_dr['Team Name'].isin(selected_team)]
-                        if selected_vertical:
-                            _dr = _dr[_dr['Vertical'].isin(selected_vertical)]
-                        if search_query:
-                            _dr = _dr[_dr['Caller_name'].str.contains(search_query, case=False, na=False)]
-
-                        if _dr.empty:
-                            st.warning("No revenue data found for the selected filters.")
-                        else:
-                            pass
-
-                        _enr_l    = _dr['Enrollment'].astype(str).str.strip().str.lower()
-                        _src_l    = _dr['Source'].astype(str).str.lower()
-                        _caller_l = _dr['Caller_name'].str.strip().str.lower()
-                        _eotm     = (
-                            _dr['Enrollment_of_this_month'].astype(str).str.strip().str.lower()
-                            if 'Enrollment_of_this_month' in _dr.columns
-                            else pd.Series([''] * len(_dr), index=_dr.index)
-                        )
-                        _ch_l = (
-                            _dr['community_head'].astype(str).str.strip().str.lower()
-                            if 'community_head' in _dr.columns
-                            else pd.Series([''] * len(_dr), index=_dr.index)
-                        )
-         
-                        # ── build lookup from gid=0 team sheet ────────────────────────
-                        _dt = _df_tru.copy()
-                        # Smart dedup: prefer rows that have a non-empty Team Name for each caller.
-                        # This ensures resigned callers whose most-recent sheet row has a blank/different
-                        # team (post-resignation update) still get their original team mapping.
-                        if 'merge_key' in _dt.columns and 'Team Name' in _dt.columns:
-                            _dt['_clean_team'] = _dt['Team Name'].astype(str).str.strip().str.lower()
-                            _dt_has_team = _dt[
-                                (_dt['_clean_team'] != '') &
-                                (_dt['_clean_team'] != 'nan') &
-                                (_dt['_clean_team'] != 'none')
-                            ].drop_duplicates(subset='merge_key', keep='first')
-                            _dt_fallback = _dt[
-                                ~_dt['merge_key'].isin(_dt_has_team['merge_key'])
-                            ].drop_duplicates(subset='merge_key', keep='first')
-                            _dedup_dt = pd.concat([_dt_has_team, _dt_fallback], ignore_index=True)
-                            if '_clean_team' in _dedup_dt.columns:
-                                _dedup_dt = _dedup_dt.drop(columns=['_clean_team'])
-                        else:
-                            _dedup_dt = (
-                                _dt.drop_duplicates(subset='merge_key', keep='first')
-                                if 'merge_key' in _dt.columns else _dt
-                            )
-         
-                        def _mk_map(col):
-                            if col in _dedup_dt.columns and 'merge_key' in _dedup_dt.columns:
-                                return _dedup_dt.dropna(subset=['merge_key']).set_index('merge_key')[col].to_dict()
-                            return {}
-         
-                        _vert_map  = _mk_map('Vertical')
-                        _team_map  = _mk_map('Team Name')
-                        _desig_col = next(
-                            (c for c in _dedup_dt.columns if 'academic' in c.lower() or 'counselor' in c.lower()),
-                            None
-                        )
-                        _desig_map = _mk_map(_desig_col) if _desig_col else {}
-         
-                        _dr['_vert'] = _caller_l.map(_vert_map).fillna('').astype(str)
-                        _dr['_team'] = _caller_l.map(_team_map).fillna('').astype(str)
-         
-                        # community manager callers (for Abhipsha extra)
-                        _cm_callers = {
-                            k for k, v in _desig_map.items()
-                            if str(v).strip().lower() == 'community manager'
-                        }.union({
-                            k for k, v in _team_map.items()
-                            if 'community manager' in str(v).strip().lower()
-                        })
-         
-                        # ── tiny helpers ──────────────────────────────────────────────
-                        def _sf(m):
-                            return float(_dr.loc[m, 'Fee_paid'].sum())
-         
-                        def _cnew(m):
-                            return int((m & (_enr_l == 'new enrollment')).sum())
-         
-                        def _vc(kw):
-                            return _dr['_vert'].str.contains(kw, case=False, na=False)
-         
-                        def _fnum(v):
-                            if v is None:
-                                return ""
-                            return f"{int(round(v)):,}"
-         
-                        def _fenr(v):
-                            try:
-                                return str(int(v)) if int(v) > 0 else ""
-                            except Exception:
-                                return ""
-         
-                        # ─── OLD SALES TEAM ────────────────────────────────────────────
-                        _uzair_m    = _vc('Uzair')
-                        _old_enr_f  = _enr_l.isin(['new enrollment', 'new enrollment - balance payment'])
-                        _old_rev    = _sf(_uzair_m & _old_enr_f)
-                        _old_enr    = _cnew(_uzair_m)
-         
-                        _uz_teams = (
-                            _dedup_dt[
-                                _dedup_dt['Vertical'].astype(str).str.contains('Uzair', case=False, na=False)
-                            ]['Team Name'].dropna().unique().tolist()
-                            if 'Vertical' in _dedup_dt.columns and 'Team Name' in _dedup_dt.columns
-                            else []
-                        )
-                        _corp_t = sorted([t for t in _uz_teams if 'corporate' in t.lower()])
-                        _ncorp_t = sorted([t for t in _uz_teams if 'corporate' not in t.lower()])
-         
-                        _old_sub = {}
-                        if _corp_t:
-                            _cm2 = _dr['_team'].isin(_corp_t)
-                            _cr  = _sf(_cm2 & _old_enr_f)
-                            _ce  = _cnew(_cm2)
-                            _cfr = _sf(_cm2 & _src_l.str.contains('funnel', na=False))
-                            _old_sub['Corporate Law'] = {
-                                'rev': _cr, 'enr': _ce,
-                                'funnel_rev': _cfr, 'has_funnel': _cfr > 0,
-                            }
-                        for _t in _ncorp_t:
-                            _tm = _dr['_team'] == _t
-                            _old_sub[_t] = {
-                                'rev': _sf(_tm & _old_enr_f),
-                                'enr': _cnew(_tm),
-                                'funnel_rev': 0, 'has_funnel': False,
-                            }
-                        # filter zero rows, sort by revenue desc
-                        _old_sub = dict(
-                            sorted(
-                                {k: v for k, v in _old_sub.items() if v['rev'] > 0 or v['enr'] > 0}.items(),
-                                key=lambda x: x[1]['rev'], reverse=True,
-                            )
-                        )
-         
-                        # ─── NEW SALES TEAM ────────────────────────────────────────────
-                        _ns_kws   = ['Deepanshi', 'Darshan', 'Shivya', 'Anmol']
-                        _ns_m     = pd.Series(False, index=_dr.index)
-                        for _kw in _ns_kws:
-                            _ns_m |= _vc(_kw)
-                        _ns_excl  = _enr_l.isin([
-                            'bootcamp collections - balance payments',
-                            'community collections - balance payments',
-                        ])
-                        _ns_rev   = _sf(_ns_m & ~_ns_excl)
-                        _ns_enr   = _cnew(_ns_m)
-         
-                        _ns_teams = (
-                            _dedup_dt[
-                                _dedup_dt['Vertical'].astype(str).str.contains(
-                                    '|'.join(_ns_kws), case=False, na=False
-                                )
-                            ]['Team Name'].dropna().unique().tolist()
-                            if 'Vertical' in _dedup_dt.columns and 'Team Name' in _dedup_dt.columns
-                            else []
-                        )
-                        # US Accounting: ONLY teams under Deepanshi's vertical (excludes Uzair's US teams)
-                        if 'Vertical' in _dedup_dt.columns and 'Team Name' in _dedup_dt.columns:
-                            _deepanshi_teams = (
-                                _dedup_dt[
-                                    _dedup_dt['Vertical'].astype(str).str.contains('Deepanshi', case=False, na=False)
-                                ]['Team Name'].dropna().unique().tolist()
-                            )
-                        else:
-                            _deepanshi_teams = []
-                        _us_t = [
-                            t for t in _deepanshi_teams
-                            if 'us accounting' in t.lower() or 'us acc' in t.lower()
-                        ]
-
-                        # Split ID teams: those whose Vertical contains "Anmol" vs those that don't
-                        _all_id_t = [t for t in _ns_teams
-                                     if re.match(r'^id[\s\-]', t.strip().lower()) or t.strip().lower() == 'id']
-                        if 'Vertical' in _dedup_dt.columns and 'Team Name' in _dedup_dt.columns:
-                            _anmol_vert_teams = (
-                                _dedup_dt[
-                                    _dedup_dt['Vertical'].astype(str).str.contains('Anmol', case=False, na=False)
-                                ]['Team Name'].dropna().unique().tolist()
-                            )
-                        else:
-                            _anmol_vert_teams = []
-                        _id_anmol_t = [t for t in _all_id_t if t in _anmol_vert_teams]
-                        _id_t       = [t for t in _all_id_t if t not in _anmol_vert_teams]
-
-                        _dsv_t = [t for t in _ns_teams if t.strip().lower().startswith('dsv')]
-                        _oth_t = [t for t in _ns_teams
-                                  if t not in _us_t and t not in _all_id_t and t not in _dsv_t]
-
-                        _ns_sub = {}
-                        if _us_t:
-                            _um = _dr['_team'].isin(_us_t)
-                            _ns_sub['US Accounting'] = {'rev': _sf(_um & ~_ns_excl), 'enr': _cnew(_um)}
-                        # ID-Anmol appears before ID
-                        if _id_anmol_t:
-                            _iam = _dr['_team'].isin(_id_anmol_t)
-                            _ns_sub['ID-Anmol'] = {'rev': _sf(_iam & ~_ns_excl), 'enr': _cnew(_iam)}
-                        if _id_t:
-                            _im = _dr['_team'].isin(_id_t)
-                            _ns_sub['ID'] = {'rev': _sf(_im & ~_ns_excl), 'enr': _cnew(_im)}
-                        if _dsv_t:
-                            _dvm = _dr['_team'].isin(_dsv_t)
-                            _ns_sub['DSV'] = {'rev': _sf(_dvm & ~_ns_excl), 'enr': _cnew(_dvm)}
-                        for _t in _oth_t:
-                            _tm = _dr['_team'] == _t
-                            _ns_sub[_t] = {'rev': _sf(_tm & ~_ns_excl), 'enr': _cnew(_tm)}
-                        # Keep ID-Anmol and ID always in fixed order (don't sort them away)
-                        _fixed_order = ['ID-Anmol', 'ID']
-                        _fixed_entries = {k: _ns_sub[k] for k in _fixed_order if k in _ns_sub and (_ns_sub[k]['rev'] > 0 or _ns_sub[k]['enr'] > 0)}
-                        _other_entries = dict(
-                            sorted(
-                                {k: v for k, v in _ns_sub.items()
-                                 if k not in _fixed_order and (v['rev'] > 0 or v['enr'] > 0)}.items(),
-                                key=lambda x: x[1]['rev'], reverse=True,
-                            )
-                        )
-                        _ns_sub = {**_other_entries, **_fixed_entries}
-         
-                        # ─── BOOTCAMP BOOKING FEES ─────────────────────────────────────
-                        _boot_m   = (_caller_l == 'bootcamp - direct') & (_enr_l == 'new enrollment')
-                        _boot_rev = _sf(_boot_m)
-                        _boot_enr = int(_boot_m.sum())
-         
-                        # ─── MAYUR (CHANGEMAKERS) ──────────────────────────────────────
-                        _chm          = _dr['_team'].str.contains('Changemakers', case=False, na=False)
-                        _mayur_rev    = _sf(_chm & (_enr_l == 'bootcamp collections - balance payments'))
-                        _mayur_enr    = _cnew(_chm)
-                        _mayur_call_r = _sf(_chm & _enr_l.isin(['new enrollment', 'new enrollment - balance payment']))
-                        _mayur_call_e = _cnew(_chm)
-                        _mayur_curr   = _sf(_chm & (_enr_l == 'bootcamp collections - balance payments') & (_eotm == 'yes'))
-                        _mayur_prev   = _sf(_chm & (_enr_l == 'bootcamp collections - balance payments') & (_eotm == 'no'))
-         
-                        # ─── ANMOL ─────────────────────────────────────────────────────
-                        _anm_m      = _vc('Anmol')
-                        _anmol_rev  = _sf(_anm_m & (_enr_l == 'bootcamp collections - balance payments'))
-                        _anmol_curr = _sf(_anm_m & (_enr_l == 'bootcamp collections - balance payments') & (_eotm == 'yes'))
-                        _anmol_prev = _sf(_anm_m & (_enr_l == 'bootcamp collections - balance payments') & (_eotm == 'no'))
-         
-                        # ─── DEEPANSHI (Previous balances) ─────────────────────────────
-                        _dep_m      = _vc('Deepanshi')
-                        _dep_rev    = _sf(_dep_m & (_enr_l == 'bootcamp collections - balance payments'))
-         
-                        # ─── COLLECTIONS ───────────────────────────────────────────────
-                        _coll_rev = _boot_rev + _mayur_rev + _anmol_rev + _dep_rev
-         
-                        # ─── COMMUNITY (total) ──────────────────────────────────────────
-                        _src_comm     = _src_l.str.contains('community', na=False)
-                        _comm_all     = _sf(_src_comm)
-                        _comm_nd_new  = _sf(
-                            _src_comm
-                            & ~_caller_l.isin(['direct', 'bootcamp - direct'])
-                            & _enr_l.isin(['new enrollment', 'new enrollment - balance payment'])
-                        )
-                        _cm_extra_rev = _sf(_caller_l.isin(_cm_callers))
-                        _comm_rev     = _comm_all - _comm_nd_new + _cm_extra_rev
-         
-                        # ─── COMMUNITY HEADS ────────────────────────────────────────────
-                        _comm_heads = {}
-                        for _hkw, _hfull in [
-                            ('komal',     'Komal Shah'),
-                            ('jayantika', 'Jayantika Ganguly'),
-                            ('garima',    'Garima'),
-                            ('abhipsha',  'Abhipsha'),
-                        ]:
-                            _hm      = _ch_l.str.contains(_hkw, case=False, na=False)
-                            # Other revenue: source=community + head matches + enrollment=other revenue
-                            _oth_r   = _sf(_hm & _src_comm & (_enr_l == 'other revenue'))
-                            # Community-Direct: caller=Direct + source=community + head matches + enrollment=new enrollment
-                            _dir_m   = (_caller_l == 'direct') & _hm & _src_comm & (_enr_l == 'new enrollment')
-                            _dir_r   = _sf(_dir_m)
-                            _dir_e   = int(_dir_m.sum())
-                            # Collections split by eotm
-                            _curr_h  = _sf(_hm & _src_comm & (_enr_l == 'community collections - balance payments') & (_eotm == 'yes'))
-                            _prev_h  = _sf(_hm & _src_comm & (_enr_l == 'community collections - balance payments') & (_eotm == 'no'))
-                            # Subtract: source=community + head matches + new/balance enrollment + caller != Direct
-                            _nd_new  = _sf(
-                                _hm & _src_comm
-                                & _enr_l.isin(['new enrollment', 'new enrollment - balance payment'])
-                                & (_caller_l != 'direct')
-                            )
-                            # Abhipsha only: add ALL revenue for callers designated Community Manager in team sheet
-                            _extra   = _sf(_caller_l.isin(_cm_callers)) if _hkw == 'abhipsha' else 0.0
-                            _htotal  = _oth_r + _dir_r + _curr_h + _prev_h + _extra - _nd_new
-                            _comm_heads[_hkw] = {
-                                'full': _hfull, 'total': _htotal,
-                                'dir_r': _dir_r, 'dir_e': _dir_e,
-                                'curr': _curr_h, 'prev': _prev_h,
-                            }
-         
-                        # ─── DIRECT-FUNNEL ──────────────────────────────────────────────
-                        _dfunnel_rev = _sf(
-                            _src_l.str.contains('funnel', na=False)
-                            & (_caller_l == 'direct')
-                            & _enr_l.isin(['new enrollment', 'new enrollment - balance payment', 'other revenue'])
-                        )
-         
-                        # ─── DIRECT ────────────────────────────────────────────────────
-                        _direct_rev = _sf(
-                            ~_src_l.str.contains('funnel', na=False)
-                            & ~_src_l.str.contains('community', na=False)
-                            & (_caller_l == 'direct')
-                            & _enr_l.isin(['new enrollment', 'new enrollment - balance payment', 'other revenue'])
-                        )
-         
-                        # ─── LEAD DETAILS NOT AVAILABLE ─────────────────────────────────
-                        _dna_m = (
-                            _dr['Caller_name'].astype(str).str.strip().isin(['', 'nan', 'None', 'NaN'])
-                            | _dr['Enrollment'].astype(str).str.strip().isin(['', 'nan', 'None', 'NaN'])
-                            | _dr['Source'].astype(str).str.strip().isin(['', 'nan', 'None', 'NaN'])
-                        )
-                        _dna_rev = _sf(_dna_m)
-         
-                        # ─── TOTAL REVENUE ───────────────────────────────────────────────
-                        _total_rev = (
-                            _old_rev + _ns_rev
-                            + _coll_rev + _comm_rev
-                            + _dfunnel_rev + _direct_rev
-                            + _ru_services_val + _dna_rev
-                        )
-                        _total_enr = _old_enr + _ns_enr   # matches image (121+84=205)
-         
-                        # ── Render HTML table ─────────────────────────────────────────
-                        _TITLE  = "#1c3a5f"
-                        _COLHDR = "#1e4d6b"
-                        _BOLD   = "#dbeafe"
-                        _SUB    = "#ffffff"
-                        _SUB2   = "#f8faff"
-                        _TOTAL  = "#1c3a5f"
-                        _TBOLD  = "#0d2137"
-        
-                        def _hs(extra=""):
-                            return (
-                                f"background:{_COLHDR};color:#fff;font-size:.72rem;"
-                                f"font-weight:700;padding:5px 10px;border:1px solid #163d5a;{extra}"
-                            )
-        
-                        def _bs(extra=""):
-                            return (
-                                f"background:{_BOLD};color:{_TBOLD};font-weight:700;"
-                                f"font-size:.75rem;padding:4px 8px;border:1px solid #bfdbfe;{extra}"
-                            )
-        
-                        def _ss(extra=""):
-                            return (
-                                f"background:{_SUB};color:#1a1a2e;font-size:.73rem;"
-                                f"padding:3px 8px 3px 22px;border:1px solid #e8f0fe;{extra}"
-                            )
-        
-                        def _ss2(extra=""):
-                            return (
-                                f"background:{_SUB2};color:#1a1a2e;font-size:.71rem;"
-                                f"padding:3px 8px 3px 36px;border:1px solid #e8f0fe;{extra}"
-                            )
-        
-                        def _ts(extra=""):
-                            return (
-                                f"background:{_TOTAL};color:#fff;font-weight:700;"
-                                f"font-size:.76rem;padding:5px 8px;border:1px solid #0d2137;{extra}"
-                            )
-        
-                        _NR = "text-align:right;font-family:'DM Mono',monospace;min-width:90px;"
-        
-                        def _tr(lbl_css, num_css, label, rev=None, enr=None):
-                            rv = _fnum(rev) if rev is not None else ""
-                            en = _fenr(enr) if enr is not None else ""
-                            return (
-                                f"<tr>"
-                                f"<td style='{lbl_css}'>{label}</td>"
-                                f"<td style='{num_css}{_NR}'>{rv}</td>"
-                                f"<td style='{num_css}{_NR}'>{en}</td>"
-                                f"</tr>"
-                            )
-        
-                        def _show(rev, enr=0):
-                            return (rev or 0) != 0 or (enr or 0) != 0
-
-                        _html = f"""
-    <div style='overflow-x:auto;margin:.5rem auto;max-width:720px;'>
-    <table style='width:100%;border-collapse:collapse;font-family:"DM Sans",sans-serif;'>
-    <thead>
-    <tr>
-      <th colspan='3' style='background:{_TITLE};color:#fff;text-align:center;
-          padding:8px 12px;font-size:.82rem;font-weight:700;letter-spacing:.4px;
-          border:2px solid {_TITLE};'>{_ru_heading}</th>
-    </tr>
-    <tr>
-      <th style='{_hs("text-align:left;width:58%;")}'>&nbsp;</th>
-      <th style='{_hs("text-align:right;width:26%;")}'> Revenue Split</th>
-      <th style='{_hs("text-align:right;width:16%;")}'> Enrollments</th>
-    </tr>
-    </thead>
-    <tbody>
-    """
-
-                        # Old Sales
-                        _html += _tr(_bs(), _bs(), "Old Sales team", _old_rev, _old_enr)
-                        for _tn, _td in _old_sub.items():
-                            if not _show(_td['rev'], _td['enr']): continue
-                            _lbl = _tn
-                            if _td['has_funnel']:
-                                _lbl = f"{_tn} ({_fnum(_td['funnel_rev'])} - Funnel included)"
-                            _html += _tr(_ss(), _ss(), _lbl, _td['rev'], _td['enr'])
-
-                        # New Sales
-                        _html += _tr(_bs(), _bs(), "New Sales team", _ns_rev, _ns_enr)
-                        for _tn, _td in _ns_sub.items():
-                            if not _show(_td['rev'], _td['enr']): continue
-                            _html += _tr(_ss(), _ss(), _tn, _td['rev'], _td['enr'])
-
-                        # Bootcamp
-                        if _show(_boot_rev, _boot_enr):
-                            _html += _tr(_bs(), _bs(), "Bootcamp booking fees", _boot_rev, _boot_enr)
-
-                        # Mayur
-                        _html += _tr(_bs(), _bs(), "Mayur", _mayur_rev)
-                        if _show(_mayur_call_r, _mayur_call_e):
-                            _html += _tr(_ss(), _ss(), "Calling Revenue", _mayur_call_r, _mayur_call_e)
-                        if _show(_mayur_curr):
-                            _html += _tr(_ss(), _ss(), "Current month collections", _mayur_curr)
-                        if _show(_mayur_prev):
-                            _html += _tr(_ss(), _ss(), "Previous month collections", _mayur_prev)
-
-                        # Anmol
-                        _html += _tr(_bs(), _bs(), "Anmol", _anmol_rev)
-                        if _show(_anmol_curr):
-                            _html += _tr(_ss(), _ss(), "Current month collections", _anmol_curr)
-                        if _show(_anmol_prev):
-                            _html += _tr(_ss(), _ss(), "Previous month collections", _anmol_prev)
-
-                        # Deepanshi
-                        if _show(_dep_rev):
-                            _html += _tr(_bs(), _bs(), "Deepanshi (Previous balances)", _dep_rev)
-
-                        _html += _tr(_bs(), _bs(), "Collections", _coll_rev)
-
-                        # Community
-                        _html += _tr(_bs(), _bs(), "Community", _comm_rev)
-                        for _hk, _hd in _comm_heads.items():
-                            if not _show(_hd['total'], _hd['dir_e']): continue
-                            _html += _tr(_ss(), _ss(), _hd['full'], _hd['total'])
-                            if _show(_hd['dir_r'], _hd['dir_e']):
-                                _html += _tr(_ss2(), _ss2(), f"{_hd['full']} Community-Direct", _hd['dir_r'], _hd['dir_e'])
-                            if _show(_hd['curr']):
-                                _html += _tr(_ss2(), _ss2(), "Current month collections", _hd['curr'])
-                            if _show(_hd['prev']):
-                                _html += _tr(_ss2(), _ss2(), "Previous month collections", _hd['prev'])
-
-                        # Direct-Funnel & Direct
-                        if _show(_dfunnel_rev):
-                            _html += _tr(_bs(), _bs(), "Direct-Funnel", _dfunnel_rev)
-                        if _show(_direct_rev):
-                            _html += _tr(_bs(), _bs(), "Direct", _direct_rev)
-
-                        # Services
-                        _html += _tr(_bs(), _bs(), "Services", _ru_services_val)
-
-                        # DNA
-                        if _show(_dna_rev):
-                            _html += _tr(_bs(), _bs(), "Lead Details not Available", _dna_rev)
-
-                        # Total
-                        _html += _tr(_ts(), _ts(), "Total Revenue", _total_rev, _total_enr)
-         
-                        _html += "</tbody></table></div>"
-         
-                        section_header(f"📋 {_ru_heading}")
-                        st.markdown(_html, unsafe_allow_html=True)
-         
-                        # ── CSV download ──────────────────────────────────────────────
-                        _rows_dl = []
-                        _rows_dl.append({"Category": "Old Sales team", "Sub-category": "",
-                                          "Revenue Split": int(round(_old_rev)), "Enrollments": _old_enr or ""})
-                        for _tn, _td in _old_sub.items():
-                            _lbl = f"{_tn} ({_fnum(_td['funnel_rev'])} - Funnel included)" if _td['has_funnel'] else _tn
-                            _rows_dl.append({"Category": "", "Sub-category": _lbl,
-                                             "Revenue Split": int(round(_td['rev'])), "Enrollments": _td['enr'] or ""})
-                        _rows_dl.append({"Category": "New Sales team", "Sub-category": "",
-                                          "Revenue Split": int(round(_ns_rev)), "Enrollments": _ns_enr or ""})
-                        for _tn, _td in _ns_sub.items():
-                            _rows_dl.append({"Category": "", "Sub-category": _tn,
-                                             "Revenue Split": int(round(_td['rev'])), "Enrollments": _td['enr'] or ""})
-                        _rows_dl.append({"Category": "Bootcamp booking fees", "Sub-category": "",
-                                          "Revenue Split": int(round(_boot_rev)), "Enrollments": _boot_enr or ""})
-                        _rows_dl.append({"Category": "Mayur", "Sub-category": "",
-                                          "Revenue Split": int(round(_mayur_rev)), "Enrollments": ""})
-                        _rows_dl.append({"Category": "", "Sub-category": "Calling Revenue",
-                                          "Revenue Split": int(round(_mayur_call_r)), "Enrollments": _mayur_call_e or ""})
-                        _rows_dl.append({"Category": "", "Sub-category": "Current month collections",
-                                          "Revenue Split": int(round(_mayur_curr)), "Enrollments": ""})
-                        _rows_dl.append({"Category": "", "Sub-category": "Previous month collections",
-                                          "Revenue Split": int(round(_mayur_prev)), "Enrollments": ""})
-                        _rows_dl.append({"Category": "Anmol", "Sub-category": "",
-                                          "Revenue Split": int(round(_anmol_rev)), "Enrollments": ""})
-                        _rows_dl.append({"Category": "", "Sub-category": "Current month collections",
-                                          "Revenue Split": int(round(_anmol_curr)), "Enrollments": ""})
-                        _rows_dl.append({"Category": "", "Sub-category": "Previous month collections",
-                                          "Revenue Split": int(round(_anmol_prev)), "Enrollments": ""})
-                        _rows_dl.append({"Category": "Deepanshi (Previous balances)", "Sub-category": "",
-                                          "Revenue Split": int(round(_dep_rev)), "Enrollments": ""})
-                        _rows_dl.append({"Category": "Collections", "Sub-category": "",
-                                          "Revenue Split": int(round(_coll_rev)), "Enrollments": ""})
-                        _rows_dl.append({"Category": "Community", "Sub-category": "",
-                                          "Revenue Split": int(round(_comm_rev)), "Enrollments": ""})
-                        for _hk, _hd in _comm_heads.items():
-                            _rows_dl.append({"Category": "", "Sub-category": _hd['full'],
-                                             "Revenue Split": int(round(_hd['total'])), "Enrollments": ""})
-                            _rows_dl.append({"Category": "", "Sub-category": f"  {_hd['full']} Community-Direct",
-                                             "Revenue Split": int(round(_hd['dir_r'])), "Enrollments": _hd['dir_e'] or ""})
-                            _rows_dl.append({"Category": "", "Sub-category": "  Current month collections",
-                                             "Revenue Split": int(round(_hd['curr'])), "Enrollments": ""})
-                            _rows_dl.append({"Category": "", "Sub-category": "  Previous month collections",
-                                             "Revenue Split": int(round(_hd['prev'])), "Enrollments": ""})
-                        _rows_dl.append({"Category": "Direct-Funnel", "Sub-category": "",
-                                          "Revenue Split": int(round(_dfunnel_rev)), "Enrollments": ""})
-                        _rows_dl.append({"Category": "Direct", "Sub-category": "",
-                                          "Revenue Split": int(round(_direct_rev)), "Enrollments": ""})
-                        _rows_dl.append({"Category": "Services", "Sub-category": "",
-                                          "Revenue Split": int(round(_ru_services_val)), "Enrollments": ""})
-                        _rows_dl.append({"Category": "Lead Details not Available", "Sub-category": "",
-                                          "Revenue Split": int(round(_dna_rev)), "Enrollments": ""})
-                        _rows_dl.append({"Category": "Total Revenue", "Sub-category": "",
-                                          "Revenue Split": int(round(_total_rev)), "Enrollments": _total_enr or ""})
-         
-                        def _build_ru_excel(rows, heading):
-                            TITLE_FILL = PatternFill("solid", start_color="1c3a5f", end_color="1c3a5f")
-                            HDR_FILL   = PatternFill("solid", start_color="1e4d6b", end_color="1e4d6b")
-                            SEC_FILL   = PatternFill("solid", start_color="dbeafe", end_color="dbeafe")
-                            SUB_FILL   = PatternFill("solid", start_color="ffffff", end_color="ffffff")
-                            SUB2_FILL  = PatternFill("solid", start_color="f8faff", end_color="f8faff")
-                            TOT_FILL   = PatternFill("solid", start_color="1c3a5f", end_color="1c3a5f")
-                            W_FONT     = Font(bold=True, color="FFFFFF", name="Arial", size=9)
-                            S_FONT     = Font(bold=True, color="0d2137", name="Arial", size=9)
-                            D_FONT     = Font(name="Arial", size=9, color="1a1a2e")
-                            CENTER     = Alignment(horizontal='center', vertical='center', wrap_text=True)
-                            LEFT       = Alignment(horizontal='left',   vertical='center')
-                            RIGHT      = Alignment(horizontal='right',  vertical='center')
-                            BDR        = Border(
-                                left=Side(style='thin', color='bfdbfe'),
-                                right=Side(style='thin', color='bfdbfe'),
-                                top=Side(style='thin', color='bfdbfe'),
-                                bottom=Side(style='thin', color='bfdbfe'),
-                            )
-                            wb = Workbook(); ws = wb.active; ws.title = "Revenue Update"
-                            ws.merge_cells("A1:C1")
-                            tc = ws["A1"]
-                            tc.value = heading
-                            tc.fill  = TITLE_FILL
-                            tc.font  = Font(bold=True, color="FFFFFF", name="Arial", size=11)
-                            tc.alignment = CENTER; tc.border = BDR
-                            ws.row_dimensions[1].height = 26
-                            for ci, h in enumerate(["CATEGORY / SUB-CATEGORY", "REVENUE SPLIT (₹)", "ENROLLMENTS"], 1):
-                                c = ws.cell(2, ci, h)
-                                c.fill = HDR_FILL; c.font = W_FONT; c.border = BDR
-                                c.alignment = LEFT if ci == 1 else CENTER
-                            ws.row_dimensions[2].height = 20
-                            for ri, row in enumerate(rows, 3):
-                                cat  = str(row.get("Category", "")).strip()
-                                sub  = str(row.get("Sub-category", "")).strip()
-                                rev  = row.get("Revenue Split", "")
-                                enr  = row.get("Enrollments", "")
-                                is_total   = cat == "Total Revenue"
-                                is_section = cat != "" and sub == ""
-                                is_sub2    = sub.startswith("  ")
-                                label      = cat if (is_section or is_total) else sub.strip()
-                                indent     = "" if (is_section or is_total) else ("      " if is_sub2 else "   ")
-                                if is_total:
-                                    fill, lfont, nfont = TOT_FILL, W_FONT, W_FONT
-                                elif is_section:
-                                    fill, lfont, nfont = SEC_FILL, S_FONT, S_FONT
-                                elif is_sub2:
-                                    fill, lfont, nfont = SUB2_FILL, D_FONT, D_FONT
-                                else:
-                                    fill, lfont, nfont = SUB_FILL, D_FONT, D_FONT
-                                lc = ws.cell(ri, 1, indent + label)
-                                lc.fill = fill; lc.font = lfont; lc.alignment = LEFT; lc.border = BDR
-                                try:
-                                    rev_v = int(str(rev).replace(",","")) if str(rev).strip() else ""
-                                except Exception:
-                                    rev_v = str(rev)
-                                rc = ws.cell(ri, 2, rev_v)
-                                rc.fill = fill; rc.font = nfont; rc.alignment = RIGHT; rc.border = BDR
-                                if isinstance(rev_v, int): rc.number_format = '#,##0'
-                                try:
-                                    enr_v = int(str(enr)) if str(enr).strip() not in ("", "0") else ""
-                                except Exception:
-                                    enr_v = ""
-                                ec = ws.cell(ri, 3, enr_v)
-                                ec.fill = fill; ec.font = nfont; ec.alignment = RIGHT; ec.border = BDR
-                            ws.column_dimensions["A"].width = 44
-                            ws.column_dimensions["B"].width = 22
-                            ws.column_dimensions["C"].width = 14
-                            ws.freeze_panes = "A3"
-                            buf = io.BytesIO(); wb.save(buf); return buf.getvalue()
-
-                        # ── Raw source data download ──────────────────────────────
-                        # ── Segment classification ────────────────────────────────
-                        _seg_team = pd.Series('', index=_dr.index, dtype=str)
-                        _seg_sub  = pd.Series('', index=_dr.index, dtype=str)
-
-                        # Bootcamp booking fees
-                        _seg_team[_boot_m] = 'Bootcamp booking fees'
-
-                        # Mayur — bootcamp collections + calling
-                        _m_bc = _chm & (_enr_l == 'bootcamp collections - balance payments')
-                        _seg_team[_m_bc] = 'Mayur'
-                        _seg_sub[_m_bc & (_eotm == 'yes')] = 'Current month collections'
-                        _seg_sub[_m_bc & (_eotm == 'no')]  = 'Previous month collections'
-                        _m_call = _chm & _enr_l.isin(['new enrollment', 'new enrollment - balance payment'])
-                        _seg_team[_m_call] = 'Mayur'
-                        _seg_sub[_m_call]  = 'Calling Revenue'
-
-                        # Anmol — bootcamp collections
-                        _a_bc = _anm_m & (_enr_l == 'bootcamp collections - balance payments') & ~_chm
-                        _seg_team[_a_bc] = 'Anmol'
-                        _seg_sub[_a_bc & (_eotm == 'yes')] = 'Current month collections'
-                        _seg_sub[_a_bc & (_eotm == 'no')]  = 'Previous month collections'
-
-                        # Deepanshi — bootcamp collections
-                        _d_bc = _dep_m & (_enr_l == 'bootcamp collections - balance payments') & ~_chm
-                        _seg_team[_d_bc] = 'Deepanshi (Previous balances)'
-
-                        # Old Sales team
-                        _old_seg = _uzair_m & _old_enr_f
-                        _seg_team[_old_seg] = 'Old Sales team'
-                        for _st in _corp_t:
-                            _seg_sub[_old_seg & (_dr['_team'] == _st)] = 'Corporate Law'
-                        for _st in _ncorp_t:
-                            _seg_sub[_old_seg & (_dr['_team'] == _st)] = _st
-
-                        # New Sales team
-                        _ns_seg = _ns_m & ~_ns_excl & ~_chm
-                        _seg_team[_ns_seg] = 'New Sales team'
-                        if _us_t:
-                            _seg_sub[_ns_seg & _dr['_team'].isin(_us_t)] = 'US Accounting'
-                        if _id_anmol_t:
-                            _seg_sub[_ns_seg & _dr['_team'].isin(_id_anmol_t)] = 'ID-Anmol'
-                        if _id_t:
-                            _seg_sub[_ns_seg & _dr['_team'].isin(_id_t)] = 'ID'
-                        if _dsv_t:
-                            _seg_sub[_ns_seg & _dr['_team'].isin(_dsv_t)] = 'DSV'
-                        for _st in _oth_t:
-                            _seg_sub[_ns_seg & (_dr['_team'] == _st)] = _st
-
-                        # Community Manager callers
-                        _cm_seg = _caller_l.isin(_cm_callers)
-                        _seg_team[_cm_seg] = 'Community'
-                        _seg_sub[_cm_seg]  = 'Abhipsha — Community Managers'
-
-                        # Community source rows (excluding nd_new already in NS/OS)
-                        _src_c_seg = _src_l.str.contains('community', na=False)
-                        _nd_excl   = _src_c_seg & ~_caller_l.isin(['direct', 'bootcamp - direct']) & _enr_l.isin(['new enrollment', 'new enrollment - balance payment'])
-                        _comm_seg  = _src_c_seg & ~_nd_excl & ~_cm_seg
-                        _seg_team[_comm_seg] = 'Community'
-                        for _hkw2, _hfull2 in [('komal','Komal Shah'),('jayantika','Jayantika Ganguly'),('garima','Garima'),('abhipsha','Abhipsha')]:
-                            _hm2 = _ch_l.str.contains(_hkw2, case=False, na=False)
-                            _seg_sub[_comm_seg & _hm2 & (_enr_l == 'other revenue')] = _hfull2
-                            _seg_sub[_comm_seg & _hm2 & (_caller_l == 'direct') & (_enr_l == 'new enrollment')] = f'{_hfull2} — Community-Direct'
-                            _seg_sub[_comm_seg & _hm2 & (_enr_l == 'community collections - balance payments') & (_eotm == 'yes')] = f'{_hfull2} — Current month collections'
-                            _seg_sub[_comm_seg & _hm2 & (_enr_l == 'community collections - balance payments') & (_eotm == 'no')] = f'{_hfull2} — Previous month collections'
-
-                        # Direct-Funnel
-                        _df_seg = _src_l.str.contains('funnel', na=False) & (_caller_l == 'direct') & _enr_l.isin(['new enrollment', 'new enrollment - balance payment', 'other revenue'])
-                        _seg_team[_df_seg] = 'Direct-Funnel'
-
-                        # Direct
-                        _dir_seg = ~_src_l.str.contains('funnel', na=False) & ~_src_l.str.contains('community', na=False) & (_caller_l == 'direct') & _enr_l.isin(['new enrollment', 'new enrollment - balance payment', 'other revenue'])
-                        _seg_team[_dir_seg] = 'Direct'
-
-                        # DNA / Lead Details not Available
-                        _seg_team[_dna_m] = 'Lead Details not Available'
-
-                        _dr['Considered under Team']     = _seg_team.values
-                        _dr['Considered under Sub-Team'] = _seg_sub.values
-
-                        # ── Raw source data download ──────────────────────────────
-                        _EXPORT_COLS = [
-                            'Date', 'Name', 'Contact_No', 'Email_Id', 'Course',
-                            'Fee_paid', 'Caller_name', 'Enrollment', 'Source',
-                            'Course_Price', 'LawSikho_Skill_Arbitrage',
-                            'Full_Installment', 'Enrollment_of_this_month',
-                            '_vert', '_team',
-                            'Considered under Team', 'Considered under Sub-Team',
-                        ]
-                        _dr_export = _dr.copy()
-
-                        # Force Contact_No to numeric (strip non-digits, convert to int where possible)
-                        if 'Contact_No' in _dr_export.columns:
-                            _dr_export['Contact_No'] = (
-                                _dr_export['Contact_No']
-                                .astype(str)
-                                .str.replace(r'\D', '', regex=True)
-                                .str.strip()
-                            )
-                            _dr_export['Contact_No'] = pd.to_numeric(
-                                _dr_export['Contact_No'], errors='coerce'
-                            ).astype('Int64')
-
-                        _export_existing = [c for c in _EXPORT_COLS if c in _dr_export.columns]
-                        _dr_export = _dr_export[_export_existing].reset_index(drop=True)
-
-                        def _build_ru_raw_excel(df, heading):
-                            HDR_FILL  = PatternFill("solid", start_color="1c3a5f", end_color="1c3a5f")
-                            ALT_FILL  = PatternFill("solid", start_color="f0f7ff", end_color="f0f7ff")
-                            WHT_FILL  = PatternFill("solid", start_color="ffffff", end_color="ffffff")
-                            HDR_FONT  = Font(bold=True, color="FFFFFF", name="Arial", size=9)
-                            DATA_FONT = Font(name="Arial", size=9)
-                            CENTER    = Alignment(horizontal='center', vertical='center', wrap_text=True)
-                            LEFT      = Alignment(horizontal='left', vertical='center', wrap_text=True)
-                            BORDER    = Border(
-                                left=Side(style='thin', color='bfdbfe'),
-                                right=Side(style='thin', color='bfdbfe'),
-                                top=Side(style='thin', color='bfdbfe'),
-                                bottom=Side(style='thin', color='bfdbfe'),
-                            )
-                            COL_WIDTHS = {
-                                'Date': 12, 'Name': 28, 'Contact_No': 16,
-                                'Email_Id': 32, 'Course': 28, 'Fee_paid': 12,
-                                'Caller_name': 22, 'Enrollment': 28, 'Source': 20,
-                                'Course_Price': 14, 'LawSikho_Skill_Arbitrage': 18,
-                                'Full_Installment': 16, 'Enrollment_of_this_month': 20,
-                                '_vert': 18, '_team': 22,
-                                'Considered under Team': 26, 'Considered under Sub-Team': 32,
-                            }
-                            wb = Workbook()
-                            ws = wb.active
-                            ws.title = "Revenue Source Data"
-
-                            # Title row
-                            ws.merge_cells(f"A1:{get_column_letter(len(df.columns))}1")
-                            tc = ws["A1"]
-                            tc.value = heading
-                            tc.fill = HDR_FILL
-                            tc.font = Font(bold=True, color="FFFFFF", name="Arial", size=11)
-                            tc.alignment = CENTER
-                            tc.border = BORDER
-                            ws.row_dimensions[1].height = 24
-
-                            # Header row
-                            for ci, col in enumerate(df.columns, 1):
-                                c = ws.cell(2, ci, col.upper().replace('_', ' '))
-                                c.fill = PatternFill("solid", start_color="1e4d6b", end_color="1e4d6b")
-                                c.font = HDR_FONT
-                                c.alignment = CENTER
-                                c.border = BORDER
-                            ws.row_dimensions[2].height = 20
-
-                            # Data rows
-                            for ri, (_, row) in enumerate(df.iterrows(), 3):
-                                fill = ALT_FILL if ri % 2 == 0 else WHT_FILL
-                                for ci, col in enumerate(df.columns, 1):
-                                    val = row[col]
-                                    # Handle NA/NaT
-                                    try:
-                                        if pd.isna(val):
-                                            val = ''
-                                    except (TypeError, ValueError):
-                                        pass
-                                    if hasattr(val, 'strftime'):
-                                        val = val.strftime('%Y-%m-%d')
-                                    # Keep Contact_No as integer in Excel
-                                    if col == 'Contact_No' and val != '':
-                                        try:
-                                            val = int(val)
-                                        except (ValueError, TypeError):
-                                            pass
-                                    cell = ws.cell(ri, ci, val)
-                                    cell.fill = fill
-                                    cell.font = DATA_FONT
-                                    cell.border = BORDER
-                                    cell.alignment = LEFT if col in ('Name', 'Course', 'Email_Id', 'Caller_name', 'Enrollment', 'Source', '_vert', '_team', 'Considered under Team', 'Considered under Sub-Team') else CENTER
-
-                            # Column widths
-                            for ci, col in enumerate(df.columns, 1):
-                                ws.column_dimensions[get_column_letter(ci)].width = COL_WIDTHS.get(col, 16)
-
-                            ws.freeze_panes = "A3"
-                            buf = io.BytesIO()
-                            wb.save(buf)
-                            return buf.getvalue()
-
-                        _total_fetched = float(_dr['Fee_paid'].sum()) + _ru_services_val
-                        _diff          = _total_fetched - _total_rev
-                        _diff_color    = "#10B981" if _diff >= 0 else "#F87171"
-                        _diff_sign     = "+" if _diff >= 0 else ""
-                        _diff_html     = f"""
-                        <div style='text-align:center;padding:.55rem .8rem;
-                                    background:rgba(255,255,255,.04);
-                                    border:1px solid rgba(255,255,255,.10);
-                                    border-radius:10px;line-height:1.6;'>
-                            <span style='font-size:.72rem;color:rgba(255,255,255,.5);'>
-                                Difference in Revenue&nbsp;
-                            </span>
-                            <span style='font-size:.88rem;font-weight:700;
-                                         color:{_diff_color};font-family:DM Mono,monospace;'>
-                                {_diff_sign}₹{int(abs(round(_diff))):,}
-                            </span><br>
-                            <span style='font-size:.65rem;color:rgba(255,255,255,.3);
-                                         font-family:DM Mono,monospace;'>
-                                Today: ₹{int(round(_total_fetched)):,}
-                                &nbsp;−&nbsp;
-                                Report: ₹{int(round(_total_rev)):,}
-                            </span>
-                        </div>"""
-
-                        _dl_col1, _diff_col, _dl_col2 = st.columns([1, 1.4, 1])
-                        with _dl_col1:
-                            st.download_button(
-                                label="📥 Download Revenue Update",
-                                data=_build_ru_excel(_rows_dl, _ru_heading),
-                                file_name=f"Revenue_Update_{display_start}_to_{display_end}.xlsx",
-                                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                                key='dl_rev_update_xlsx',
-                                width='stretch',
-                            )
-                        with _diff_col:
-                            st.markdown(_diff_html, unsafe_allow_html=True)
-                        with _dl_col2:
-                            st.download_button(
-                                label="📥 Download Revenue Sheet",
-                                data=_build_ru_raw_excel(_dr_export, _ru_heading),
-                                file_name=f"Revenue_Source_{display_start}_to_{display_end}.xlsx",
-                                mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                                key='dl_rev_source_xlsx',
-                                width='stretch',
-                            )
-
-    with tab5:
-        gen_tva = st.button("🎯 Generate Target Vs Achievement", key="rev_tva_btn", width='content')
-
-        st.markdown("""
-        <div style='background:rgba(16,185,129,.07);border:1px solid rgba(16,185,129,.2);
-                    border-radius:10px;padding:.9rem 1.2rem;margin-bottom:.9rem;'>
-            <div style='font-size:.82rem;font-weight:700;color:#10B981;margin-bottom:.3rem;'>
-                📅 WORKING DAYS INPUT
-            </div>
-            <div style='font-size:.76rem;color:var(--text-muted,#6B7280);'>
-                Please enter the number of working days of this month.
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
-
-        _tva_wd_raw = st.text_input(
-            "Number of Working Days",
-            placeholder="e.g. 20",
-            key="tva_working_days_input",
-            help="Enter a number between 0 and 31.",
-        )
-
-        _tva_wd_val = None
-        _tva_wd_ok  = True
-        if _tva_wd_raw and _tva_wd_raw.strip():
-            try:
-                _tva_wd_val = int(_tva_wd_raw.strip())
-                if not (0 <= _tva_wd_val <= 31):
-                    st.error("⚠️ Please enter a valid number of working days (0–31).")
-                    _tva_wd_ok = False
-            except ValueError:
-                st.error("⚠️ Please enter a valid number of working days (0–31).")
-                _tva_wd_ok = False
-
-        if _tva_wd_val is not None and _tva_wd_ok:
-            st.caption(f"Working days: {_tva_wd_val}")
-
-        if not gen_tva:
-            st.markdown("""
-            <div style='text-align:center;padding:5rem 1rem;opacity:.6;'>
-                <div style='font-size:4rem;margin-bottom:1rem;'>🎯</div>
-                <div style='font-size:.9rem;font-weight:600;'>
-                    Enter the number of working days and click
-                    <b>🎯 Generate Target Vs Achievement</b>.
-                </div>
-            </div>""", unsafe_allow_html=True)
-
-        else:
-            if start_date.year != end_date.year or start_date.month != end_date.month:
-                st.error("⚠️ Please input valid dates and Generate Report Again. The date range must be within a single month.")
-            elif _tva_wd_val is None:
-                st.error("⚠️ Please enter the number of working days before generating.")
-            elif not _tva_wd_ok:
-                pass
-            else:
-                with st.spinner("Building Target Vs Achievement…"):
-
-                    # ── Load teamsheet for the specific month ──────────────────
-                    _, _, _df_meta_tva = get_metadata()
-                    _tva_month_start = date(start_date.year, start_date.month, 1)
-                    _month_col_tva  = next((c for c in _df_meta_tva.columns if c.strip().lower() == 'month'), None)
-                    _status_col_tva = next((c for c in _df_meta_tva.columns if c.strip().lower() == 'status'), None)
-
-                    def _tva_ym(val):
-                        try:
-                            if pd.isna(val): return False
-                            d = pd.to_datetime(val, dayfirst=True, errors='coerce')
-                            if pd.isna(d): return False
-                            return d.year == _tva_month_start.year and d.month == _tva_month_start.month
-                        except: return False
-
-                    _tva_sheet = (
-                        _df_meta_tva[_df_meta_tva[_month_col_tva].apply(_tva_ym)].copy()
-                        if _month_col_tva else _df_meta_tva.copy()
-                    )
-                    if _status_col_tva:
-                        _tva_sheet = _tva_sheet[
-                            _tva_sheet[_status_col_tva].astype(str).str.strip().str.lower() == 'active'
-                        ].copy()
-
-                    if _tva_sheet.empty:
-                        st.warning("No active callers found for the selected month in the team sheet.")
-                        st.stop()
-
-                    # Target column
-                    _tgt_col_tva = None
-                    for _tc in ['Target','target','TARGET','Monthly Target','Monthly target','Sales Target']:
-                        if _tc in _tva_sheet.columns:
-                            _tgt_col_tva = _tc; break
-
-                    # ── Revenue data ───────────────────────────────────────────
-                    _tva_rev_full = fetch_revenue_data(start_date, end_date)
-                    _yesterday_tva = end_date - timedelta(days=1)
-                    _tva_rev_yst  = fetch_revenue_data(_yesterday_tva, _yesterday_tva)
-
-                    # ── Pending revenue per caller ─────────────────────────────
-                    _pending_map_tva = {}
-                    try:
-                        _c2, _ce2, _p2, _pe2 = pending_months()
-                        _meta_tva2 = (
-                            _tva_sheet[['merge_key','Caller Name','Team Name','Vertical']]
-                            .drop_duplicates('merge_key').copy()
-                            if 'merge_key' in _tva_sheet.columns
-                            else pd.DataFrame(columns=['merge_key','Caller Name','Team Name','Vertical'])
-                        )
-                        _db2 = fetch_both_months_rev(_p2, _ce2)
-                        _dd2 = load_drop_leads()
-                        _ee2 = set(_dd2['drop_email'].dropna().astype(str).unique()) if not _dd2.empty else set()
-                        _ep2 = set(_dd2['drop_phone'].dropna().astype(str).unique()) if not _dd2.empty else set()
-                        if not _db2.empty:
-                            _dfc2 = _db2[_db2['Date'] >= _c2].copy()
-                            _dfp2 = _db2[(_db2['Date'] >= _p2) & (_db2['Date'] <= _pe2)].copy()
-                            _pc2  = pending_leads_for_month(_dfc2, _ee2, _ep2, _db2)
-                            _pp2  = pending_leads_for_month(_dfp2, _ee2, _ep2, _db2)
-                            _cb2  = build_combined_agg(_pc2, _pp2, _meta_tva2, _db2)
-                            if not _cb2.empty:
-                                for _, _pr in _cb2.iterrows():
-                                    _pending_map_tva[str(_pr.get('Caller_name','')).strip().lower()] = float(_pr.get('grand_bal', 0) or 0)
-                    except Exception:
-                        pass
-
-                    # ── Exclusions & role filters ──────────────────────────────
-                    _EXCL_TVA = {'direct', 'bootcamp - direct', 'bootcamp direct', 'lead details not available'}
-                    _ru_role_tva  = st.session_state.get('rf_role', 'admin')
-                    _ru_teams_tva = st.session_state.get('rf_teams', [])
-                    _ru_cname_tva = st.session_state.get('rf_caller_name', '')
-
-                    _all_tva_teams = sorted(_tva_sheet['Team Name'].dropna().unique())
-                    if _ru_role_tva in ('tl','trainer','vertical_head') and _ru_teams_tva:
-                        _all_tva_teams = [t for t in _all_tva_teams if t in _ru_teams_tva]
-                    if selected_team:
-                        _all_tva_teams = [t for t in _all_tva_teams if t in selected_team]
-
-                    _end_disp_tva = end_date.strftime('%d-%b-%Y')
-
-                    def _tf(v):
-                        if v is None or (isinstance(v, float) and pd.isna(v)): return "₹0"
-                        return f"₹{int(round(v)):,}"
-
-                    def _def_fmt(v):
-                        if v < 0: return f"-₹{int(abs(round(v))):,}"
-                        return f"₹{int(round(v)):,}"
-
-                    # ── Build per-team data ────────────────────────────────────
-                    _tva_all_data = {}
-
-                    for _tm in _all_tva_teams:
-                        _ts = _tva_sheet[_tva_sheet['Team Name'] == _tm].copy()
-                        _rows_tm = []
-
-                        for _, _cr in _ts.iterrows():
-                            _cn = str(_cr.get('Caller Name', '')).strip()
-                            if not _cn or _cn.lower() in _EXCL_TVA:
-                                continue
-                            if _ru_role_tva == 'caller' and _ru_cname_tva:
-                                if _cn.strip().lower() != _ru_cname_tva.strip().lower():
-                                    continue
-                            if search_query and search_query.lower() not in _cn.lower():
-                                continue
-
-                            _tgt_v = 0.0
-                            if _tgt_col_tva:
-                                try: _tgt_v = float(str(_cr.get(_tgt_col_tva, 0) or 0).replace(',',''))
-                                except: _tgt_v = 0.0
-
-                            _cnl = _cn.strip().lower()
-
-                            _rev_mtd_v = 0.0; _enr_mtd_v = 0
-                            if not _tva_rev_full.empty:
-                                _mf = _tva_rev_full['Caller_name'].str.strip().str.lower() == _cnl
-                                _rev_mtd_v = float(_tva_rev_full.loc[_mf, 'Fee_paid'].sum())
-                                _enr_mtd_v = int((_tva_rev_full.loc[_mf, 'Enrollment'].astype(str).str.strip().str.lower() == 'new enrollment').sum())
-
-                            _rev_yst_v = 0.0; _enr_yst_v = 0
-                            if not _tva_rev_yst.empty:
-                                _yf = _tva_rev_yst['Caller_name'].str.strip().str.lower() == _cnl
-                                _rev_yst_v = float(_tva_rev_yst.loc[_yf, 'Fee_paid'].sum())
-                                _enr_yst_v = int((_tva_rev_yst.loc[_yf, 'Enrollment'].astype(str).str.strip().str.lower() == 'new enrollment').sum())
-
-                            # Exclude if both target=0 and revenue=0
-                            if _tgt_v == 0.0 and _rev_mtd_v == 0.0:
-                                continue
-
-                            _till_v    = round((_tgt_v / 20) * _tva_wd_val) if _tgt_v > 0 else 0
-                            _pct_v     = round(_rev_mtd_v / _tgt_v * 100) if _tgt_v > 0 else 0
-                            _deficit_v = _till_v - _rev_mtd_v
-                            _pend_v    = _pending_map_tva.get(_cnl, 0)
-
-                            _rows_tm.append({
-                                'cn': _cn, 'tgt': _tgt_v, 'till': _till_v,
-                                'yst': _rev_yst_v, 'mtd': _rev_mtd_v, 'pct': _pct_v,
-                                'deficit': _deficit_v, 'ey': _enr_yst_v,
-                                'em': _enr_mtd_v, 'pend': _pend_v,
-                            })
-
-                        if _rows_tm:
-                            _tva_all_data[_tm] = _rows_tm
-
-                    if not _tva_all_data:
-                        st.warning("No data found for the selected filters.")
-                        st.stop()
-
-                    # ── Render HTML per team ───────────────────────────────────
-                    _HS = ("background:#1c3a5f;color:#fff;font-size:.68rem;font-weight:700;"
-                           "padding:7px 8px;text-align:center;border:1px solid #163d5a;"
-                           "white-space:normal;word-wrap:break-word;")
-                    _DS = ("font-size:.72rem;padding:5px 7px;text-align:center;"
-                           "border:1px solid #dbeafe;color:#111827;background:#ffffff;")
-                    _DA = _DS.replace('#ffffff','#f0f7ff')
-                    _TS = ("background:#1c3a5f;color:#fff;font-weight:700;font-size:.72rem;"
-                           "padding:6px 7px;text-align:center;border:1px solid #0d2137;")
-                    _COLS_H = [
-                        "COUNSELLORS","TARGET FOR<br>THE MONTH","TARGET<br>(TILL DATE)",
-                        "YESTERDAY","REVENUE<br>(MTD)","CURRENT<br>DEFICIT",
-                        "ENROLLMENTS<br>YESTERDAY","ENROLLMENTS<br>(MTD)",
-                        "Pending Revenue<br>(Current + Prev Month)"
-                    ]
-
-                    for _tm, _rows_tm in _tva_all_data.items():
-                        _hdg = f"Team {_tm} (Target Vs Achievement) {_end_disp_tva}"
-                        _html_tva = f"""
-<div style='margin:1.5rem 0 .3rem;'>
-<div style='text-align:center;font-size:.88rem;font-weight:800;letter-spacing:.4px;
-color:#fff;background:#1c3a5f;padding:10px 14px;border-radius:8px 8px 0 0;
-border:2px solid #0d2137;'>{_hdg}</div>
-<div style='overflow-x:auto;'>
-<table style='width:100%;border-collapse:collapse;font-family:"DM Sans",sans-serif;'>
-<thead><tr>{''.join(f"<th style='{_HS}'>{h}</th>" for h in _COLS_H)}</tr></thead>
-<tbody>"""
-                        _tt = _tl = _ty = _tm2 = _td = _tey = _tem = _tp = 0.0
-
-                        for _i, _r in enumerate(_rows_tm):
-                            _ds = _DA if _i % 2 == 1 else _DS
-                            _mtds = f"{_tf(_r['mtd'])} ({_r['pct']}%)"
-                            _defs = _def_fmt(_r['deficit'])
-                            _html_tva += (
-                                f"<tr>"
-                                f"<td style='{_ds}text-align:left;font-weight:500;padding-left:10px;'>{_r['cn']}</td>"
-                                f"<td style='{_ds}'>{_tf(_r['tgt'])}</td>"
-                                f"<td style='{_ds}'>{_tf(_r['till'])}</td>"
-                                f"<td style='{_ds}'>{_tf(_r['yst'])}</td>"
-                                f"<td style='{_ds}'>{_mtds}</td>"
-                                f"<td style='{_ds}'>{_defs}</td>"
-                                f"<td style='{_ds}'>{_r['ey']}</td>"
-                                f"<td style='{_ds}'>{_r['em']}</td>"
-                                f"<td style='{_ds}'>{_tf(_r['pend'])}</td>"
-                                f"</tr>"
-                            )
-                            _tt += _r['tgt']; _tl += _r['till']; _ty += _r['yst']
-                            _tm2 += _r['mtd']; _td += _r['deficit']
-                            _tey += _r['ey'];  _tem += _r['em'];  _tp  += _r['pend']
-
-                        _tpct = round(_tm2 / _tt * 100) if _tt > 0 else 0
-                        _html_tva += (
-                            f"<tr>"
-                            f"<td style='{_TS}text-align:left;padding-left:10px;'>TOTAL</td>"
-                            f"<td style='{_TS}'>{_tf(_tt)}</td>"
-                            f"<td style='{_TS}'>{_tf(_tl)}</td>"
-                            f"<td style='{_TS}'>{_tf(_ty)}</td>"
-                            f"<td style='{_TS}'>{_tf(_tm2)} ({_tpct}%)</td>"
-                            f"<td style='{_TS}'>{_def_fmt(_td)}</td>"
-                            f"<td style='{_TS}'>{int(_tey)}</td>"
-                            f"<td style='{_TS}'>{int(_tem)}</td>"
-                            f"<td style='{_TS}'>{_tf(_tp)}</td>"
-                            f"</tr>"
-                        )
-                        _html_tva += "</tbody></table></div></div>"
-                        st.markdown(_html_tva, unsafe_allow_html=True)
-
-                    st.markdown("<div style='margin:1.5rem 0;'></div>", unsafe_allow_html=True)
-
-                    # ── Single xlsx download ───────────────────────────────────
-                    def _build_tva_xlsx(all_data, end_disp):
-                        H_FILL  = PatternFill("solid", start_color="1c3a5f", end_color="1c3a5f")
-                        S_FILL  = PatternFill("solid", start_color="1e4d6b", end_color="1e4d6b")
-                        T_FILL  = PatternFill("solid", start_color="1c3a5f", end_color="1c3a5f")
-                        A_FILL  = PatternFill("solid", start_color="f0f7ff", end_color="f0f7ff")
-                        W_FILL  = PatternFill("solid", start_color="ffffff", end_color="ffffff")
-                        H_FONT  = Font(bold=True, color="FFFFFF", name="Arial", size=9)
-                        D_FONT  = Font(name="Arial", size=9)
-                        BW_FONT = Font(bold=True, color="FFFFFF", name="Arial", size=9)
-                        TH_FONT = Font(bold=True, color="FFFFFF", name="Arial", size=11)
-                        CENTER  = Alignment(horizontal='center', vertical='center', wrap_text=True)
-                        LEFT    = Alignment(horizontal='left',   vertical='center', wrap_text=True)
-                        BDR     = Border(
-                            left=Side(style='thin',  color='BFDBFE'),
-                            right=Side(style='thin', color='BFDBFE'),
-                            top=Side(style='thin',   color='BFDBFE'),
-                            bottom=Side(style='thin',color='BFDBFE'),
-                        )
-                        COLS_XL = [
-                            "COUNSELLORS","TARGET FOR THE MONTH (₹)","TARGET (TILL DATE) (₹)",
-                            "YESTERDAY (₹)","REVENUE MTD (₹)","REVENUE MTD %",
-                            "CURRENT DEFICIT (₹)","ENROLLMENTS YESTERDAY",
-                            "ENROLLMENTS (MTD)","PENDING REVENUE (₹)"
-                        ]
-                        CW = [28,22,20,16,18,12,20,20,16,24]
-
-                        wb = Workbook()
-                        ws = wb.active
-                        ws.title = "Target Vs Achievement"
-
-                        rn = 1
-                        for _tm, _rows in all_data.items():
-                            # Team heading
-                            ws.merge_cells(start_row=rn, start_column=1,
-                                           end_row=rn, end_column=len(COLS_XL))
-                            _hc = ws.cell(rn, 1, f"Team {_tm} (Target Vs Achievement) {end_disp}")
-                            _hc.fill = H_FILL; _hc.font = TH_FONT
-                            _hc.alignment = CENTER; _hc.border = BDR
-                            ws.row_dimensions[rn].height = 22; rn += 1
-
-                            # Column headers
-                            for ci, ch in enumerate(COLS_XL, 1):
-                                c = ws.cell(rn, ci, ch)
-                                c.fill = S_FILL; c.font = H_FONT
-                                c.alignment = CENTER; c.border = BDR
-                                ws.column_dimensions[get_column_letter(ci)].width = CW[ci-1]
-                            ws.row_dimensions[rn].height = 24; rn += 1
-
-                            _tt=_tl=_ty=_tm2=_td=_tey=_tem=_tp = 0.0
-                            for ri, _r in enumerate(_rows):
-                                fill = A_FILL if ri % 2 == 1 else W_FILL
-                                vals = [
-                                    _r['cn'], int(round(_r['tgt'])), int(round(_r['till'])),
-                                    int(round(_r['yst'])), int(round(_r['mtd'])),
-                                    f"{_r['pct']}%", int(round(_r['deficit'])),
-                                    _r['ey'], _r['em'], int(round(_r['pend'])),
-                                ]
-                                for ci, v in enumerate(vals, 1):
-                                    c = ws.cell(rn, ci, v)
-                                    c.fill = fill; c.font = D_FONT
-                                    c.border = BDR
-                                    c.alignment = LEFT if ci == 1 else CENTER
-                                rn += 1
-                                _tt+=_r['tgt']; _tl+=_r['till']; _ty+=_r['yst']
-                                _tm2+=_r['mtd']; _td+=_r['deficit']
-                                _tey+=_r['ey']; _tem+=_r['em']; _tp+=_r['pend']
-
-                            # TOTAL row
-                            _tpct_xl = f"{round(_tm2/_tt*100)}%" if _tt > 0 else "0%"
-                            tot = [
-                                "TOTAL", int(round(_tt)), int(round(_tl)),
-                                int(round(_ty)), int(round(_tm2)), _tpct_xl,
-                                int(round(_td)), int(_tey), int(_tem), int(round(_tp)),
-                            ]
-                            for ci, v in enumerate(tot, 1):
-                                c = ws.cell(rn, ci, v)
-                                c.fill = T_FILL; c.font = BW_FONT
-                                c.border = BDR
-                                c.alignment = LEFT if ci == 1 else CENTER
-                            rn += 2  # +1 blank row between teams
-
-                        buf = io.BytesIO(); wb.save(buf); return buf.getvalue()
-
-                    st.download_button(
-                        label="📥 Download Target Vs Achievement Report (.xlsx)",
-                        data=_build_tva_xlsx(_tva_all_data, _end_disp_tva),
-                        file_name=f"Target_Vs_Achievement_{display_start}_to_{display_end}.xlsx",
-                        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                        key='dl_tva_xlsx',
-                        width='stretch',
-                    )
-
 
 def run_leads_dashboard():
     st.markdown("""
@@ -6399,14 +5054,14 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
         final = _append_caller_total_ld(df)
         h = min((len(final) + 1) * 35 + 20, 800)
         st.dataframe(final.style.apply(_style_caller, axis=1),
-                     width='stretch', hide_index=True, height=h)
+                     use_container_width=True, hide_index=True, height=h)
  
     def _show_team(df, msg="No data."):
         if df.empty: st.info(msg); return
         final = _append_team_total_ld(df)
         h = min((len(final) + 1) * 35 + 20, 600)
         st.dataframe(final.style.apply(_style_team, axis=1),
-                     width='stretch', hide_index=True, height=h)
+                     use_container_width=True, hide_index=True, height=h)
         
     def _build_leads_xlsx_bytes_ld(df_rows):
         EXPORT_COLS = [
