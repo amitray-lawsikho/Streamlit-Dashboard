@@ -5182,14 +5182,14 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         _coll_rev = _boot_rev + _mayur_rev + _anmol_rev + _dep_rev
          
                         # ─── COMMUNITY (total) ──────────────────────────────────────────
-                        _src_comm      = _src_l.str.contains('community', na=False)
-                        _comm_all      = _sf(_src_comm)
-                        _comm_nd_new   = _sf(
+                        _src_comm    = _src_l.str.contains('community', na=False)
+                        _comm_all    = _sf(_src_comm)
+                        _comm_nd_new = _sf(
                             _src_comm
                             & ~_caller_l.isin(['direct', 'bootcamp - direct'])
                             & _enr_l.isin(['new enrollment', 'new enrollment - balance payment'])
                         )
-                        _comm_rev      = _comm_all - _comm_nd_new
+                        _comm_rev    = _comm_all - _comm_nd_new
          
                         # ─── COMMUNITY HEADS ────────────────────────────────────────────
                         _comm_heads = {}
@@ -5370,7 +5370,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                             _html += _tr(_bs(), _bs(), "Collections", _coll_rev)
 
                             # Community
-                            _html += _tr(_bs(), _bs(), "Community", _comm_rev)
+                            _html += _tr(_bs(), _bs(), "Community", _comm_rev, None)
                         for _hk, _hd in _comm_heads.items():
                             if not _show(_hd['total'], _hd['dir_e']): continue
                             _html += _tr(_ss(), _ss(), _hd['full'], _hd['total'])
