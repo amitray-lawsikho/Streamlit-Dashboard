@@ -4971,7 +4971,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                             _hd_str = _from_d.strftime('%d/%m/%Y')
                         else:
                             _hd_str = f"{_from_d.strftime('%d/%m/%Y')} - {end_date.strftime('%d/%m/%Y')}"
-                        _ru_heading = f"REVENUE UPDATE — ({_hd_str})"
+                        _ru_heading = f"REVENUE SHEET — ({_hd_str})"
          
                         # ── fetch data ────────────────────────────────────────────────
                         _df_ru  = fetch_revenue_data(start_date, end_date)
@@ -5713,33 +5713,12 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                             st.markdown(_diff_html, unsafe_allow_html=True)
                         with _dl_col2:
                             st.download_button(
-                                label="📥 Download Source Data",
+                                label="📥 Download Revenue Sheet",
                                 data=_build_ru_raw_excel(_dr_export, _ru_heading),
                                 file_name=f"Revenue_Source_{display_start}_to_{display_end}.xlsx",
                                 mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
                                 key='dl_rev_source_xlsx',
                                 use_container_width=True,
-                            )
-                        with _dl_col2:
-                            st.markdown(
-                                f"""
-                                <div style='display:flex;align-items:center;height:100%;padding-top:.25rem;'>
-                                    <div style='background:rgba(0,0,0,.04);border:1px solid {_diff_color}33;
-                                                border-radius:10px;padding:.55rem 1.1rem;
-                                                display:inline-flex;align-items:center;gap:.8rem;'>
-                                        <span style='font-size:.75rem;color:var(--text-muted,#6B7280);font-weight:600;
-                                                     white-space:nowrap;'>Difference in Revenue</span>
-                                        <span style='font-family:"DM Mono",monospace;font-size:.88rem;
-                                                     font-weight:700;color:{_diff_color};white-space:nowrap;'>
-                                            {_diff_sign}₹{abs(int(_diff_rev)):,}
-                                        </span>
-                                        <span style='font-size:.65rem;color:var(--text-muted,#9CA3AF);white-space:nowrap;'>
-                                            (Today: ₹{int(_ru_total_rev_val):,} − Report: ₹{int(_total_rev):,})
-                                        </span>
-                                    </div>
-                                </div>
-                                """,
-                                unsafe_allow_html=True,
                             )
                         
                         
