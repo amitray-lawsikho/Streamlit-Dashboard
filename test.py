@@ -5675,7 +5675,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                             wb.save(buf)
                             return buf.getvalue()
 
-                        _total_fetched = float(_dr['Fee_paid'].sum())
+                        _total_fetched = float(_dr['Fee_paid'].sum()) + _ru_services_val
                         _diff          = _total_fetched - _total_rev
                         _diff_color    = "#10B981" if _diff >= 0 else "#F87171"
                         _diff_sign     = "+" if _diff >= 0 else ""
