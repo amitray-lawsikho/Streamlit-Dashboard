@@ -389,8 +389,7 @@ def show_homepage_with_login():
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stDecoration"] { display: none !important; }
     [data-testid="stStatusWidget"],
-    [data-testid="collapsedControl"],
-    [data-testid="stSidebarCollapsedControl"] { display: none !important; }
+    [data-testid="collapsedControl"] { display: none !important; }
     [data-testid="stAppViewContainer"],
     [data-testid="stMain"], .main { background: #0B1120 !important; }
     .block-container { padding: 0 !important; max-width: 100% !important; margin-bottom: 0 !important; }
