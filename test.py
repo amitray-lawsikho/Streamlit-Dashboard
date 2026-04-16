@@ -5949,7 +5949,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         pass
 
                     # ── Exclusions & role filters ──────────────────────────────
-                    _EXCL_TVA = {'direct', 'bootcamp - direct', 'bootcamp direct', 'lead details not available', 'Changemakers'}
+                    _EXCL_TVA = {'direct', 'bootcamp - direct', 'bootcamp direct', 'lead details not available'}
                     _ru_role_tva  = st.session_state.get('rf_role', 'admin')
                     _ru_teams_tva = st.session_state.get('rf_teams', [])
                     _ru_cname_tva = st.session_state.get('rf_caller_name', '')
