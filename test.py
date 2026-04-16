@@ -348,7 +348,7 @@ def get_stats():
             SELECT updated_at_ampm FROM (
                 SELECT updated_at, updated_at_ampm FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`
                 UNION ALL
-                SELECT updated_at, updated_at_ampm FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls`
+                SELECT StartTime AS updated_at, updated_at_ampm FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls`
             ) WHERE updated_at_ampm IS NOT NULL ORDER BY updated_at DESC LIMIT 1
         """).to_dataframe()
         call_time = str(r1["updated_at_ampm"].iloc[0]) if not r1.empty else "N/A"
