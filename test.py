@@ -7032,10 +7032,7 @@ else:
     <style>
     footer { visibility: hidden; }
     [data-testid="stStatusWidget"] { display: none !important; }
-    header[data-testid="stHeader"] { display: none !important; }
-    [data-testid="stToolbar"] { display: none !important; }
-    [data-testid="stDecoration"] { display: none !important; }
-    #MainMenu { display: none !important; }
+    header[data-testid="stHeader"] { background: transparent !important; }
     </style>
     """, unsafe_allow_html=True)
 
