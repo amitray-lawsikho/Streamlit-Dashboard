@@ -7036,6 +7036,14 @@ else:
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stDecoration"] { display: none !important; }
     #MainMenu { display: none !important; }
+
+    /* ── Force sidebar collapsed toggle visible after login ── */
+    [data-testid="stSidebarCollapsedControl"],
+    [data-testid="collapsedControl"] {
+        display: flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
