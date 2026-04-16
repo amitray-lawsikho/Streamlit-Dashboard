@@ -390,9 +390,9 @@ def show_homepage_with_login():
     [data-testid="stDecoration"] { display: none !important; }
     [data-testid="stStatusWidget"],
     [data-testid="collapsedControl"],
-    [data-testid="stSidebarCollapsedControl"],
-    [data-testid="stSidebarNav"] { display: none !important; }
-    [data-testid="stSidebar"] { display: none !important; }    
+    [data-testid="stSidebarCollapsedControl"] { display: none !important; }
+    [data-testid="stSidebar"] { width: 0px !important; min-width: 0px !important; }
+    [data-testid="stSidebar"] > div { display: none !important; }    
     [data-testid="stAppViewContainer"],
     [data-testid="stMain"], .main { background: #0B1120 !important; }
     .block-container { padding: 0 !important; max-width: 100% !important; margin-bottom: 0 !important; }
@@ -7040,12 +7040,20 @@ else:
     [data-testid="stDecoration"] { display: none !important; }
     #MainMenu { display: none !important; }
 
-    /* ── Force sidebar collapsed toggle visible after login ── */
+    /* ── Force sidebar fully restored after login ── */
     [data-testid="stSidebarCollapsedControl"],
     [data-testid="collapsedControl"] {
         display: flex !important;
         visibility: visible !important;
         opacity: 1 !important;
+    }
+    [data-testid="stSidebar"] {
+        display: flex !important;
+        width: unset !important;
+        min-width: unset !important;
+    }
+    [data-testid="stSidebar"] > div {
+        display: flex !important;
     }
     </style>
     """, unsafe_allow_html=True)
