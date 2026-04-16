@@ -31,7 +31,7 @@ st.set_page_config(
     page_title="Analytics Dashboard — LawSikho",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="collapsed"    
 )
 
 def get_bq_client():
@@ -389,8 +389,6 @@ def show_homepage_with_login():
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stDecoration"] { display: none !important; }
     [data-testid="stStatusWidget"] { display: none !important; }
-    [data-testid="stSidebar"] { display: none !important; }
-    [data-testid="stSidebarCollapsedControl"] { display: none !important; }
     [data-testid="collapsedControl"] { display: none !important; }
     [data-testid="stAppViewContainer"],
     [data-testid="stMain"], .main { background: #0B1120 !important; }
