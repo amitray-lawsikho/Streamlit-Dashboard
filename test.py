@@ -5846,7 +5846,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
             "Number of Working Days",
             placeholder="e.g. 20",
             key="tva_working_days_input",
-            help="Enter a number between 0 and 31.",
+            help="Enter a number between 0 and 20.",
         )
 
         _tva_wd_val = None
@@ -5854,11 +5854,11 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         if _tva_wd_raw and _tva_wd_raw.strip():
             try:
                 _tva_wd_val = int(_tva_wd_raw.strip())
-                if not (0 <= _tva_wd_val <= 31):
-                    st.error("⚠️ Please enter a valid number of working days (0–31).")
+                if not (0 <= _tva_wd_val <= 20):
+                    st.error("⚠️ Please enter a valid number of working days (0–20).")
                     _tva_wd_ok = False
             except ValueError:
-                st.error("⚠️ Please enter a valid number of working days (0–31).")
+                st.error("⚠️ Please enter a valid number of working days (0–20).")
                 _tva_wd_ok = False
 
         if _tva_wd_val is not None and _tva_wd_ok:
@@ -5949,7 +5949,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         pass
 
                     # ── Exclusions & role filters ──────────────────────────────
-                    _EXCL_TVA = {'direct', 'bootcamp - direct', 'bootcamp direct', 'lead details not available'}
+                    _EXCL_TVA = {'direct', 'bootcamp - direct', 'bootcamp direct', 'lead details not available', 'Changemakers'}
                     _ru_role_tva  = st.session_state.get('rf_role', 'admin')
                     _ru_teams_tva = st.session_state.get('rf_teams', [])
                     _ru_cname_tva = st.session_state.get('rf_caller_name', '')
