@@ -5954,12 +5954,15 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                     _ru_teams_tva = st.session_state.get('rf_teams', [])
                     _ru_cname_tva = st.session_state.get('rf_caller_name', '')
 
-                    _all_tva_teams = sorted(_tva_sheet['Team Name'].dropna().unique())
+                    _all_tva_teams = sorted([
+                        t for t in _tva_sheet['Team Name'].dropna().unique()
+                        if t.strip().lower() != 'changemakers'
+                        and 'community manager' not in t.strip().lower()
+                    ])
                     if _ru_role_tva in ('tl','trainer','vertical_head') and _ru_teams_tva:
                         _all_tva_teams = [t for t in _all_tva_teams if t in _ru_teams_tva]
                     if selected_team:
                         _all_tva_teams = [t for t in _all_tva_teams if t in selected_team]
-
                     _end_disp_tva = end_date.strftime('%d-%b-%Y')
 
                     def _tf(v):
@@ -6120,11 +6123,11 @@ border:2px solid #0d2137;'>{_hdg}</div>
                         )
                         COLS_XL = [
                             "COUNSELLORS","TARGET FOR THE MONTH (₹)","TARGET (TILL DATE) (₹)",
-                            "YESTERDAY (₹)","REVENUE MTD (₹)","REVENUE MTD %",
+                            "YESTERDAY (₹)","REVENUE MTD",
                             "CURRENT DEFICIT (₹)","ENROLLMENTS YESTERDAY",
                             "ENROLLMENTS (MTD)","PENDING REVENUE (₹)"
                         ]
-                        CW = [28,22,20,16,18,12,20,20,16,24]
+                        CW = [28,22,20,16,22,20,20,16,24]
 
                         wb = Workbook()
                         ws = wb.active
@@ -6151,14 +6154,13 @@ border:2px solid #0d2137;'>{_hdg}</div>
                             _tt=_tl=_ty=_tm2=_td=_tey=_tem=_tp = 0.0
                             for ri, _r in enumerate(_rows):
                                 fill = A_FILL if ri % 2 == 1 else W_FILL
-                                # Replace the 'vals' list inside the loop with this:
+                                _mtd_v = int(round(pd.Series(_r['mtd']).apply(pd.to_numeric, errors='coerce').fillna(0).iloc[0]))
                                 vals = [
                                     _r['cn'], 
                                     int(round(pd.Series(_r['tgt']).apply(pd.to_numeric, errors='coerce').fillna(0).iloc[0])), 
                                     int(round(pd.Series(_r['till']).apply(pd.to_numeric, errors='coerce').fillna(0).iloc[0])), 
                                     int(round(pd.Series(_r['yst']).apply(pd.to_numeric, errors='coerce').fillna(0).iloc[0])), 
-                                    int(round(pd.Series(_r['mtd']).apply(pd.to_numeric, errors='coerce').fillna(0).iloc[0])), 
-                                    f"{_r['pct']}%", 
+                                    f"₹{_mtd_v:,} ({_r['pct']}%)", 
                                     int(round(pd.Series(_r['deficit']).apply(pd.to_numeric, errors='coerce').fillna(0).iloc[0])), 
                                     _r['ey'], 
                                     _r['em'], 
@@ -6190,8 +6192,7 @@ border:2px solid #0d2137;'>{_hdg}</div>
                                     _tt_final,
                                     _tl_final,
                                     _ty_final,
-                                    _tm2_final,
-                                    _tpct_xl,
+                                    f"₹{_tm2_final:,} ({_tpct_xl})",
                                     _td_final,
                                     _tey_final,
                                     _tem_final,
@@ -6206,14 +6207,15 @@ border:2px solid #0d2137;'>{_hdg}</div>
 
                         buf = io.BytesIO(); wb.save(buf); return buf.getvalue()
 
-                    st.download_button(
-                        label="📥 Download Target Vs Achievement Report (.xlsx)",
-                        data=_build_tva_xlsx(_tva_all_data, _end_disp_tva),
-                        file_name=f"Target_Vs_Achievement_{display_start}_to_{display_end}.xlsx",
-                        mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                        key='dl_tva_xlsx',
-                        width='stretch',
-                    )
+                    _dl_tva_col, _ = st.columns([1, 2])
+                    with _dl_tva_col:
+                        st.download_button(
+                            label="📥 Download Target Vs Achievement (.xlsx)",
+                            data=_build_tva_xlsx(_tva_all_data, _end_disp_tva),
+                            file_name=f"Target_Vs_Achievement_{display_start}_to_{display_end}.xlsx",
+                            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                            key='dl_tva_xlsx',
+                        )
 
 
 def run_leads_dashboard():
@@ -7078,7 +7080,23 @@ else:
     """, unsafe_allow_html=True)
 
     # ── Sign Out ───────────────────────────────────────────────
-    if st.sidebar.button("🚪 Sign Out", key="signout_btn"):
+    # Center the sign-out button via CSS injection
+    st.sidebar.markdown("""
+    <style>
+    div[data-testid="stSidebar"] div[data-testid="stButton"]:first-of-type > button {
+        display: block !important;
+        margin: 0 auto !important;
+        width: auto !important;
+        min-width: 120px !important;
+        padding-left: 1.4rem !important;
+        padding-right: 1.4rem !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    col_so = st.sidebar.columns([1, 2, 1])
+    with col_so[1]:
+        _sign_out = st.button("🚪 Sign Out", key="signout_btn")
+    if _sign_out:
         try:
             supa.auth.sign_out()
         except Exception:
