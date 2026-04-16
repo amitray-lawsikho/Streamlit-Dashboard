@@ -1790,7 +1790,7 @@ def run_calling_dashboard():
                         for col in df_team_mapping.columns:
                             if col in df_static_master.columns:
                                 clean_col = df_static_master[col].fillna('').astype(str).str.strip().str.upper()
-                                tl_ad_mask |= clean_col.isin(['TL', 'ATL', 'AD', 'TEAM LEAD', 'TEAM LEADER'])
+                                tl_ad_mask |= clean_col.isin(['TL', 'ATL', 'TEAM LEAD', 'TEAM LEADER'])
 
                         static_display_cols = [
                             "CALLER", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %",
