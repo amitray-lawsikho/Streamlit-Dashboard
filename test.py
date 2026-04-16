@@ -341,7 +341,7 @@ def _auth_otp_panel():
                 st.rerun()
 
 # --- DASHBOARD FUNCTIONS ---
-@st.cache_data(ttl=300, show_spinner=False)
+@st.cache_data(ttl=60, show_spinner=False)
 def get_stats():
     try:
         r1 = client.query("""
