@@ -31,8 +31,8 @@ st.set_page_config(
     page_title="Analytics Dashboard — LawSikho",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="auto"
-)    
+    initial_sidebar_state="collapsed"
+) 
 
 def get_bq_client():
     if "gcp_service_account" in st.secrets:
@@ -7039,22 +7039,8 @@ else:
     [data-testid="stToolbar"] { display: none !important; }
     [data-testid="stDecoration"] { display: none !important; }
     #MainMenu { display: none !important; }
-
-    /* ── Force sidebar fully restored after login ── */
-    [data-testid="stSidebarCollapsedControl"],
-    [data-testid="collapsedControl"] {
-        display: flex !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-    }
-    [data-testid="stSidebar"] {
-        display: flex !important;
-        width: unset !important;
-        min-width: unset !important;
-    }
-    [data-testid="stSidebar"] > div {
-        display: flex !important;
-    }
+    [data-testid="stSidebar"] > div:first-child { display: flex !important; }
+    [data-testid="stSidebarCollapsedControl"] { display: flex !important; visibility: visible !important; }
     </style>
     """, unsafe_allow_html=True)
 
