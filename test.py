@@ -1141,10 +1141,16 @@ def run_calling_dashboard():
                                 day_breaks.append({'s': act_s, 'e': act_e, 'dur': g})
                                 day_break_sec += g
 
-                if last_call_end < end_office:
-                    g = get_display_gap_seconds(last_call_end, end_office)
+                today_ist = datetime.now(ist_tz).date()
+                effective_end_office = end_office
+                if c_date == today_ist:
+                    now_ist = datetime.now(ist_tz).replace(second=0, microsecond=0)
+                    effective_end_office = min(end_office, now_ist)
+
+                if last_call_end < effective_end_office:
+                    g = get_display_gap_seconds(last_call_end, effective_end_office)
                     if g >= 900:
-                        day_breaks.append({'s': last_call_end, 'e': end_office, 'dur': g})
+                        day_breaks.append({'s': last_call_end, 'e': effective_end_office, 'dur': g})
                         day_break_sec += g
 
                 total_break_sec_all_days += day_break_sec
