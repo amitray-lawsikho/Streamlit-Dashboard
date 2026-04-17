@@ -1394,8 +1394,8 @@ def run_calling_dashboard():
                 ("CALLS 15-20 MINS","Count of calls where duration >= 900 seconds AND < 1200 seconds. Mid-range engagement."),
                 ("20+ MIN CALLS","Count of calls where duration >= 1200 seconds. Deep engagement indicator."),
                 ("CALL DURATION > 3 MINS","Sum of duration for calls >= 3 minutes, shown as Xh Ym."),
-                ("PRODUCTIVE HOURS","(10 hrs x active days) - total break time >= 15 mins. Shown as Xh Ym."),
-                ("BREAKS (>=15 MINS)","Gaps between calls of 15+ minutes shown per day with time ranges. Gaps < 15 mins are ignored."),
+                ("Productive Hours","(10 hrs x active days) - total break seconds. For the current day, productive hours = elapsed time from office start to last call end, minus any mid-day breaks. The end-of-day remaining time (last call → 8 PM) is excluded so today's figure reflects only time actually worked so far. Previous days use the standard 10-hr window. Expressed as Xh Ym."),
+                ("BREAKS (>=15 MINS)","Gaps between calls of 15+ minutes shown per day with time ranges. Gaps < 15 mins are ignored. For the current day, the end-of-day gap (last call → 8 PM) is excluded from the break list and count since the caller may still be working — only real mid-day gaps are shown. The break total duration shown matches only the listed breaks."),
                 ("REMARKS","Auto-flagged issues: Late Check-In (first call after 10:15 AM), Early Check-Out (last call before 8 PM), Low Calls (<40 qualifying/day), Low Duration (<3h 15m/day), Excessive Breaks (>2 breaks >= 15 mins/day), Less Productive (<5 hrs productive/day)."),
             ],cw=[46*mm,114*mm]),SP(1,6*mm),
             BAN("📅","SECTION 5 — DURATION REPORT TAB"),SP(1,3*mm),
@@ -7081,7 +7081,7 @@ else:
                     letter-spacing:1px;color:{_lc};margin-bottom:.2rem;'>
             {_ROLE_LABELS.get(role, role)}
         </div>
-        <div style='font-size:.72rem;color:rgba(255,255,255,.75);word-break:break-all;'>
+        <div style='font-size:.72rem;color:{_lc};word-break:break-all;'>
             {disp}
         </div>
     </div>
