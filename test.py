@@ -1160,7 +1160,8 @@ def run_calling_dashboard():
                     day_break_sec += remaining
                 total_break_sec_all_days += day_break_sec
                 if day_breaks:
-                    b_str = f"{c_date.strftime('%d/%m')}: {len(day_breaks)} breaks : {format_dur_hm(day_break_sec)}"
+                    display_break_sec = sum(b['dur'] for b in day_breaks)
+                    b_str = f"{c_date.strftime('%d/%m')}: {len(day_breaks)} breaks : {format_dur_hm(display_break_sec)}"
                     for b in day_breaks:
                         b_str += f"\n  {b['s'].strftime('%I:%M %p')}→{b['e'].strftime('%I:%M %p')} ({format_dur_hm(b['dur'])})"
                     daily_break_list.append(b_str)
