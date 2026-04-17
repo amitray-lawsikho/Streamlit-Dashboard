@@ -79,11 +79,12 @@ def _apply_role_filters():
 
 # ── Hardcoded access tiers ─────────────────────────────────────
 ADMIN_EMAILS = {
-    "yash@lawsikho.in"
-    "akanksha.patil@lawsikho.in"
-    "devki.dt@lawsikho.in"
-    "mansi.gupta@lawsikho.in"
-    "shivamtejpal@lawsikho.in"
+    "admin@lawsikho.in",
+    "yash@lawsikho.in",
+    "akanksha.patil@lawsikho.in",
+    "devki.dt@lawsikho.in",
+    "mansi.gupta@lawsikho.in",
+    "shivamtejpal@lawsikho.in",
     "pratik.s@lawsikho.in",
     "suraj@lawsikho.in",
     "parul.nagar@lawsikho.in",
@@ -91,7 +92,6 @@ ADMIN_EMAILS = {
     "rinku@lawsikho.in",
     "karunakarareddy@lawsikho.in"
 }
-
 VERTICAL_HEAD_TEAMS = {
     # email               : [list of Team Names they can see]
     "uzair@lawsikho.in"       : ["19th Jan US acc/women ai Closure Batch","CD Closures - Inayat","Contract Drafting","Corporate law - Anas",
