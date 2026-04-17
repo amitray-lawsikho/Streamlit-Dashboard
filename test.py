@@ -1118,6 +1118,7 @@ def run_calling_dashboard():
                 start_office = ist_tz.localize(datetime.combine(c_date, time(10, 0)))
                 end_office   = ist_tz.localize(datetime.combine(c_date, time(20, 0)))
 
+                today_ist = datetime.now(ist_tz).date()
                 if first_call_start > ist_tz.localize(datetime.combine(c_date, time(10, 15))): all_issues.append("Late Check-In")
                 if last_call_end < end_office and c_date != today_ist: all_issues.append("Early Check-Out")
 
@@ -1147,7 +1148,6 @@ def run_calling_dashboard():
                     now_ist = datetime.now(ist_tz).replace(second=0, microsecond=0)
                     effective_end_office = min(end_office, now_ist)
 
-                today_ist = datetime.now(ist_tz).date()
                 if c_date != today_ist:
                     if last_call_end < end_office:
                         g = get_display_gap_seconds(last_call_end, end_office)
