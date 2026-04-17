@@ -83,7 +83,6 @@ ADMIN_EMAILS = {
     "devki.dt@lawsikho.in"
     "mansi.gupta@lawsikho.in"
     "shivamtejpal@lawsikho.in"
-    "akanksha.patil@lawsikho.in"
     "pratik.s@lawsikho.in",
     "suraj@lawsikho.in",
     "parul.nagar@lawsikho.in",
