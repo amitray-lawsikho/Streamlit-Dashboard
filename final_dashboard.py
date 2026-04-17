@@ -79,11 +79,12 @@ def _apply_role_filters():
 
 # ── Hardcoded access tiers ─────────────────────────────────────
 ADMIN_EMAILS = {
-    "yash@lawsikho.in"
-    "akanksha.patil@lawsikho.in"
-    "devki.dt@lawsikho.in"
-    "mansi.gupta@lawsikho.in"
-    "shivamtejpal@lawsikho.in"
+    "admin@lawsikho.in",
+    "yash@lawsikho.in",
+    "akanksha.patil@lawsikho.in",
+    "devki.dt@lawsikho.in",
+    "mansi.gupta@lawsikho.in",
+    "shivamtejpal@lawsikho.in",
     "pratik.s@lawsikho.in",
     "suraj@lawsikho.in",
     "parul.nagar@lawsikho.in",
@@ -1118,8 +1119,9 @@ def run_calling_dashboard():
                 start_office = ist_tz.localize(datetime.combine(c_date, time(10, 0)))
                 end_office   = ist_tz.localize(datetime.combine(c_date, time(20, 0)))
 
+                today_ist = datetime.now(ist_tz).date()
                 if first_call_start > ist_tz.localize(datetime.combine(c_date, time(10, 15))): all_issues.append("Late Check-In")
-                if last_call_end   < end_office: all_issues.append("Early Check-Out")
+                if last_call_end < end_office and c_date != today_ist: all_issues.append("Early Check-Out")
 
                 day_breaks, day_break_sec = [], 0
 
@@ -1141,15 +1143,26 @@ def run_calling_dashboard():
                                 day_breaks.append({'s': act_s, 'e': act_e, 'dur': g})
                                 day_break_sec += g
 
-                if last_call_end < end_office:
-                    g = get_display_gap_seconds(last_call_end, end_office)
-                    if g >= 900:
-                        day_breaks.append({'s': last_call_end, 'e': end_office, 'dur': g})
-                        day_break_sec += g
+                today_ist = datetime.now(ist_tz).date()
+                effective_end_office = end_office
+                if c_date == today_ist:
+                    now_ist = datetime.now(ist_tz).replace(second=0, microsecond=0)
+                    effective_end_office = min(end_office, now_ist)
 
+                if c_date != today_ist:
+                    if last_call_end < end_office:
+                        g = get_display_gap_seconds(last_call_end, end_office)
+                        if g >= 900:
+                            day_breaks.append({'s': last_call_end, 'e': end_office, 'dur': g})
+                            day_break_sec += g
+
+                if c_date == today_ist:
+                    remaining = get_display_gap_seconds(last_call_end, end_office)
+                    day_break_sec += remaining
                 total_break_sec_all_days += day_break_sec
                 if day_breaks:
-                    b_str = f"{c_date.strftime('%d/%m')}: {len(day_breaks)} breaks : {format_dur_hm(day_break_sec)}"
+                    display_break_sec = sum(b['dur'] for b in day_breaks)
+                    b_str = f"{c_date.strftime('%d/%m')}: {len(day_breaks)} breaks : {format_dur_hm(display_break_sec)}"
                     for b in day_breaks:
                         b_str += f"\n  {b['s'].strftime('%I:%M %p')}→{b['e'].strftime('%I:%M %p')} ({format_dur_hm(b['dur'])})"
                     daily_break_list.append(b_str)
@@ -1382,8 +1395,8 @@ def run_calling_dashboard():
                 ("CALLS 15-20 MINS","Count of calls where duration >= 900 seconds AND < 1200 seconds. Mid-range engagement."),
                 ("20+ MIN CALLS","Count of calls where duration >= 1200 seconds. Deep engagement indicator."),
                 ("CALL DURATION > 3 MINS","Sum of duration for calls >= 3 minutes, shown as Xh Ym."),
-                ("PRODUCTIVE HOURS","(10 hrs x active days) - total break time >= 15 mins. Shown as Xh Ym."),
-                ("BREAKS (>=15 MINS)","Gaps between calls of 15+ minutes shown per day with time ranges. Gaps < 15 mins are ignored."),
+                ("Productive Hours","(10 hrs x active days) - total break seconds. For the current day, productive hours = elapsed time from office start to last call end, minus any mid-day breaks. The end-of-day remaining time (last call → 8 PM) is excluded so today's figure reflects only time actually worked so far. Previous days use the standard 10-hr window. Expressed as Xh Ym."),
+                ("BREAKS (>=15 MINS)","Gaps between calls of 15+ minutes shown per day with time ranges. Gaps < 15 mins are ignored. For the current day, the end-of-day gap (last call → 8 PM) is excluded from the break list and count since the caller may still be working — only real mid-day gaps are shown. The break total duration shown matches only the listed breaks."),
                 ("REMARKS","Auto-flagged issues: Late Check-In (first call after 10:15 AM), Early Check-Out (last call before 8 PM), Low Calls (<40 qualifying/day), Low Duration (<3h 15m/day), Excessive Breaks (>2 breaks >= 15 mins/day), Less Productive (<5 hrs productive/day)."),
             ],cw=[46*mm,114*mm]),SP(1,6*mm),
             BAN("📅","SECTION 5 — DURATION REPORT TAB"),SP(1,3*mm),
@@ -7069,7 +7082,7 @@ else:
                     letter-spacing:1px;color:{_lc};margin-bottom:.2rem;'>
             {_ROLE_LABELS.get(role, role)}
         </div>
-        <div style='font-size:.72rem;color:rgba(255,255,255,.75);word-break:break-all;'>
+        <div style='font-size:.72rem;color:{_lc};word-break:break-all;'>
             {disp}
         </div>
     </div>
