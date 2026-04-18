@@ -1,10 +1,9 @@
-streamlit
+streamlit==1.56.0
 google-cloud-bigquery
 pandas
 db-dtypes
 google-auth
 pytz
-db-dtypes
 numpy
 reportlab
 openpyxl
