@@ -92,6 +92,7 @@ ADMIN_EMAILS = {
     "rinku@lawsikho.in",
     "karunakarareddy@lawsikho.in"
 }
+
 VERTICAL_HEAD_TEAMS = {
     # email               : [list of Team Names they can see]
     "uzair@lawsikho.in"       : ["19th Jan US acc/women ai Closure Batch","CD Closures - Inayat","Contract Drafting","Corporate law - Anas",
