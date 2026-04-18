@@ -1652,6 +1652,52 @@ def run_calling_dashboard():
                         report_df['ROADMAPS DONE']   = report_df['CALLER'].map(lambda c: stage_counts.get(c, {}).get('ROADMAPS DONE', 0))
                         report_df['FOLLOW UPS DONE'] = report_df['CALLER'].map(lambda c: stage_counts.get(c, {}).get('FOLLOW UPS DONE', 0))
 
+                        # ── Add stage-only callers (no calls but has stage changes) ──
+                        existing_callers = set(report_df['CALLER'].str.strip().str.lower())
+                        stage_only_rows  = []
+                        for sc_caller, sc_vals in stage_counts.items():
+                            if sc_caller.strip().lower() in existing_callers:
+                                continue
+                            if sc_vals.get('DISCOVERY DONE', 0) == 0 and \
+                               sc_vals.get('ROADMAPS DONE', 0) == 0 and \
+                               sc_vals.get('FOLLOW UPS DONE', 0) == 0:
+                                continue
+                            # Look up team from team mapping
+                            _mk = sc_caller.strip().lower()
+                            _tm_row = df_team_mapping[df_team_mapping['merge_key'] == _mk]
+                            _team   = _tm_row.iloc[0]['Team Name'] if not _tm_row.empty else 'Others'
+                            # Apply same filters as main df
+                            if selected_team and _team not in selected_team:
+                                continue
+                            if search_query and search_query.lower() not in sc_caller.lower():
+                                continue
+                            stage_only_rows.append({
+                                "IN/OUT TIME"           : "-",
+                                "CALLER"                : sc_caller,
+                                "TEAM"                  : _team,
+                                "TOTAL CALLS"           : 0,
+                                "CALL STATUS"           : "-",
+                                "PICK UP RATIO %"       : "-",
+                                "CALLS > 3 MINS"        : 0,
+                                "CALLS 15-20 MINS"      : 0,
+                                "20+ MIN CALLS"         : 0,
+                                "CALL DURATION > 3 MINS": format_dur_hm(0),
+                                "FOLLOW UPS DONE"       : sc_vals.get('FOLLOW UPS DONE', 0),
+                                "DISCOVERY DONE"        : sc_vals.get('DISCOVERY DONE', 0),
+                                "ROADMAPS DONE"         : sc_vals.get('ROADMAPS DONE', 0),
+                                "PRODUCTIVE HOURS"      : format_dur_hm(0),
+                                "BREAKS (>=15 MINS)"    : "-",
+                                "REMARKS"               : "-",
+                                "raw_prod_sec"          : 0,
+                                "raw_dur_sec"           : 0,
+                            })
+
+                        if stage_only_rows:
+                            report_df = pd.concat(
+                                [report_df, pd.DataFrame(stage_only_rows)],
+                                ignore_index=True
+                            )
+
                         report_df = report_df.sort_values(by="raw_dur_sec", ascending=False)
                         report_df['Rank'] = ""
                         if len(report_df) > 0: report_df.iloc[0, report_df.columns.get_loc('Rank')] = "🥇"
