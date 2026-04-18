@@ -1664,9 +1664,9 @@ def run_calling_dashboard():
                             sc_export_df = sc_merged_full.copy()
                             for caller, grp in sc_merged_full.groupby('Stage_Changed_By'):
                                 stage_counts[caller] = {
-                                    'DISCOVERY DONE':  int((grp['New_Contact_Stage'] == 'Discovery Call Done').sum()),
-                                    'ROADMAPS DONE':   int((grp['New_Contact_Stage'] == 'RoadmapÂ Done').sum()),
-                                    'FOLLOW UPS DONE': int((grp['New_Contact_Stage'] == 'Follow Up For Closure').sum()),
+                                    'DISCOVERY DONE':   int(grp['New_Contact_Stage'].str.contains('Discovery', case=False, na=False).sum()),
+                                    'ROADMAPS DONE':   int(grp['New_Contact_Stage'].str.contains('Roadmap', case=False, na=False).sum()),
+                                    'FOLLOW UPS DONE':   int(grp['New_Contact_Stage'].str.contains('Follow Up', case=False, na=False).sum()),
                                 }
 
                         report_df['DISCOVERY DONE']  = report_df['CALLER'].map(lambda c: stage_counts.get(c, {}).get('DISCOVERY DONE', 0))
