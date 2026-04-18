@@ -1030,6 +1030,18 @@ def run_calling_dashboard():
         return date.today(), date.today()
 
     @st.cache_data(ttl=120, show_spinner=False)
+    def fetch_stage_changed_data(start_date, end_date):
+        q = f"""
+            SELECT * FROM `studious-apex-488820-c3.crm_dashboard.stage_changed`
+            WHERE Date BETWEEN '{start_date}' AND '{end_date}'
+        """
+        df = client.query(q).to_dataframe()
+        if not df.empty:
+            df['Stage_Changed_By'] = df['Stage_Changed_By'].astype(str).str.strip()
+            df['merge_key'] = df['Stage_Changed_By'].str.lower()
+        return df
+
+    @st.cache_data(ttl=120, show_spinner=False)
     def fetch_call_data(start_date, end_date):
         q_ace = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls` WHERE `Call Date` BETWEEN '{start_date}' AND '{end_date}'"
         df_ace = client.query(q_ace).to_dataframe()
@@ -1616,6 +1628,30 @@ def run_calling_dashboard():
                         st.error("No results match the selected filters.")
                     else:
                         report_df, total_duration_agg = process_metrics_logic(df)
+
+                        # ── Stage Changed Data ──────────────────────────────────
+                        sc_df_raw = fetch_stage_changed_data(start_date, end_date)
+                        sc_export_df = pd.DataFrame()
+                        stage_counts = {}
+                        if not sc_df_raw.empty:
+                            sc_merged_full = pd.merge(
+                                sc_df_raw,
+                                df_team_mapping[['merge_key', 'Caller Name', 'Team Name', 'Vertical']].drop_duplicates('merge_key'),
+                                on='merge_key', how='left'
+                            )
+                            sc_merged_full['Stage_Changed_By'] = sc_merged_full['Caller Name'].fillna(sc_merged_full['Stage_Changed_By'])
+                            sc_export_df = sc_merged_full.copy()
+                            for caller, grp in sc_merged_full.groupby('Stage_Changed_By'):
+                                stage_counts[caller] = {
+                                    'DISCOVERY DONE':  int((grp['New_Contact_Stage'] == 'Discovery Call Done').sum()),
+                                    'ROADMAPS DONE':   int((grp['New_Contact_Stage'] == 'Roadmap Done').sum()),
+                                    'FOLLOW UPS DONE': int((grp['New_Contact_Stage'] == 'Follow Up For Closure').sum()),
+                                }
+
+                        report_df['DISCOVERY DONE']  = report_df['CALLER'].map(lambda c: stage_counts.get(c, {}).get('DISCOVERY DONE', 0))
+                        report_df['ROADMAPS DONE']   = report_df['CALLER'].map(lambda c: stage_counts.get(c, {}).get('ROADMAPS DONE', 0))
+                        report_df['FOLLOW UPS DONE'] = report_df['CALLER'].map(lambda c: stage_counts.get(c, {}).get('FOLLOW UPS DONE', 0))
+
                         report_df = report_df.sort_values(by="raw_dur_sec", ascending=False)
                         report_df['Rank'] = ""
                         if len(report_df) > 0: report_df.iloc[0, report_df.columns.get_loc('Rank')] = "🥇"
@@ -1627,11 +1663,12 @@ def run_calling_dashboard():
                         st.session_state['insights_report'] = report_df.copy()
                         st.session_state['insights_source'] = "Dynamic Report"
 
-                        section_header("🏆 TOP 3 PERFORMANCE HIGHLIGHTS")
-                        top_cols = st.columns(3)
+                        section_header("🏆 TOP 6 PERFORMANCE HIGHLIGHTS")
+                        top_row1 = st.columns(3)
+                        top_row2 = st.columns(3)
 
                         top_dur = report_df.iloc[0]
-                        with top_cols[0]:
+                        with top_row1[0]:
                             st.markdown(f"""
                             <div class="metric-card" style="border-top: 3px solid var(--gold);">
                                 <div class="metric-label">🥇 TOP PERFORMER</div>
@@ -1640,7 +1677,7 @@ def run_calling_dashboard():
                             </div>""", unsafe_allow_html=True)
 
                         top_calls = report_df.sort_values('TOTAL CALLS', ascending=False).iloc[0]
-                        with top_cols[1]:
+                        with top_row1[1]:
                             st.markdown(f"""
                             <div class="metric-card" style="border-top: 3px solid #F97316;">
                                 <div class="metric-label">✆ HIGHEST CALLS</div>
@@ -1649,7 +1686,7 @@ def run_calling_dashboard():
                             </div>""", unsafe_allow_html=True)
 
                         top_long = report_df.sort_values('20+ MIN CALLS', ascending=False).iloc[0]
-                        with top_cols[2]:
+                        with top_row1[2]:
                             st.markdown(f"""
                             <div class="metric-card" style="border-top: 3px solid var(--bronze);">
                                 <div class="metric-label">🗣️ DEEP ENGAGEMENT</div>
@@ -1657,18 +1694,46 @@ def run_calling_dashboard():
                                 <div class="metric-delta">{top_long['20+ MIN CALLS']} Long Calls</div>
                             </div>""", unsafe_allow_html=True)
 
+                        top_fup = report_df.sort_values('FOLLOW UPS DONE', ascending=False).iloc[0]
+                        with top_row2[0]:
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top: 3px solid #F97316;">
+                                <div class="metric-label">📋 HIGHEST FOLLOW UPS</div>
+                                <div class="metric-value" style="font-size:1.1rem;">{top_fup['CALLER']}</div>
+                                <div class="metric-delta">{top_fup['FOLLOW UPS DONE']} Follow Ups Done</div>
+                            </div>""", unsafe_allow_html=True)
+
+                        top_disc = report_df.sort_values('DISCOVERY DONE', ascending=False).iloc[0]
+                        with top_row2[1]:
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top: 3px solid var(--gold);">
+                                <div class="metric-label">🔍 HIGHEST DISCOVERY DONE</div>
+                                <div class="metric-value" style="font-size:1.1rem;">{top_disc['CALLER']}</div>
+                                <div class="metric-delta">{top_disc['DISCOVERY DONE']} Discoveries Done</div>
+                            </div>""", unsafe_allow_html=True)
+
+                        top_road = report_df.sort_values('ROADMAPS DONE', ascending=False).iloc[0]
+                        with top_row2[2]:
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top: 3px solid var(--bronze);">
+                                <div class="metric-label">🗺️ HIGHEST ROADMAP DONE</div>
+                                <div class="metric-value" style="font-size:1.1rem;">{top_road['CALLER']}</div>
+                                <div class="metric-delta">{top_road['ROADMAPS DONE']} Roadmaps Done</div>
+                            </div>""", unsafe_allow_html=True)
+
                         section_header("SUMMARY METRICS")
-                        ans_t = len(df[df['status'].str.lower() == 'answered'])
-                        pur_val = f"{round(ans_t / len(df) * 100)}%" if len(df) > 0 else "0%"
+                        _total_fup  = int(report_df['FOLLOW UPS DONE'].sum())
+                        _total_disc = int(report_df['DISCOVERY DONE'].sum())
+                        _total_road = int(report_df['ROADMAPS DONE'].sum())
                         kpis = [
-                            ("Total Calls",    len(df),                                         "📲"),
                             ("Acefone Calls",  len(df[df['source'] == 'Acefone']),              "🔵"),
                             ("Ozonetel Calls", len(df[df['source'] == 'Ozonetel']),             "🟠"),
                             ("Manual Calls",   len(df[df['source'] == 'Manual']),               "✏️"),
                             ("Unique Leads",   df['unique_lead_id'].nunique(),                  "👤"),
-                            ("Pick-Up Ratio",  pur_val,                                         "✅"),
-                            ("Active Callers", len(report_df),                                  "🎙️"),
                             ("Avg Prod Hrs",   format_dur_hm(report_df["raw_prod_sec"].mean()), "⏱"),
+                            ("Follow Ups Done",  _total_fup,  "📋"),
+                            ("Discovery Done",   _total_disc, "🔍"),
+                            ("Roadmaps Done",    _total_road, "🗺️"),
                         ]
 
                         cols = st.columns(len(kpis))
@@ -1692,6 +1757,9 @@ def run_calling_dashboard():
                             "CALLS 15-20 MINS": int(report_df["CALLS 15-20 MINS"].sum()),
                             "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
                             "CALL DURATION > 3 MINS": format_dur_hm(total_duration_agg),
+                            "FOLLOW UPS DONE": int(report_df["FOLLOW UPS DONE"].sum()),
+                            "DISCOVERY DONE":  int(report_df["DISCOVERY DONE"].sum()),
+                            "ROADMAPS DONE":   int(report_df["ROADMAPS DONE"].sum()),
                             "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod_sec"].sum()),
                             "BREAKS (>=15 MINS)": "-", "REMARKS": "-"
                         }])
@@ -1700,6 +1768,7 @@ def run_calling_dashboard():
                             "Rank", "IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS",
                             "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS",
                             "20+ MIN CALLS", "CALL DURATION > 3 MINS",
+                            "FOLLOW UPS DONE", "DISCOVERY DONE", "ROADMAPS DONE",
                             "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)", "REMARKS"
                         ]
 
@@ -1719,11 +1788,35 @@ def run_calling_dashboard():
                             "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"
                         ]
                         existing_cols = [c for c in target_cols if c in df.columns]
-                        st.download_button(
-                            label="📥 Download CDR",
-                            data=df[existing_cols].to_csv(index=False).encode('utf-8'),
-                            file_name="CDR_LOG.csv", mime='text/csv'
-                        )
+
+                        _sc_export_cols = [
+                            "Date", "FirstName", "LastName", "EmailAddress", "Phone",
+                            "Alternate_Phone_Number", "New_Contact_Stage", "Stage_Changed_By",
+                            "OwnerIdEmailAddress", "Team Name", "Vertical", "StageChangeComment"
+                        ]
+                        _sc_existing = [c for c in _sc_export_cols if c in sc_export_df.columns]
+
+                        _dl_cdr_col, _dl_sc_col = st.columns(2)
+                        with _dl_cdr_col:
+                            st.download_button(
+                                label="📥 Download CDR",
+                                data=df[existing_cols].to_csv(index=False).encode('utf-8'),
+                                file_name="CDR_LOG.csv", mime='text/csv',
+                                key="dl_cdr_dynamic"
+                            )
+                        with _dl_sc_col:
+                            _sc_bytes = (
+                                sc_export_df[_sc_existing].to_csv(index=False).encode('utf-8')
+                                if not sc_export_df.empty and _sc_existing
+                                else b"No stage changed data for this period."
+                            )
+                            st.download_button(
+                                label="📥 Download Stage Changed Report",
+                                data=_sc_bytes,
+                                file_name="Stage_Changed_Report.csv",
+                                mime='text/csv',
+                                key="dl_stage_changed_dynamic"
+                            )
 
                         # ── Manual Calls Table ──
                         manual_df_view = df[df['source'] == 'Manual'].copy()
