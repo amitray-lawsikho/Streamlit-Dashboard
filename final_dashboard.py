@@ -1030,6 +1030,18 @@ def run_calling_dashboard():
         return date.today(), date.today()
 
     @st.cache_data(ttl=120, show_spinner=False)
+    def fetch_stage_changed_data(start_date, end_date):
+        q = f"""
+            SELECT * FROM `studious-apex-488820-c3.crm_dashboard.stage_changed`
+            WHERE Date BETWEEN '{start_date}' AND '{end_date}'
+        """
+        df = client.query(q).to_dataframe()
+        if not df.empty:
+            df['Stage_Changed_By'] = df['Stage_Changed_By'].astype(str).str.strip()
+            df['merge_key'] = df['Stage_Changed_By'].str.lower()
+        return df
+
+    @st.cache_data(ttl=120, show_spinner=False)
     def fetch_call_data(start_date, end_date):
         q_ace = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls` WHERE `Call Date` BETWEEN '{start_date}' AND '{end_date}'"
         df_ace = client.query(q_ace).to_dataframe()
@@ -1362,24 +1374,27 @@ def run_calling_dashboard():
                 ("📅 Duration Report","A team-by-team breakdown showing call duration metrics only. Each team gets its own table sorted by call duration. TLs and ATLs are grouped separately at the bottom. Useful for sharing per-team performance without exposing cross-team data. Click 'Generate Duration Report' in the sidebar."),
                 ("🧠 Insights & Leaderboard","Auto-populated from whichever report was generated last. Shows 5-6 auto-generated team insights and a Team Leaderboard table. No separate button needed — switch to this tab after generating any report."),
             ]),SP(1,6*mm),
-            BAN("🏆","SECTION 2 — TOP 3 PERFORMANCE HIGHLIGHTS"),SP(1,3*mm),
-            Paragraph("Three highlight cards at the top of the Dynamic Dashboard. Each picks the single best agent in one dimension.",S['body']),SP(1,2*mm),
+            BAN("🏆","SECTION 2 — TOP 6 PERFORMANCE HIGHLIGHTS"),SP(1,3*mm),
+            Paragraph("Six highlight cards at the top of the Dynamic Dashboard arranged in two rows of three. Each picks the single best agent in one dimension.",S['body']),SP(1,2*mm),
             btable([
                 ("🥇 Top Performer","Agent with the highest total Call Duration for calls above 3 minutes (raw_dur_sec). Agents are sorted by qualifying call duration descending — the top row wins this card."),
                 ("✆ Highest Calls","Agent with the highest Total Calls count across all statuses (answered + missed). Sorted separately — a different agent may win this card."),
                 ("🗣️ Deep Engagement","Agent with the most calls lasting 20 minutes or more (duration >= 1200 seconds). Signals high-quality prospect conversations."),
+                ("📋 Highest Follow Ups","Agent with the highest count of Follow Up For Closure stage changes in the stage_changed table for the selected date range."),
+                ("🔍 Highest Discovery Done","Agent with the highest count of Discovery Call Done stage changes in the stage_changed table for the selected date range."),
+                ("🗺️ Highest Roadmap Done","Agent with the highest count of Roadmap Done stage changes in the stage_changed table for the selected date range."),
             ]),SP(1,6*mm),
             BAN("📊","SECTION 3 — SUMMARY METRICS (KPI CARDS)"),SP(1,3*mm),
-            Paragraph("Eight KPI cards shown below the Top 3 highlights. Aggregate numbers across ALL agents and sources for the selected date range.",S['body']),SP(1,2*mm),
+            Paragraph("Eight KPI cards shown below the Top 6 highlights. Aggregate numbers across ALL agents and sources for the selected date range.",S['body']),SP(1,2*mm),
             ltable([
-                ("Total Calls","Count of all call rows across Acefone + Ozonetel + Manual after filters applied."),
                 ("Acefone Calls","Count of rows where source = 'Acefone'."),
                 ("Ozonetel Calls","Count of rows where source = 'Ozonetel'."),
                 ("Manual Calls","Count of rows where source = 'Manual'. Calls logged manually by agents and approved — not system-generated CDR."),
                 ("Unique Leads","Count of distinct phone numbers across all sources. One lead dialled multiple times still counts as 1 unique lead."),
-                ("Pick-Up Ratio","Answered Calls / Total Calls x 100, rounded to nearest whole percent. Answered = rows where status = 'answered'."),
-                ("Active Callers","Count of distinct agents in the report after all filters. Only agents with at least one call in the date range are counted."),
                 ("Avg Prod Hrs","Average Productive Hours across all active agents. Productive Hours = (10 hrs x active days) - total break time >= 15 mins. Shown as Xh Ym."),
+                ("Follow Ups Done","Total count of Follow Up For Closure stage changes across all agents in the stage_changed table for the selected date range."),
+                ("Discovery Done","Total count of Discovery Call Done stage changes across all agents in the stage_changed table for the selected date range."),
+                ("Roadmaps Done","Total count of Roadmap Done (stored as 'RoadmapÂ Done' in BigQuery) stage changes across all agents in the stage_changed table for the selected date range."),
             ]),SP(1,6*mm),
             BAN("📋","SECTION 4 — AGENT PERFORMANCE TABLE"),SP(1,3*mm),
             Paragraph("Main data table in the Dynamic Dashboard. One row per active agent, sorted by Call Duration > 3 Mins descending. Top 3 rows get medal emojis. A bold TOTAL row is appended at the bottom.",S['body']),SP(1,2*mm),
@@ -1395,6 +1410,9 @@ def run_calling_dashboard():
                 ("CALLS 15-20 MINS","Count of calls where duration >= 900 seconds AND < 1200 seconds. Mid-range engagement."),
                 ("20+ MIN CALLS","Count of calls where duration >= 1200 seconds. Deep engagement indicator."),
                 ("CALL DURATION > 3 MINS","Sum of duration for calls >= 3 minutes, shown as Xh Ym."),
+                ("FOLLOW UPS DONE","Count of Follow Up For Closure stage changes attributed to this agent in the stage_changed BigQuery table for the selected date range. Sourced via Stage_Changed_By field mapped to Caller Name using the team sheet merge key."),
+                ("DISCOVERY DONE","Count of Discovery Call Done stage changes attributed to this agent in the stage_changed BigQuery table for the selected date range."),
+                ("ROADMAPS DONE","Count of Roadmap Done stage changes (stored as 'RoadmapÂ Done' in BigQuery) attributed to this agent in the stage_changed BigQuery table for the selected date range."),
                 ("Productive Hours","(10 hrs x active days) - total break seconds. For the current day, productive hours = elapsed time from office start to last call end, minus any mid-day breaks. The end-of-day remaining time (last call → 8 PM) is excluded so today's figure reflects only time actually worked so far. Previous days use the standard 10-hr window. Expressed as Xh Ym."),
                 ("BREAKS (>=15 MINS)","Gaps between calls of 15+ minutes shown per day with time ranges. Gaps < 15 mins are ignored. For the current day, the end-of-day gap (last call → 8 PM) is excluded from the break list and count since the caller may still be working — only real mid-day gaps are shown. The break total duration shown matches only the listed breaks."),
                 ("REMARKS","Auto-flagged issues: Late Check-In (first call after 10:15 AM), Early Check-Out (last call before 8 PM), Low Calls (<40 qualifying/day), Low Duration (<3h 15m/day), Excessive Breaks (>2 breaks >= 15 mins/day), Less Productive (<5 hrs productive/day)."),
@@ -1421,8 +1439,20 @@ def run_calling_dashboard():
                 ("20+ Min Calls","Sum of 20+ minute calls across all agents in this team."),
                 ("Medal","Gold, Silver, Bronze for the top 3 teams by Total Duration."),
             ]),SP(1,6*mm),
-            BAN("📥","SECTION 7 — CDR DOWNLOAD COLUMNS"),SP(1,3*mm),
-            Paragraph("The Download CDR button exports a CSV of raw call detail records. Each row is one call.",S['body']),SP(1,2*mm),
+            BAN("📥","SECTION 7 — CDR & STAGE CHANGED DOWNLOAD"),SP(1,3*mm),
+            Paragraph("Two download buttons appear side by side below the Agent Performance Table. Download CDR exports raw call detail records (one row per call). Download Stage Changed Report exports stage change activity from the stage_changed BigQuery table for the selected date range.",S['body']),SP(1,2*mm),
+            btable([
+                ("Date","Date of the stage change. Primary date filter for this report."),
+                ("FirstName / LastName","Lead's first and last name from the stage_changed table."),
+                ("EmailAddress","Lead's email address."),
+                ("Phone / Alternate Phone","Lead's phone numbers."),
+                ("New_Contact_Stage","The stage the lead was moved to: Discovery Call Done, RoadmapÂ Done, Follow Up For Closure, etc."),
+                ("Stage_Changed_By","Agent who changed the stage. Mapped to Caller Name via team sheet merge key."),
+                ("OwnerIdEmailAddress","Email of the lead owner in the CRM."),
+                ("Team Name / Vertical","Team and vertical from the team sheet, merged on Stage_Changed_By."),
+                ("StageChangeComment","Free-text comment entered at the time of stage change, if any."),
+            ]),SP(1,3*mm),
+            Paragraph("The CDR columns are as follows:",S['body']),SP(1,2*mm),
             btable([
                 ("client_number","Lead phone number. Unique lead identifier."),
                 ("call_datetime","Original timestamp from the source system (UTC). For Ozonetel: call start. For Acefone: call end."),
@@ -1476,7 +1506,10 @@ def run_calling_dashboard():
                 ("Low Duration","Total qualifying duration < 3h 15m (11,700 seconds) in a single day."),
                 ("Excessive Breaks","More than 2 breaks >= 15 minutes in a single day."),
                 ("Less Productive","Productive seconds < 5 hours (18,000 seconds) in a single day."),
-                ("Merge Key","Lowercase-stripped agent name used to join call data with the team sheet."),
+                ("Merge Key","Lowercase-stripped agent name used to join call data with the team sheet. Also used to map Stage_Changed_By in the stage_changed table to the canonical Caller Name."),
+                ("Stage Changed By","Agent attributed with a stage change. Joined to team sheet via lowercase merge key to resolve Team Name and Vertical."),
+                ("RoadmapÂ Done","The exact value stored in BigQuery's stage_changed table for Roadmap Done stage. The Â character is a BigQuery encoding artifact. Counts are matched against this exact string."),
+                ("Stage-only Callers","Agents with no calls in the selected period but with at least one Follow Up, Discovery, or Roadmap stage change. These agents appear at the bottom of the Agent Performance Table with 0 in all call metric columns."),
                 ("IST","Indian Standard Time (UTC+5:30). All timestamps are converted to IST for display and calculations."),
             ],cw=[46*mm,114*mm]),
             SP(1,8*mm),HR(),
@@ -1616,6 +1649,76 @@ def run_calling_dashboard():
                         st.error("No results match the selected filters.")
                     else:
                         report_df, total_duration_agg = process_metrics_logic(df)
+
+                        # ── Stage Changed Data ──────────────────────────────────
+                        sc_df_raw = fetch_stage_changed_data(start_date, end_date)
+                        sc_export_df = pd.DataFrame()
+                        stage_counts = {}
+                        if not sc_df_raw.empty:
+                            sc_merged_full = pd.merge(
+                                sc_df_raw,
+                                df_team_mapping[['merge_key', 'Caller Name', 'Team Name', 'Vertical']].drop_duplicates('merge_key'),
+                                on='merge_key', how='left'
+                            )
+                            sc_merged_full['Stage_Changed_By'] = sc_merged_full['Caller Name'].fillna(sc_merged_full['Stage_Changed_By'])
+                            sc_export_df = sc_merged_full.copy()
+                            for caller, grp in sc_merged_full.groupby('Stage_Changed_By'):
+                                stage_counts[caller] = {
+                                    'DISCOVERY DONE':   int(grp['New_Contact_Stage'].str.contains('Discovery', case=False, na=False).sum()),
+                                    'ROADMAPS DONE':   int(grp['New_Contact_Stage'].str.contains('Roadmap', case=False, na=False).sum()),
+                                    'FOLLOW UPS DONE':   int(grp['New_Contact_Stage'].str.contains('Follow Up', case=False, na=False).sum()),
+                                }
+
+                        report_df['DISCOVERY DONE']  = report_df['CALLER'].map(lambda c: stage_counts.get(c, {}).get('DISCOVERY DONE', 0))
+                        report_df['ROADMAPS DONE']   = report_df['CALLER'].map(lambda c: stage_counts.get(c, {}).get('ROADMAPS DONE', 0))
+                        report_df['FOLLOW UPS DONE'] = report_df['CALLER'].map(lambda c: stage_counts.get(c, {}).get('FOLLOW UPS DONE', 0))
+
+                        # ── Add stage-only callers (no calls but has stage changes) ──
+                        existing_callers = set(report_df['CALLER'].str.strip().str.lower())
+                        stage_only_rows  = []
+                        for sc_caller, sc_vals in stage_counts.items():
+                            if sc_caller.strip().lower() in existing_callers:
+                                continue
+                            if sc_vals.get('DISCOVERY DONE', 0) == 0 and \
+                               sc_vals.get('ROADMAPS DONE', 0) == 0 and \
+                               sc_vals.get('FOLLOW UPS DONE', 0) == 0:
+                                continue
+                            # Look up team from team mapping
+                            _mk = sc_caller.strip().lower()
+                            _tm_row = df_team_mapping[df_team_mapping['merge_key'] == _mk]
+                            _team   = _tm_row.iloc[0]['Team Name'] if not _tm_row.empty else 'Others'
+                            # Apply same filters as main df
+                            if selected_team and _team not in selected_team:
+                                continue
+                            if search_query and search_query.lower() not in sc_caller.lower():
+                                continue
+                            stage_only_rows.append({
+                                "IN/OUT TIME"           : "-",
+                                "CALLER"                : sc_caller,
+                                "TEAM"                  : _team,
+                                "TOTAL CALLS"           : 0,
+                                "CALL STATUS"           : "-",
+                                "PICK UP RATIO %"       : "-",
+                                "CALLS > 3 MINS"        : 0,
+                                "CALLS 15-20 MINS"      : 0,
+                                "20+ MIN CALLS"         : 0,
+                                "CALL DURATION > 3 MINS": format_dur_hm(0),
+                                "FOLLOW UPS DONE"       : sc_vals.get('FOLLOW UPS DONE', 0),
+                                "DISCOVERY DONE"        : sc_vals.get('DISCOVERY DONE', 0),
+                                "ROADMAPS DONE"         : sc_vals.get('ROADMAPS DONE', 0),
+                                "PRODUCTIVE HOURS"      : format_dur_hm(0),
+                                "BREAKS (>=15 MINS)"    : "-",
+                                "REMARKS"               : "-",
+                                "raw_prod_sec"          : 0,
+                                "raw_dur_sec"           : 0,
+                            })
+
+                        if stage_only_rows:
+                            report_df = pd.concat(
+                                [report_df, pd.DataFrame(stage_only_rows)],
+                                ignore_index=True
+                            )
+
                         report_df = report_df.sort_values(by="raw_dur_sec", ascending=False)
                         report_df['Rank'] = ""
                         if len(report_df) > 0: report_df.iloc[0, report_df.columns.get_loc('Rank')] = "🥇"
@@ -1627,15 +1730,15 @@ def run_calling_dashboard():
                         st.session_state['insights_report'] = report_df.copy()
                         st.session_state['insights_source'] = "Dynamic Report"
 
-                        section_header("🏆 TOP 3 PERFORMANCE HIGHLIGHTS")
-                        top_cols = st.columns(3)
+                        section_header("🏆 TOP 6 PERFORMANCE HIGHLIGHTS")
+                        top_cols = st.columns(6)
 
                         top_dur = report_df.iloc[0]
                         with top_cols[0]:
                             st.markdown(f"""
                             <div class="metric-card" style="border-top: 3px solid var(--gold);">
                                 <div class="metric-label">🥇 TOP PERFORMER</div>
-                                <div class="metric-value" style="font-size:1.1rem;">{top_dur['CALLER']}</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_dur['CALLER']}</div>
                                 <div class="metric-delta">{top_dur['CALL DURATION > 3 MINS']} Duration</div>
                             </div>""", unsafe_allow_html=True)
 
@@ -1644,7 +1747,7 @@ def run_calling_dashboard():
                             st.markdown(f"""
                             <div class="metric-card" style="border-top: 3px solid #F97316;">
                                 <div class="metric-label">✆ HIGHEST CALLS</div>
-                                <div class="metric-value" style="font-size:1.1rem;">{top_calls['CALLER']}</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_calls['CALLER']}</div>
                                 <div class="metric-delta">{top_calls['TOTAL CALLS']} Total Calls</div>
                             </div>""", unsafe_allow_html=True)
 
@@ -1653,22 +1756,50 @@ def run_calling_dashboard():
                             st.markdown(f"""
                             <div class="metric-card" style="border-top: 3px solid var(--bronze);">
                                 <div class="metric-label">🗣️ DEEP ENGAGEMENT</div>
-                                <div class="metric-value" style="font-size:1.1rem;">{top_long['CALLER']}</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_long['CALLER']}</div>
                                 <div class="metric-delta">{top_long['20+ MIN CALLS']} Long Calls</div>
                             </div>""", unsafe_allow_html=True)
 
+                        top_fup = report_df.sort_values('FOLLOW UPS DONE', ascending=False).iloc[0]
+                        with top_cols[3]:
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top: 3px solid #F97316;">
+                                <div class="metric-label">📋 HIGHEST FOLLOW UPS</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_fup['CALLER']}</div>
+                                <div class="metric-delta">{top_fup['FOLLOW UPS DONE']} Follow Ups Done</div>
+                            </div>""", unsafe_allow_html=True)
+
+                        top_disc = report_df.sort_values('DISCOVERY DONE', ascending=False).iloc[0]
+                        with top_cols[4]:
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top: 3px solid var(--gold);">
+                                <div class="metric-label">🔍 HIGHEST DISCOVERY</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_disc['CALLER']}</div>
+                                <div class="metric-delta">{top_disc['DISCOVERY DONE']} Discoveries Done</div>
+                            </div>""", unsafe_allow_html=True)
+
+                        top_road = report_df.sort_values('ROADMAPS DONE', ascending=False).iloc[0]
+                        with top_cols[5]:
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top: 3px solid var(--bronze);">
+                                <div class="metric-label">🗺️ HIGHEST ROADMAP</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_road['CALLER']}</div>
+                                <div class="metric-delta">{top_road['ROADMAPS DONE']} Roadmaps Done</div>
+                            </div>""", unsafe_allow_html=True)
+
                         section_header("SUMMARY METRICS")
-                        ans_t = len(df[df['status'].str.lower() == 'answered'])
-                        pur_val = f"{round(ans_t / len(df) * 100)}%" if len(df) > 0 else "0%"
+                        _total_fup  = int(report_df['FOLLOW UPS DONE'].sum())
+                        _total_disc = int(report_df['DISCOVERY DONE'].sum())
+                        _total_road = int(report_df['ROADMAPS DONE'].sum())
                         kpis = [
-                            ("Total Calls",    len(df),                                         "📲"),
                             ("Acefone Calls",  len(df[df['source'] == 'Acefone']),              "🔵"),
                             ("Ozonetel Calls", len(df[df['source'] == 'Ozonetel']),             "🟠"),
                             ("Manual Calls",   len(df[df['source'] == 'Manual']),               "✏️"),
                             ("Unique Leads",   df['unique_lead_id'].nunique(),                  "👤"),
-                            ("Pick-Up Ratio",  pur_val,                                         "✅"),
-                            ("Active Callers", len(report_df),                                  "🎙️"),
                             ("Avg Prod Hrs",   format_dur_hm(report_df["raw_prod_sec"].mean()), "⏱"),
+                            ("Follow Ups Done",  _total_fup,  "📋"),
+                            ("Discovery Done",   _total_disc, "🔍"),
+                            ("Roadmaps Done",    _total_road, "🗺️"),
                         ]
 
                         cols = st.columns(len(kpis))
@@ -1692,6 +1823,9 @@ def run_calling_dashboard():
                             "CALLS 15-20 MINS": int(report_df["CALLS 15-20 MINS"].sum()),
                             "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
                             "CALL DURATION > 3 MINS": format_dur_hm(total_duration_agg),
+                            "FOLLOW UPS DONE": int(report_df["FOLLOW UPS DONE"].sum()),
+                            "DISCOVERY DONE":  int(report_df["DISCOVERY DONE"].sum()),
+                            "ROADMAPS DONE":   int(report_df["ROADMAPS DONE"].sum()),
                             "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod_sec"].sum()),
                             "BREAKS (>=15 MINS)": "-", "REMARKS": "-"
                         }])
@@ -1700,6 +1834,7 @@ def run_calling_dashboard():
                             "Rank", "IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS",
                             "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS",
                             "20+ MIN CALLS", "CALL DURATION > 3 MINS",
+                            "FOLLOW UPS DONE", "DISCOVERY DONE", "ROADMAPS DONE",
                             "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)", "REMARKS"
                         ]
 
@@ -1719,11 +1854,35 @@ def run_calling_dashboard():
                             "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"
                         ]
                         existing_cols = [c for c in target_cols if c in df.columns]
-                        st.download_button(
-                            label="📥 Download CDR",
-                            data=df[existing_cols].to_csv(index=False).encode('utf-8'),
-                            file_name="CDR_LOG.csv", mime='text/csv'
-                        )
+
+                        _sc_export_cols = [
+                            "Date", "FirstName", "LastName", "EmailAddress", "Phone",
+                            "Alternate_Phone_Number", "New_Contact_Stage", "Stage_Changed_By",
+                            "OwnerIdEmailAddress", "Team Name", "Vertical", "StageChangeComment"
+                        ]
+                        _sc_existing = [c for c in _sc_export_cols if c in sc_export_df.columns]
+
+                        _dl_cdr_col, _dl_sc_col = st.columns(2)
+                        with _dl_cdr_col:
+                            st.download_button(
+                                label="📥 Download CDR",
+                                data=df[existing_cols].to_csv(index=False).encode('utf-8'),
+                                file_name="CDR_LOG.csv", mime='text/csv',
+                                key="dl_cdr_dynamic"
+                            )
+                        with _dl_sc_col:
+                            _sc_bytes = (
+                                sc_export_df[_sc_existing].to_csv(index=False).encode('utf-8')
+                                if not sc_export_df.empty and _sc_existing
+                                else b"No stage changed data for this period."
+                            )
+                            st.download_button(
+                                label="📥 Download Stage Changed Report",
+                                data=_sc_bytes,
+                                file_name="Stage_Changed_Report.csv",
+                                mime='text/csv',
+                                key="dl_stage_changed_dynamic"
+                            )
 
                         # ── Manual Calls Table ──
                         manual_df_view = df[df['source'] == 'Manual'].copy()
