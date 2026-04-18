@@ -1731,60 +1731,59 @@ def run_calling_dashboard():
                         st.session_state['insights_source'] = "Dynamic Report"
 
                         section_header("🏆 TOP 6 PERFORMANCE HIGHLIGHTS")
-                        top_row1 = st.columns(3)
-                        top_row2 = st.columns(3)
+                        top_cols = st.columns(6)
 
                         top_dur = report_df.iloc[0]
-                        with top_row1[0]:
+                        with top_cols[0]:
                             st.markdown(f"""
                             <div class="metric-card" style="border-top: 3px solid var(--gold);">
                                 <div class="metric-label">🥇 TOP PERFORMER</div>
-                                <div class="metric-value" style="font-size:1.1rem;">{top_dur['CALLER']}</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_dur['CALLER']}</div>
                                 <div class="metric-delta">{top_dur['CALL DURATION > 3 MINS']} Duration</div>
                             </div>""", unsafe_allow_html=True)
 
                         top_calls = report_df.sort_values('TOTAL CALLS', ascending=False).iloc[0]
-                        with top_row1[1]:
+                        with top_cols[1]:
                             st.markdown(f"""
                             <div class="metric-card" style="border-top: 3px solid #F97316;">
                                 <div class="metric-label">✆ HIGHEST CALLS</div>
-                                <div class="metric-value" style="font-size:1.1rem;">{top_calls['CALLER']}</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_calls['CALLER']}</div>
                                 <div class="metric-delta">{top_calls['TOTAL CALLS']} Total Calls</div>
                             </div>""", unsafe_allow_html=True)
 
                         top_long = report_df.sort_values('20+ MIN CALLS', ascending=False).iloc[0]
-                        with top_row1[2]:
+                        with top_cols[2]:
                             st.markdown(f"""
                             <div class="metric-card" style="border-top: 3px solid var(--bronze);">
                                 <div class="metric-label">🗣️ DEEP ENGAGEMENT</div>
-                                <div class="metric-value" style="font-size:1.1rem;">{top_long['CALLER']}</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_long['CALLER']}</div>
                                 <div class="metric-delta">{top_long['20+ MIN CALLS']} Long Calls</div>
                             </div>""", unsafe_allow_html=True)
 
                         top_fup = report_df.sort_values('FOLLOW UPS DONE', ascending=False).iloc[0]
-                        with top_row2[0]:
+                        with top_cols[3]:
                             st.markdown(f"""
                             <div class="metric-card" style="border-top: 3px solid #F97316;">
                                 <div class="metric-label">📋 HIGHEST FOLLOW UPS</div>
-                                <div class="metric-value" style="font-size:1.1rem;">{top_fup['CALLER']}</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_fup['CALLER']}</div>
                                 <div class="metric-delta">{top_fup['FOLLOW UPS DONE']} Follow Ups Done</div>
                             </div>""", unsafe_allow_html=True)
 
                         top_disc = report_df.sort_values('DISCOVERY DONE', ascending=False).iloc[0]
-                        with top_row2[1]:
+                        with top_cols[4]:
                             st.markdown(f"""
                             <div class="metric-card" style="border-top: 3px solid var(--gold);">
-                                <div class="metric-label">🔍 HIGHEST DISCOVERY DONE</div>
-                                <div class="metric-value" style="font-size:1.1rem;">{top_disc['CALLER']}</div>
+                                <div class="metric-label">🔍 HIGHEST DISCOVERY</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_disc['CALLER']}</div>
                                 <div class="metric-delta">{top_disc['DISCOVERY DONE']} Discoveries Done</div>
                             </div>""", unsafe_allow_html=True)
 
                         top_road = report_df.sort_values('ROADMAPS DONE', ascending=False).iloc[0]
-                        with top_row2[2]:
+                        with top_cols[5]:
                             st.markdown(f"""
                             <div class="metric-card" style="border-top: 3px solid var(--bronze);">
-                                <div class="metric-label">🗺️ HIGHEST ROADMAP DONE</div>
-                                <div class="metric-value" style="font-size:1.1rem;">{top_road['CALLER']}</div>
+                                <div class="metric-label">🗺️ HIGHEST ROADMAP</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_road['CALLER']}</div>
                                 <div class="metric-delta">{top_road['ROADMAPS DONE']} Roadmaps Done</div>
                             </div>""", unsafe_allow_html=True)
 
