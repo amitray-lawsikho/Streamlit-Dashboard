@@ -1735,102 +1735,57 @@ def run_calling_dashboard():
 
                         top_dur = report_df.iloc[0]
                         with top_cols[0]:
-                            if top_dur['raw_dur_sec'] > 0:
-                                st.markdown(f"""
-                                <div class="metric-card" style="border-top: 3px solid var(--gold);">
-                                    <div class="metric-label">🥇 TOP PERFORMER</div>
-                                    <div class="metric-value" style="font-size:.85rem;">{top_dur['CALLER']}</div>
-                                    <div class="metric-delta">{top_dur['CALL DURATION > 3 MINS']} Duration</div>
-                                </div>""", unsafe_allow_html=True)
-                            else:
-                                st.markdown("""
-                                <div class="metric-card" style="border-top: 3px solid var(--gold);">
-                                    <div class="metric-label">🥇 TOP PERFORMER</div>
-                                    <div class="metric-value" style="font-size:.85rem;color:var(--text-muted);">No Data</div>
-                                    <div class="metric-delta">No qualifying calls yet</div>
-                                </div>""", unsafe_allow_html=True)
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top: 3px solid var(--gold);">
+                                <div class="metric-label">🥇 TOP PERFORMER</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_dur['CALLER']}</div>
+                                <div class="metric-delta">{top_dur['CALL DURATION > 3 MINS']} Duration</div>
+                            </div>""", unsafe_allow_html=True)
 
                         top_calls = report_df.sort_values('TOTAL CALLS', ascending=False).iloc[0]
                         with top_cols[1]:
-                            if top_calls['TOTAL CALLS'] > 0:
-                                st.markdown(f"""
-                                <div class="metric-card" style="border-top: 3px solid #F97316;">
-                                    <div class="metric-label">✆ HIGHEST CALLS</div>
-                                    <div class="metric-value" style="font-size:.85rem;">{top_calls['CALLER']}</div>
-                                    <div class="metric-delta">{top_calls['TOTAL CALLS']} Total Calls</div>
-                                </div>""", unsafe_allow_html=True)
-                            else:
-                                st.markdown("""
-                                <div class="metric-card" style="border-top: 3px solid #F97316;">
-                                    <div class="metric-label">✆ HIGHEST CALLS</div>
-                                    <div class="metric-value" style="font-size:.85rem;color:var(--text-muted);">No Data</div>
-                                    <div class="metric-delta">No calls recorded yet</div>
-                                </div>""", unsafe_allow_html=True)
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top: 3px solid #F97316;">
+                                <div class="metric-label">✆ HIGHEST CALLS</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_calls['CALLER']}</div>
+                                <div class="metric-delta">{top_calls['TOTAL CALLS']} Total Calls</div>
+                            </div>""", unsafe_allow_html=True)
 
                         top_long = report_df.sort_values('20+ MIN CALLS', ascending=False).iloc[0]
                         with top_cols[2]:
-                            if top_long['20+ MIN CALLS'] > 0:
-                                st.markdown(f"""
-                                <div class="metric-card" style="border-top: 3px solid var(--bronze);">
-                                    <div class="metric-label">🗣️ DEEP ENGAGEMENT</div>
-                                    <div class="metric-value" style="font-size:.85rem;">{top_long['CALLER']}</div>
-                                    <div class="metric-delta">{top_long['20+ MIN CALLS']} Long Calls</div>
-                                </div>""", unsafe_allow_html=True)
-                            else:
-                                st.markdown("""
-                                <div class="metric-card" style="border-top: 3px solid var(--bronze);">
-                                    <div class="metric-label">🗣️ DEEP ENGAGEMENT</div>
-                                    <div class="metric-value" style="font-size:.85rem;color:var(--text-muted);">No Data</div>
-                                    <div class="metric-delta">No 20+ min calls yet</div>
-                                </div>""", unsafe_allow_html=True)
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top: 3px solid var(--bronze);">
+                                <div class="metric-label">🗣️ DEEP ENGAGEMENT</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_long['CALLER']}</div>
+                                <div class="metric-delta">{top_long['20+ MIN CALLS']} Long Calls</div>
+                            </div>""", unsafe_allow_html=True)
 
                         top_fup = report_df.sort_values('FOLLOW UPS DONE', ascending=False).iloc[0]
                         with top_cols[3]:
-                            if top_fup['FOLLOW UPS DONE'] > 0:
-                                st.markdown(f"""
-                                <div class="metric-card" style="border-top: 3px solid #F97316;">
-                                    <div class="metric-label">📋 HIGHEST FOLLOW UPS</div>
-                                    <div class="metric-value" style="font-size:.85rem;">{top_fup['CALLER']}</div>
-                                    <div class="metric-delta">{top_fup['FOLLOW UPS DONE']} Follow Ups Done</div>
-                                </div>""", unsafe_allow_html=True)
-                            else:
-                                st.markdown("""
-                                <div class="metric-card" style="border-top: 3px solid #F97316;">
-                                    <div class="metric-label">📋 HIGHEST FOLLOW UPS</div>
-                                    <div class="metric-value" style="font-size:.85rem;color:var(--text-muted);">No Data</div>
-                                    <div class="metric-delta">No follow ups recorded yet</div>
-                                </div>""", unsafe_allow_html=True)
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top: 3px solid #F97316;">
+                                <div class="metric-label">📋 HIGHEST FOLLOW UPS</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_fup['CALLER']}</div>
+                                <div class="metric-delta">{top_fup['FOLLOW UPS DONE']} Follow Ups Done</div>
+                            </div>""", unsafe_allow_html=True)
 
                         top_disc = report_df.sort_values('DISCOVERY DONE', ascending=False).iloc[0]
                         with top_cols[4]:
-                            if top_disc['DISCOVERY DONE'] > 0:
-                                st.markdown(f"""
-                                <div class="metric-card" style="border-top: 3px solid var(--gold);">
-                                    <div class="metric-label">🔍 HIGHEST DISCOVERY</div>
-                                    <div class="metric-value" style="font-size:.85rem;">{top_disc['CALLER']}</div>
-                                    <div class="metric-delta">{top_disc['DISCOVERY DONE']} Discoveries Done</div>
-                                </div>""", unsafe_allow_html=True)
-                            else:
-                                st.markdown("""
-                                <div class="metric-card" style="border-top: 3px solid var(--gold);">
-                                    <div class="metric-label">🔍 HIGHEST DISCOVERY</div>
-                                    <div class="metric-value" style="font-size:.85rem;color:var(--text-muted);">No Data</div>
-                                    <div class="metric-delta">No discoveries recorded yet</div>
-                                </div>""", unsafe_allow_html=True)
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top: 3px solid var(--gold);">
+                                <div class="metric-label">🔍 HIGHEST DISCOVERY</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_disc['CALLER']}</div>
+                                <div class="metric-delta">{top_disc['DISCOVERY DONE']} Discoveries Done</div>
+                            </div>""", unsafe_allow_html=True)
 
                         top_road = report_df.sort_values('ROADMAPS DONE', ascending=False).iloc[0]
                         with top_cols[5]:
-                            if top_road['ROADMAPS DONE'] > 0:
-                                st.markdown(f"""
-                                <div class="metric-card" style="border-top: 3px solid var(--bronze);">
-                                    <div class="metric-label">🗺️ HIGHEST ROADMAP</div>
-                                    <div class="metric-value" style="font-size:.85rem;">{top_road['CALLER']}</div>
-                                    <div class="metric-delta">{top_road['ROADMAPS DONE']} Roadmaps Done</div>
-                                </div>""", unsafe_allow_html=True)
-                            else:
-                                st.markdown("""
-                                <div class="metric-card" style="border-top: 3px solid var(--bronze);">
-                                    <div class="metric-label">🗺️ HIGHEST ROADMAP</div>
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top: 3px solid var(--bronze);">
+                                <div class="metric-label">🗺️ HIGHEST ROADMAP</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_road['CALLER']}</div>
+                                <div class="metric-delta">{top_road['ROADMAPS DONE']} Roadmaps Done</div>
+                            </div>""", unsafe_allow_html=True)
 
                         section_header("SUMMARY METRICS")
                         _total_fup  = int(report_df['FOLLOW UPS DONE'].sum())
@@ -1897,8 +1852,9 @@ def run_calling_dashboard():
 
                         final_df = pd.concat([report_df, total_row], ignore_index=True)
                         st.dataframe(
-                            final_df[display_cols].style.apply(style_total, axis=1)
-                                                        .set_properties(**{'white-space': 'pre-wrap'}),
+                            final_df.style.apply(style_total, axis=1)
+                                          .set_properties(**{'white-space': 'pre-wrap'}),
+                            column_order=display_cols,
                             width='stretch', hide_index=True
                         )
 
@@ -1985,13 +1941,11 @@ def run_calling_dashboard():
                             )
 
         else:
-            st.markdown(
-                "<div style='text-align:center;padding:6rem 1rem;opacity:.6;'>"
-                "<div style='font-size:4rem;margin-bottom:1rem;'>&#x1F680;</div>"
-                "<div style='font-size:.9rem;font-weight:600;'>Select a date range and click "
-                "<b>Generate Dynamic Report</b></div></div>",
-                unsafe_allow_html=True
-            )
+            st.markdown("""
+            <div style='text-align:center;padding:6rem 1rem;opacity:.6;'>
+                <div style='font-size:4rem;margin-bottom:1rem;'>🚀</div>
+                <div style='font-size:.9rem;font-weight:600;'>Select a date range and click <b>Generate Dynamic Report</b></div>
+            </div>""", unsafe_allow_html=True)
 
 
     # ══════════════════════════════════════════════
