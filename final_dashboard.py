@@ -1814,11 +1814,23 @@ def run_calling_dashboard():
                         st.divider()
                         section_header("AGENT PERFORMANCE TABLE")
 
+                        import re as _re
+                        _total_ans_sum = 0; _total_miss_sum = 0
+                        for _cs in report_df["CALL STATUS"]:
+                            _m = _re.match(r'(\d+) Ans / (\d+) Unans', str(_cs))
+                            if _m:
+                                _total_ans_sum  += int(_m.group(1))
+                                _total_miss_sum += int(_m.group(2))
+                        _total_calls_sum = int(report_df["TOTAL CALLS"].sum())
+                        _total_pur = (f"{round(_total_ans_sum / _total_calls_sum * 100)}%"
+                                      if _total_calls_sum > 0 else "0%")
+
                         total_row = pd.DataFrame([{
                             "Rank": "",
                             "IN/OUT TIME": "-", "CALLER": "TOTAL", "TEAM": "-",
-                            "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
-                            "CALL STATUS": "-", "PICK UP RATIO %": "-",
+                            "TOTAL CALLS": _total_calls_sum,
+                            "CALL STATUS": f"{_total_ans_sum} Ans / {_total_miss_sum} Unans",
+                            "PICK UP RATIO %": _total_pur,
                             "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
                             "CALLS 15-20 MINS": int(report_df["CALLS 15-20 MINS"].sum()),
                             "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
