@@ -1852,9 +1852,8 @@ def run_calling_dashboard():
 
                         final_df = pd.concat([report_df, total_row], ignore_index=True)
                         st.dataframe(
-                            final_df.style.apply(style_total, axis=1)
-                                          .set_properties(**{'white-space': 'pre-wrap'}),
-                            column_order=display_cols,
+                            final_df[display_cols].style.apply(style_total, axis=1)
+                                                        .set_properties(**{'white-space': 'pre-wrap'}),
                             width='stretch', hide_index=True
                         )
 
