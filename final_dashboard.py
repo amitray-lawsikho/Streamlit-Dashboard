@@ -1985,11 +1985,13 @@ def run_calling_dashboard():
                             )
 
         else:
-            st.markdown("""
-            <div style='text-align:center;padding:6rem 1rem;opacity:.6;'>
-                <div style='font-size:4rem;margin-bottom:1rem;'>🚀</div>
-                <div style='font-size:.9rem;font-weight:600;'>Select a date range and click <b>Generate Dynamic Report</b></div>
-            </div>""", unsafe_allow_html=True)
+            st.markdown(
+                "<div style='text-align:center;padding:6rem 1rem;opacity:.6;'>"
+                "<div style='font-size:4rem;margin-bottom:1rem;'>&#x1F680;</div>"
+                "<div style='font-size:.9rem;font-weight:600;'>Select a date range and click "
+                "<b>Generate Dynamic Report</b></div></div>",
+                unsafe_allow_html=True
+            )
 
 
     # ══════════════════════════════════════════════
