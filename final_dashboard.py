@@ -6713,6 +6713,12 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
         df = client.query(q).to_dataframe()
         if not df.empty:
             df['Owner']        = df['Owner'].astype(str).str.strip()
+            df['ContactStage'] = (
+                df['ContactStage'].astype(str)
+                .str.replace('\xa0', ' ', regex=False)  
+                .str.replace('Â', '', regex=False) 
+                .str.replace(r'\s+', ' ', regex=True)   
+                .str.strip())
             df['ContactStage'] = df['ContactStage'].astype(str).str.strip()
             df['Follow_up_date'] = pd.to_datetime(df['Follow_up_date'], errors='coerce')
             df['LastCalledDate'] = pd.to_datetime(df['LastCalledDate'], errors='coerce')
@@ -7061,9 +7067,7 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
                     fresh_c = int(df_m_ld['ContactStage'].isin(_STAGE_MAP['FRESH']).sum())
                     enrolled_c = int(df_valid_ld['ContactStage'].eq("Actually Enrolled").sum())
                     discovery_c = int(df_valid_ld['ContactStage'].eq("Discovery Call Done").sum())
-                    roadmap_c = int(df_valid_ld['ContactStage'].eq("Roadmap Done").sum())
-                    followup_c = int(df_valid_ld['ContactStage'].isin(["Follow Up For Closure","Counselled lead"]).sum())
-                    roadmap_c = int(df_valid_ld['ContactStage'].eq("Roadmap Done").sum())
+                    roadmap_c = int(df_valid_ld['ContactStage'].str.contains('Roadmap', case=False, na=False).sum())
                     followup_c = int(df_valid_ld['ContactStage'].isin(["Follow Up For Closure","Counselled lead"]).sum())
                     kc = st.columns(8)
                     for col, (lbl, val, ico) in zip(kc, [
