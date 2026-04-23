@@ -1814,11 +1814,23 @@ def run_calling_dashboard():
                         st.divider()
                         section_header("AGENT PERFORMANCE TABLE")
 
+                        import re as _re
+                        _total_ans_sum = 0; _total_miss_sum = 0
+                        for _cs in report_df["CALL STATUS"]:
+                            _m = _re.match(r'(\d+) Ans / (\d+) Unans', str(_cs))
+                            if _m:
+                                _total_ans_sum  += int(_m.group(1))
+                                _total_miss_sum += int(_m.group(2))
+                        _total_calls_sum = int(report_df["TOTAL CALLS"].sum())
+                        _total_pur = (f"{round(_total_ans_sum / _total_calls_sum * 100)}%"
+                                      if _total_calls_sum > 0 else "0%")
+
                         total_row = pd.DataFrame([{
                             "Rank": "",
                             "IN/OUT TIME": "-", "CALLER": "TOTAL", "TEAM": "-",
-                            "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
-                            "CALL STATUS": "-", "PICK UP RATIO %": "-",
+                            "TOTAL CALLS": _total_calls_sum,
+                            "CALL STATUS": f"{_total_ans_sum} Ans / {_total_miss_sum} Unans",
+                            "PICK UP RATIO %": _total_pur,
                             "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
                             "CALLS 15-20 MINS": int(report_df["CALLS 15-20 MINS"].sum()),
                             "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
@@ -6701,6 +6713,12 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
         df = client.query(q).to_dataframe()
         if not df.empty:
             df['Owner']        = df['Owner'].astype(str).str.strip()
+            df['ContactStage'] = (
+                df['ContactStage'].astype(str)
+                .str.replace('\xa0', ' ', regex=False)  
+                .str.replace('Â', '', regex=False) 
+                .str.replace(r'\s+', ' ', regex=True)   
+                .str.strip())
             df['ContactStage'] = df['ContactStage'].astype(str).str.strip()
             df['Follow_up_date'] = pd.to_datetime(df['Follow_up_date'], errors='coerce')
             df['LastCalledDate'] = pd.to_datetime(df['LastCalledDate'], errors='coerce')
@@ -7049,9 +7067,7 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
                     fresh_c = int(df_m_ld['ContactStage'].isin(_STAGE_MAP['FRESH']).sum())
                     enrolled_c = int(df_valid_ld['ContactStage'].eq("Actually Enrolled").sum())
                     discovery_c = int(df_valid_ld['ContactStage'].eq("Discovery Call Done").sum())
-                    roadmap_c = int(df_valid_ld['ContactStage'].eq("Roadmap Done").sum())
-                    followup_c = int(df_valid_ld['ContactStage'].isin(["Follow Up For Closure","Counselled lead"]).sum())
-                    roadmap_c = int(df_valid_ld['ContactStage'].eq("Roadmap Done").sum())
+                    roadmap_c = int(df_valid_ld['ContactStage'].str.contains('Roadmap', case=False, na=False).sum())
                     followup_c = int(df_valid_ld['ContactStage'].isin(["Follow Up For Closure","Counselled lead"]).sum())
                     kc = st.columns(8)
                     for col, (lbl, val, ico) in zip(kc, [
