@@ -7,10 +7,7 @@ from datetime import datetime, date, time, timedelta
 from google.cloud import bigquery
 from google.oauth2 import service_account
 import warnings
-warnings.filterwarnings(
-    "ignore",
-    message="Please replace `st.components.v1.html` with `st.iframe`"
-)
+
 # ReportLab imports (used by both dashboards)
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
@@ -553,7 +550,7 @@ def show_homepage_with_login():
       <div class="sub">Real-time insights across Leads, Revenue &amp; Calling</div>
     </div>
     </body></html>"""
-    st.components.v1.html(html_hero, height=420, scrolling=False)
+    st.iframe(html_hero, height=420)
 
     # ── AUTH PANEL ─────────────────────────────────────────────
     left, mid, right = st.columns([1, 1, 1])
@@ -674,7 +671,7 @@ def show_homepage_with_login():
       <div class="f2">Developed and Designed by Amit Ray<span class="fd"></span>Reach out for Support and Queries</div>
     </div>
     </body></html>"""
-    st.components.v1.html(html_bottom, height=640, scrolling=False)
+    st.iframe(html_bottom, height=640)
 @st.cache_data(ttl=300, show_spinner=False)
 
 def _load_rev_update_team_sheet():
