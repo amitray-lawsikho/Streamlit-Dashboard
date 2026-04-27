@@ -90,7 +90,7 @@ ADMIN_EMAILS = {
     "parul.nagar@lawsikho.in",
     "amitray@lawsikho.in",
     "rinku@lawsikho.in",
-    "karunakarareddy@lawsikho.in"
+    "karunakarareddy@lawsikho.in",
     "priyansh.s@lawsikho.in"
 }
 
