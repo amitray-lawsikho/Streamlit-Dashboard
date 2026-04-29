@@ -7,16 +7,13 @@ from datetime import datetime, date, time, timedelta
 from google.cloud import bigquery
 from google.oauth2 import service_account
 import warnings
-warnings.filterwarnings(
-    "ignore",
-    message="Please replace `st.components.v1.html` with `st.iframe`"
-)
+
 # ReportLab imports (used by both dashboards)
 from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import mm
 from reportlab.lib.styles import ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Flowable
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Flowable, PageBreak
 from reportlab.lib.enums import TA_CENTER
 
 # Openpyxl imports (used by Revenue dashboard)
@@ -28,10 +25,10 @@ import re
 
 # --- GLOBAL CONFIG & CREDENTIALS ---
 st.set_page_config(
-    page_title="Revenue Metrics — LawSikho",
-    page_icon="💰",
+    page_title="Analytics Dashboard — LawSikho",
+    page_icon="📊",
     layout="wide",
-    initial_sidebar_state="collapsed"    
+    initial_sidebar_state="expanded"    
 )
 
 def get_bq_client():
@@ -90,7 +87,8 @@ ADMIN_EMAILS = {
     "parul.nagar@lawsikho.in",
     "amitray@lawsikho.in",
     "rinku@lawsikho.in",
-    "karunakarareddy@lawsikho.in"
+    "karunakarareddy@lawsikho.in",
+    "priyansh.s@lawsikho.in"
 }
 
 VERTICAL_HEAD_TEAMS = {
@@ -341,6 +339,430 @@ def _auth_otp_panel():
                 st.session_state['otp_step'] = 1
                 st.rerun()
 
+# --- DASHBOARD FUNCTIONS ---
+@st.cache_data(ttl=60, show_spinner=False)
+def get_stats():
+    try:
+        r1 = client.query("""
+            SELECT updated_at_ampm FROM (
+                SELECT updated_at, updated_at_ampm FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`
+                UNION ALL
+                SELECT StartTime AS updated_at, updated_at_ampm FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls`
+            ) WHERE updated_at_ampm IS NOT NULL ORDER BY updated_at DESC LIMIT 1
+        """).to_dataframe()
+        call_time = str(r1["updated_at_ampm"].iloc[0]) if not r1.empty else "N/A"
+
+        r2 = client.query("""
+            SELECT SUM(c) AS t FROM (
+                SELECT COUNT(*) AS c FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`
+                UNION ALL
+                SELECT COUNT(*) AS c FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls`
+            )
+        """).to_dataframe()
+        call_cnt = "{:,}".format(int(r2["t"].iloc[0])) if not r2.empty else "—"
+
+        r3 = client.query("""
+             SELECT MAX(updated_at_ampm) AS last_updated, COUNT(*) AS cnt
+             FROM `studious-apex-488820-c3.crm_dashboard.revenue_sheet`
+             """).to_dataframe()
+        rev_time = str(r3["last_updated"].iloc[0]) if not r3.empty and r3["last_updated"].iloc[0] else "N/A"
+        rev_cnt  = "{:,}".format(int(r3["cnt"].iloc[0])) if not r3.empty else "0"
+
+        r4 = client.query("""
+            SELECT MAX(updated_at_ampm) AS last_updated, COUNT(*) AS cnt
+            FROM `studious-apex-488820-c3.crm_dashboard.lsq_leads`
+            """).to_dataframe()
+        lead_time = str(r4["last_updated"].iloc[0]) if not r4.empty and r4["last_updated"].iloc[0] else "N/A"
+        lead_cnt  = "{:,}".format(int(r4["cnt"].iloc[0])) if not r4.empty else "0"
+
+        return call_time, call_cnt, rev_time, rev_cnt, lead_time, lead_cnt
+    except:
+        return "N/A", "—", "N/A", "—", "N/A", "—"
+
+@st.cache_data(show_spinner=False)
+def generate_consolidated_metrics_guide() -> bytes:
+    """Consolidated PDF guide covering all three dashboards."""
+    buffer = io.BytesIO()
+    W, H = A4
+
+    # ── Color palettes ──
+    O_DARK = colors.HexColor("#7c2d12"); O_MID = colors.HexColor("#431407")
+    O_PALE = colors.HexColor("#FEF3E8"); O_ROW  = colors.HexColor("#FFF8F3")
+    G_DARK = colors.HexColor("#064e3b"); G_MID  = colors.HexColor("#065f46")
+    G_PALE = colors.HexColor("#DCFCE7"); G_ROW  = colors.HexColor("#F0FDF4")
+    B_DARK = colors.HexColor("#1e3a8a"); B_MID  = colors.HexColor("#1d4ed8")
+    B_PALE = colors.HexColor("#DBEAFE"); B_ROW  = colors.HexColor("#EFF6FF")
+    GR_DK  = colors.HexColor("#374151"); GR_MD  = colors.HexColor("#6B7280")
+    WHITE  = colors.white;               BLACK  = colors.HexColor("#111827")
+
+    def s(name, **kw):
+        d = dict(fontName='Helvetica', fontSize=9, textColor=BLACK, spaceAfter=3, leading=14)
+        d.update(kw); return ParagraphStyle(name, **d)
+
+    S_BOD  = s('bod')
+    S_FOOT = s('foot', fontSize=7.5, textColor=GR_MD, alignment=TA_CENTER)
+
+    def lbl_s(name, color): return s(name, fontName='Helvetica-Bold', fontSize=8, textColor=color, spaceAfter=1)
+    def frm_s(name, color, bg): return s(name, fontName='Helvetica-Oblique', fontSize=8.5, textColor=color, backColor=bg, leftIndent=8, rightIndent=8)
+
+    class MasterCover(Flowable):
+        def __init__(self, w): Flowable.__init__(self); self.w = w; self.height = 130
+        def draw(self):
+            c = self.canv
+            c.setFillColor(colors.HexColor("#0f172a")); c.rect(0, 88, self.w, 42, fill=1, stroke=0)
+            c.setFillColor(colors.HexColor("#1e293b")); c.rect(0, 50, self.w, 38, fill=1, stroke=0)
+            c.setFillColor(colors.HexColor("#0f172a")); c.rect(0, 0,  self.w, 50, fill=1, stroke=0)
+            c.setFillColor(WHITE); c.setFont("Helvetica-Bold", 24)
+            c.drawCentredString(self.w/2, 102, "ANALYTICS DASHBOARD")
+            c.setFillColor(colors.HexColor("#94a3b8")); c.setFont("Helvetica-Bold", 12)
+            c.drawCentredString(self.w/2, 61, "Metrics & Logic Reference Guide")
+            c.setFillColor(colors.HexColor("#64748b")); c.setFont("Helvetica", 8)
+            c.drawCentredString(self.w/2, 50, "Covering all three dashboards: Calling  ·  Revenue  ·  Leads")
+            bw = (self.w - 40) / 3
+            for i, (col, lbl) in enumerate([(O_DARK, "CALLING"), (G_DARK, "REVENUE"), (B_DARK, "LEADS")]):
+                x = 20 + i * bw
+                c.setFillColor(col); c.roundRect(x, 22, bw - 8, 20, 3, fill=1, stroke=0)
+                c.setFillColor(WHITE); c.setFont("Helvetica-Bold", 9)
+                c.drawCentredString(x + (bw - 8)/2, 28, lbl)
+            c.setFillColor(colors.HexColor("#475569")); c.setFont("Helvetica", 7.5)
+            c.drawCentredString(self.w/2, 6, "LawSikho & Skill Arbitrage  ·  Sales & Operations Team  ·  Internal Use Only")
+
+    class PartBanner(Flowable):
+        def __init__(self, part_no, title, color, w):
+            Flowable.__init__(self); self.part_no = part_no; self.title = title
+            self.color = color; self.w = w; self.height = 36
+        def draw(self):
+            c = self.canv
+            c.setFillColor(self.color); c.rect(0, 0, self.w, self.height, fill=1, stroke=0)
+            c.setFillColor(colors.HexColor("#ffffff66")); c.setFont("Helvetica", 8)
+            c.drawString(10, 24, self.part_no)
+            c.setFillColor(WHITE); c.setFont("Helvetica-Bold", 15)
+            c.drawString(10, 7, self.title)
+
+    class SectionBanner(Flowable):
+        def __init__(self, icon, title, color, w=None):
+            Flowable.__init__(self); self.icon = icon; self.title = title
+            self.color = color; self.w = w or (W - 30*mm); self.height = 22
+        def draw(self):
+            c = self.canv
+            c.setFillColor(self.color); c.roundRect(0, 0, self.w, self.height, 4, fill=1, stroke=0)
+            c.setFillColor(WHITE); c.setFont("Helvetica-Bold", 11)
+            c.drawString(10, 6, f"{self.icon}  {self.title}")
+
+    def btable(rows, pale, row_col, lbl_color, grid_col=None, cw=None):
+        gc = grid_col or pale
+        SL = lbl_s('lbl_b', lbl_color)
+        data = [[Paragraph(f"<b>{r[0]}</b>", SL), Paragraph(r[1], S_BOD)] for r in rows]
+        t = Table(data, colWidths=cw or [44*mm, 116*mm], hAlign='LEFT')
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0,0),(0,-1), pale), ('VALIGN',(0,0),(-1,-1),'TOP'),
+            ('GRID',(0,0),(-1,-1),0.3,gc), ('ROWBACKGROUNDS',(0,0),(-1,-1),[WHITE,row_col]),
+            ('LEFTPADDING',(0,0),(-1,-1),6),('RIGHTPADDING',(0,0),(-1,-1),6),
+            ('TOPPADDING',(0,0),(-1,-1),4),('BOTTOMPADDING',(0,0),(-1,-1),4),
+        ])); return t
+
+    def ltable(rows, pale, row_col, lbl_color, frm_color, grid_col=None, cw=None):
+        gc = grid_col or pale
+        SL = lbl_s('lbl_l', lbl_color); SF = frm_s('frm_l', frm_color, pale)
+        data = [[Paragraph(f"<b>{r[0]}</b>", SL), Paragraph(r[1], SF)] for r in rows]
+        t = Table(data, colWidths=cw or [52*mm, 108*mm], hAlign='LEFT')
+        t.setStyle(TableStyle([
+            ('VALIGN',(0,0),(-1,-1),'TOP'), ('GRID',(0,0),(-1,-1),0.3,gc),
+            ('ROWBACKGROUNDS',(0,0),(-1,-1),[WHITE,row_col]),
+            ('LEFTPADDING',(0,0),(-1,-1),6),('RIGHTPADDING',(0,0),(-1,-1),6),
+            ('TOPPADDING',(0,0),(-1,-1),4),('BOTTOMPADDING',(0,0),(-1,-1),4),
+        ])); return t
+
+    SP  = Spacer
+    HR  = lambda col: HRFlowable(width="100%", thickness=0.6, color=col, spaceAfter=6, spaceBefore=4)
+    BAN = SectionBanner
+    cw  = W - 30*mm
+
+    # ── Shortcuts per dashboard ──
+    def obt(rows, extra_cw=None): return btable(rows, O_PALE, O_ROW, O_DARK, colors.HexColor("#FDE68A"), cw=extra_cw)
+    def olt(rows):                 return ltable(rows, O_PALE, O_ROW, O_DARK, O_MID, colors.HexColor("#FDE68A"))
+    def gbt(rows, extra_cw=None): return btable(rows, G_PALE, G_ROW, G_DARK, colors.HexColor("#D1FAE5"), cw=extra_cw)
+    def glt(rows):                 return ltable(rows, G_PALE, G_ROW, G_DARK, G_MID, colors.HexColor("#A7F3D0"))
+    def bbt(rows, extra_cw=None): return btable(rows, B_PALE, B_ROW, B_DARK, colors.HexColor("#BFDBFE"), cw=extra_cw)
+    def blt(rows):                 return ltable(rows, B_PALE, B_ROW, B_DARK, B_MID, colors.HexColor("#93C5FD"))
+
+    story = [
+        SP(1,18*mm), MasterCover(cw), SP(1,10*mm),
+        Paragraph("This guide covers all three analytics dashboards in a single reference document. "
+                  "Use it to understand how every metric, table, column, and figure is calculated.", S_BOD),
+        SP(1,4*mm),
+        HR(colors.HexColor("#334155")),
+
+        # ══════════════════════════════════════════════
+        # PART I — CALLING METRICS DASHBOARD
+        # ══════════════════════════════════════════════
+        PageBreak(),
+        PartBanner("PART I", "CALLING METRICS DASHBOARD", O_DARK, cw), SP(1,8*mm),
+        Paragraph("Logic & reference for the Calling Metrics Dashboard — agents, call stats, stage changes, "
+                  "productive hours, breaks, and CDR downloads.", S_BOD), SP(1,6*mm),
+
+        BAN("📋","SECTION 1 — DASHBOARD TABS OVERVIEW", O_DARK), SP(1,3*mm),
+        Paragraph("The dashboard has three tabs.", S_BOD), SP(1,2*mm),
+        obt([
+            ("🚀 Dynamic Dashboard","Main report tab. Agent-level performance for the selected date range — Top 3 highlights, Summary KPIs, and Agent Performance Table. Click 'Generate Dynamic Report' to load."),
+            ("📅 Duration Report","Team-by-team breakdown showing call duration metrics only. TLs/ATLs grouped separately. Click 'Generate Duration Report' in the sidebar."),
+            ("🧠 Insights & Leaderboard","Auto-populated from whichever report was generated last. Shows team insights and a Team Leaderboard. No separate button needed."),
+        ]), SP(1,6*mm),
+
+        BAN("🏆","SECTION 2 — TOP 6 PERFORMANCE HIGHLIGHTS", O_DARK), SP(1,3*mm),
+        Paragraph("Six cards arranged in two rows of three — each picks the best agent in one dimension.", S_BOD), SP(1,2*mm),
+        obt([
+            ("🥇 Top Performer","Agent with the highest total Call Duration for calls above 3 minutes."),
+            ("✆ Highest Calls","Agent with the highest Total Calls count across all statuses."),
+            ("🗣️ Deep Engagement","Agent with the most calls lasting 20+ minutes (>= 1200 seconds)."),
+            ("📋 Highest Follow Ups","Agent with the highest Follow Up For Closure stage changes in the stage_changed table."),
+            ("🔍 Highest Discovery Done","Agent with the highest Discovery Call Done stage changes."),
+            ("🗺️ Highest Roadmap Done","Agent with the highest Roadmap Done stage changes."),
+        ]), SP(1,6*mm),
+
+        BAN("📊","SECTION 3 — SUMMARY METRICS (KPI CARDS)", O_DARK), SP(1,3*mm),
+        Paragraph("Eight KPI cards — aggregate numbers across ALL agents for the selected date range.", S_BOD), SP(1,2*mm),
+        olt([
+            ("Acefone Calls","Count of rows where source = 'Acefone'."),
+            ("Ozonetel Calls","Count of rows where source = 'Ozonetel'."),
+            ("Manual Calls","Count of rows where source = 'Manual'. Calls logged manually and approved."),
+            ("Unique Leads","Count of distinct phone numbers across all sources."),
+            ("Avg Prod Hrs","Average Productive Hours = (10 hrs x active days) - total break time >= 15 mins."),
+            ("Follow Ups Done","Total Follow Up For Closure stage changes across all agents."),
+            ("Discovery Done","Total Discovery Call Done stage changes across all agents."),
+            ("Roadmaps Done","Total Roadmap Done stage changes (stored as 'RoadmapÂ Done' in BigQuery)."),
+        ]), SP(1,6*mm),
+
+        BAN("📋","SECTION 4 — AGENT PERFORMANCE TABLE", O_DARK), SP(1,3*mm),
+        Paragraph("One row per active agent, sorted by Call Duration > 3 Mins descending.", S_BOD), SP(1,2*mm),
+        obt([
+            ("CALLER","Agent name from the team sheet, normalised via lowercase merge key."),
+            ("TEAM","Team name from the team sheet. Shows 'Others' if unmatched."),
+            ("TOTAL CALLS","All calls for this agent — all statuses combined."),
+            ("CALL STATUS","'X Ans / Y Unans' — answered and missed/unanswered counts."),
+            ("PICK UP RATIO %","Answered ÷ Total Calls × 100."),
+            ("CALLS > 3 MINS","Count of calls where duration >= 180 seconds."),
+            ("CALLS 15-20 MINS","Count of calls where duration >= 900 and < 1200 seconds."),
+            ("20+ MIN CALLS","Count of calls where duration >= 1200 seconds."),
+            ("CALL DURATION > 3 MINS","Sum of duration for calls >= 3 minutes, shown as Xh Ym."),
+            ("FOLLOW UPS DONE","Follow Up For Closure stage changes attributed to this agent."),
+            ("DISCOVERY DONE","Discovery Call Done stage changes attributed to this agent."),
+            ("ROADMAPS DONE","Roadmap Done stage changes attributed to this agent."),
+            ("Productive Hours","(10 hrs x active days) - total break seconds. Current day: elapsed time from office start to last call end, minus mid-day breaks only."),
+            ("BREAKS (>=15 MINS)","Gaps between calls of 15+ minutes, shown per day. End-of-day gap excluded for current day."),
+            ("REMARKS","Auto-flags: Late Check-In (first call after 10:15 AM), Early Check-Out (last call before 8 PM), Low Calls (<40/day), Low Duration (<3h 15m/day), Excessive Breaks (>2 breaks/day), Less Productive (<5 hrs/day)."),
+        ], extra_cw=[46*mm, 114*mm]), SP(1,6*mm),
+
+        BAN("📅","SECTION 5 — DURATION REPORT TAB", O_DARK), SP(1,3*mm),
+        obt([
+            ("Team separation","Each team gets its own section. Teams with zero qualifying duration are skipped."),
+            ("TL / ATL separation","TLs, ATLs, ADs shown in a single 'TL Duration Report' section at the bottom."),
+            ("Columns shown","CALLER, TOTAL CALLS, CALL STATUS, PICK UP RATIO %, CALLS > 3 MINS, 15-20 MINS, 20+ MIN CALLS, CALL DURATION > 3 MINS."),
+            ("Sorting","Agents sorted by Call Duration > 3 Mins descending within each team."),
+        ]), SP(1,6*mm),
+
+        BAN("🏅","SECTION 6 — TEAM LEADERBOARD (INSIGHTS TAB)", O_DARK), SP(1,3*mm),
+        olt([
+            ("Team","Team name from the team sheet."),
+            ("Total Dur (h)","Sum of qualifying call duration (>3 min) in hours."),
+            ("Avg Dur/Agent (h)","Total Duration ÷ agent count for this team."),
+            ("Avg Prod Hrs (h)","Average productive hours per agent in this team."),
+            ("20+ Min Calls","Sum of 20+ minute calls across all agents in this team."),
+        ]), SP(1,6*mm),
+
+        BAN("📥","SECTION 7 — CDR & STAGE CHANGED DOWNLOAD", O_DARK), SP(1,3*mm),
+        Paragraph("Two download buttons below the Agent Performance Table: CDR (raw call records) and Stage Changed Report.", S_BOD), SP(1,2*mm),
+        obt([
+            ("New_Contact_Stage","Stage the lead moved to: Discovery Call Done, RoadmapÂ Done, Follow Up For Closure, etc."),
+            ("Stage_Changed_By","Agent who changed the stage. Mapped to Caller Name via team sheet merge key."),
+            ("call_duration","Call duration in seconds. Zero-duration answered calls excluded."),
+            ("call_owner","Agent name after team sheet normalisation."),
+            ("source","Data source: 'Acefone', 'Ozonetel', or 'Manual'."),
+        ]), SP(1,6*mm),
+
+        BAN("⚠️","SECTION 8 — MANUAL CALLS TABLE (DYNAMIC DASHBOARD)", O_DARK), SP(1,3*mm),
+        obt([
+            ("MANUAL CALLS COUNT","Total manual call entries for this agent. Sorted descending."),
+            ("MANUAL CALLS DURATION","Total duration of manual calls in Xh Ym."),
+            ("APPROVED BY","Unique approver names, deduplicated case-insensitively."),
+        ]), SP(1,6*mm),
+
+        BAN("📖","KEY TERMS GLOSSARY — CALLING", GR_DK), SP(1,3*mm),
+        obt([
+            ("Qualifying Call","Any call with duration >= 180 seconds (3 minutes)."),
+            ("Office Hours","10:00 AM to 8:00 PM IST (10 hours). Reference window for breaks and productive hours."),
+            ("Break","Gap between consecutive calls >= 900 seconds (15 minutes)."),
+            ("Productive Hours","(10 hrs x active days) - total break seconds."),
+            ("Late Check-In","First call of the day starts after 10:15 AM IST."),
+            ("Early Check-Out","Last call of the day ends before 8:00 PM IST."),
+            ("Merge Key","Lowercase-stripped agent name used to join call data with the team sheet."),
+            ("RoadmapÂ Done","Exact value stored in BigQuery for Roadmap Done. The Â is a BigQuery encoding artifact."),
+            ("Stage-only Callers","Agents with no calls but with at least one stage change — appear at the bottom with 0 in call columns."),
+        ], extra_cw=[46*mm, 114*mm]),
+        SP(1,8*mm), HR(colors.HexColor("#FBBF24")),
+
+        # ══════════════════════════════════════════════
+        # PART II — REVENUE METRICS DASHBOARD
+        # ══════════════════════════════════════════════
+        PageBreak(),
+        PartBanner("PART II", "REVENUE METRICS DASHBOARD", G_DARK, cw), SP(1,8*mm),
+        Paragraph("Logic & reference for the Revenue Metrics Dashboard — callerwise revenue, enrollments, "
+                  "collections, pending revenue, and dropped leads.", S_BOD), SP(1,6*mm),
+
+        BAN("🏆","SECTION 1 — TOP 3 REVENUE HIGHLIGHTS", G_DARK), SP(1,3*mm),
+        gbt([
+            ("🥇 Top Revenue — Caller","Caller with highest Calling Revenue (Enrollment Rev + Balance Rev). Excludes 'direct' and 'bootcamp-direct'."),
+            ("🎓 Most Enrollments","Caller with most rows where Enrollment = 'New Enrollment'."),
+            ("🥇 Top Revenue — Collection","Caller with highest Collection Revenue (Community + Bootcamp Collections)."),
+        ]), SP(1,4*mm),
+
+        BAN("💵","SECTION 2 — REVENUE SUMMARY METRICS", G_DARK), SP(1,3*mm),
+        Paragraph("Full-picture revenue breakdown. Filter: Fee Paid > 0 applied globally.", S_BOD), SP(1,2*mm),
+        glt([
+            ("Total Revenue (EXCL. Services)","Calling + Bootcamp-Direct + Bootcamp-Collection + Community + Direct/Other + DNA revenue."),
+            ("Calling Revenue (INCL. Funnel)","Fee Paid where Enrollment = 'New Enrollment' OR 'Balance Payment', caller NOT in {direct, bootcamp-direct}."),
+            ("Bootcamp-Direct Revenue","Fee Paid where Enrollment = 'New Enrollment' AND Caller = 'bootcamp-direct'."),
+            ("Bootcamp-Collection Revenue","Fee Paid where Enrollment = 'Bootcamp Collections - Balance Payments'."),
+            ("Community Revenue","Fee Paid from: Community Collections, Other Revenue with community Source, New Enrollment by 'direct' with community Source."),
+            ("Direct/Other Revenue","Fee Paid where Caller='direct', Source has no 'community', Enrollment in {Other Revenue, New Enrollment, Balance Payment}."),
+            ("DNA / Not Updated Yet","Fee Paid where Enrollment column is blank."),
+        ]), SP(1,4*mm),
+
+        BAN("🎓","SECTION 3 — ENROLLMENT SUMMARY METRICS", G_DARK), SP(1,3*mm),
+        glt([
+            ("Total Enrollments","All New Enrollment rows across all callers."),
+            ("Caller Enrollments","New Enrollment rows where Caller is NOT 'direct' or 'bootcamp-direct'."),
+            ("Direct Enrollments","New Enrollment by 'direct' caller AND Source has no 'community'."),
+            ("Bootcamp-Direct Enrollments","New Enrollment where Caller = 'bootcamp-direct'."),
+            ("Community-Direct Enrollments","New Enrollment by 'direct' caller AND Source contains 'community'."),
+        ]), SP(1,4*mm),
+
+        BAN("📞","SECTION 4 — CALLER REVENUE PERFORMANCE TABLE", G_DARK), SP(1,3*mm),
+        Paragraph("Calling agents with Calling Revenue > 0. Sorted by Calling Revenue descending.", S_BOD), SP(1,2*mm),
+        gbt([
+            ("DESIGNATION","Role from team sheet: Academic Counselor, TL, ATL, etc."),
+            ("TOTAL TARGET (₹)","Sum of monthly targets from team sheet for all months in selected range."),
+            ("TILL DAY TARGET (₹)","Total Target × (Mon-Fri days elapsed ÷ (20 × months in range)). Capped at 1.0."),
+            ("ENROLLMENT REV","Fee Paid where Enrollment = 'New Enrollment'."),
+            ("BALANCE REV","Fee Paid where Enrollment = 'New Enrollment - Balance Payment'."),
+            ("CALLING REVENUE","Enrollment Rev + Balance Rev."),
+            ("ACHIEVEMENT %","Calling Revenue ÷ Total Target × 100."),
+        ]), SP(1,4*mm),
+
+        BAN("🏦","SECTION 5 — COLLECTION CALLER REVENUE PERFORMANCE TABLE", G_DARK), SP(1,3*mm),
+        gbt([
+            ("COMMUNITY COLLECTION","Fee Paid where Enrollment = 'Community Collections - Balance Payments'."),
+            ("BOOTCAMP COLLECTION","Fee Paid where Enrollment = 'Bootcamp Collections - Balance Payments'."),
+            ("COLLECTION REVENUE","Community Collection + Bootcamp Collection."),
+            ("ACHIEVEMENT %","Collection Revenue ÷ Total Target × 100."),
+        ]), SP(1,4*mm),
+
+        BAN("📊","SECTION 6 — CALLERWISE PENDING REVENUE TAB", G_DARK), SP(1,3*mm),
+        Paragraph("Auto-loads on tab open. Always shows current + previous month. Not affected by sidebar filters.", S_BOD), SP(1,2*mm),
+        glt([
+            ("Revenue Pool","Sum of Course Price for booking-fee leads with Fee_paid >= ₹999 and positive balance."),
+            ("Balance to be Recovered","Course Price − Fee_paid for each lead. Only leads with balance > 0 are shown."),
+            ("Leads >48 HRS","Count of leads whose enrollment Date is ≤ today − 3 days (IST)."),
+            ("Balance >48 HRS","Sum of pending balance for leads that qualify as >48 hrs overdue."),
+            ("% Pending >48 HRS","Balance >48 HRS ÷ Total Balance × 100."),
+        ]), SP(1,4*mm),
+
+        BAN("🚫","SECTION 7 — CALLERWISE DROPPED LEADS", G_DARK), SP(1,3*mm),
+        glt([
+            ("Attribution Logic","Email match first; if no match, phone match. Unmatched → 'Unknown'."),
+            ("Current Month Drops","Drop form submissions with a timestamp in the current calendar month."),
+            ("Previous Month Drops","Drop form submissions with a timestamp in the previous calendar month."),
+            ("Total Drop Cases","Current + Previous month drops for this caller."),
+        ]), SP(1,4*mm),
+
+        BAN("📖","KEY TERMS GLOSSARY — REVENUE", GR_DK), SP(1,3*mm),
+        gbt([
+            ("New Enrollment","A fresh admission. Counts toward enrollment metrics and Calling Revenue."),
+            ("Balance Payment","Remaining fee from a prior enrollment. NOT a new enrollment."),
+            ("Bootcamp Collections","Balance payments from bootcamp-enrolled students."),
+            ("Community Collections","Balance payments from community-channel students."),
+            ("DNA / Not Updated","Rows with blank Enrollment. Tracked separately."),
+            ("direct","Pseudo-caller for organic closures. Excluded from agent tables."),
+            ("bootcamp-direct","Pseudo-caller for bootcamp direct admissions."),
+            ("Till Day Target","Total Target × (Working Days ÷ (20 × Months)). Working Days = Mon-Fri in range."),
+            ("Changemakers","Special team always routed to Collection table regardless of calling revenue."),
+        ], extra_cw=[44*mm, 116*mm]),
+        SP(1,8*mm), HR(colors.HexColor("#A7F3D0")),
+
+        # ══════════════════════════════════════════════
+        # PART III — LEAD METRICS DASHBOARD
+        # ══════════════════════════════════════════════
+        PageBreak(),
+        PartBanner("PART III", "LEAD METRICS DASHBOARD", B_DARK, cw), SP(1,8*mm),
+        Paragraph("Logic & reference for the Lead Metrics Dashboard — assigned leads, stage distribution, "
+                  "breached leads, and less-dialled leads.", S_BOD), SP(1,6*mm),
+
+        BAN("📋","SECTION 1 — TABS OVERVIEW", B_DARK), SP(1,3*mm),
+        bbt([
+            ("📊 Assigned Leads Report","Three callerwise tables: (1) Assigned Leads Distribution — all ContactStage buckets per caller; "
+             "(2) Potential Breached Leads — overdue follow-up + no recent call activity; "
+             "(3) Less Dialled Leads — DNP leads with <11 dial attempts."),
+            ("🧠 Insights & Teamwise","Six auto-generated insights + three teamwise versions of all tables."),
+        ]), SP(1,6*mm),
+
+        BAN("📊","SECTION 2 — ASSIGNED LEADS DISTRIBUTION", B_DARK), SP(1,3*mm),
+        Paragraph("One row per caller. Sorted by TOTAL descending. Date filter = AssignedOn field.", S_BOD), SP(1,2*mm),
+        blt([
+            ("FRESH","New Lead + Re-enquired Lead + Opportunity Created"),
+            ("DNP","Call Not Picking Up + Call Not Connected"),
+            ("CBL","Call Back Later"), ("FLW-UP","Follow Up For Closure"),
+            ("COUNSELLED","Counselled lead"), ("DISCOVERY","Discovery Call Done"),
+            ("ROADMAP","Roadmap Done"), ("MBL","May buy later"),
+            ("ACTUALLY-ENROLLED","Actually Enrolled"),
+            ("INVALID/NTINTRSTD","Irrelevant lead + Not Interested + Invalid"),
+            ("BOOKING-RCVD","Booking fees received"), ("LOAN-PNDG","Loan pending"),
+            ("COLL-DNE","Collections done"), ("PRE-SALES","Pre-Sales Registrations"),
+            ("COURSE ENROLLED","Course Enrolled"),
+            ("TOTAL","Sum of all stage columns = total assigned leads for this caller/team."),
+        ]), SP(1,6*mm),
+
+        BAN("⚠️","SECTION 3 — POTENTIAL BREACHED LEADS", B_DARK), SP(1,3*mm),
+        blt([
+            ("Condition 1","Follow_up_date IS NULL OR Follow_up_date < today (IST)."),
+            ("Condition 2","LastCalledDate < today minus 3 days (both conditions required)."),
+            ("Stages","CBL · FLW-UP · COUNSELLED · DISCOVERY · ROADMAP only."),
+            ("TOTAL","Sum of all five stage columns."),
+        ]), SP(1,6*mm),
+
+        BAN("📞","SECTION 4 — LESS DIALLED LEADS", B_DARK), SP(1,3*mm),
+        blt([
+            ("Filter","Assigned_On_Call_Counter < 11 (fewer than 11 call attempts since assignment)."),
+            ("CALL NOT PICKING UP","ContactStage = 'Call Not Picking Up' with <11 attempts."),
+            ("CALL NOT CONNECTED","ContactStage = 'Call Not Connected' with <11 attempts."),
+            ("TOTAL","Sum of both columns."),
+        ]), SP(1,6*mm),
+
+        BAN("📖","KEY TERMS GLOSSARY — LEADS", GR_DK), SP(1,3*mm),
+        bbt([
+            ("AssignedOn","Date the lead was assigned. Primary date filter for the dashboard."),
+            ("Owner","Caller the lead is assigned to. Mapped via lowercase merge key to Caller Name."),
+            ("ContactStage","Current CRM lifecycle stage. Drives all bucketing logic."),
+            ("Follow_up_date","Scheduled follow-up date. NULL or past = overdue."),
+            ("LastCalledDate","Date last called. Used in breached leads filter."),
+            ("Assigned_On_Call_Counter","Call attempts since assignment. Used in less-dialled filter."),
+            ("TOTAL row","Bold dark row at bottom summing all numeric columns."),
+        ]),
+        SP(1,10*mm), HR(colors.HexColor("#93C5FD")),
+        Paragraph("Designed by Amit Ray  ·  amitray@lawsikho.in  ·  "
+                  "For Internal Use of Sales and Operations Team Only. All Rights Reserved.", S_FOOT),
+    ]
+
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        leftMargin=15*mm, rightMargin=15*mm,
+        topMargin=14*mm, bottomMargin=14*mm,
+        title="Analytics Dashboard — Metrics & Logic Reference Guide",
+        author="Amit Ray",
+    )
+    doc.build(story)
+    return buffer.getvalue()
+
+
 def show_homepage_with_login():
     # ── Full-page dark background + input styling ──
     st.markdown("""
@@ -356,6 +778,7 @@ def show_homepage_with_login():
     .block-container { padding: 0 !important; max-width: 100% !important; margin-bottom: 0 !important; }
     [data-testid="stHorizontalBlock"] { gap: 0 !important; }
 
+    /* ── Force every layer of the login column dark ── */
     div[data-testid="column"]:nth-child(2),
     div[data-testid="column"]:nth-child(2) > div,
     div[data-testid="column"]:nth-child(2) > div > div,
@@ -370,6 +793,7 @@ def show_homepage_with_login():
         padding: 1.6rem 1.8rem 1.8rem !important;
     }
 
+    /* ── BaseUI input container (what Streamlit's theme actually targets) ── */
     div[data-testid="column"]:nth-child(2) [data-baseweb="input"],
     div[data-testid="column"]:nth-child(2) [data-baseweb="base-input"] {
         background-color: #1e293b !important;
@@ -378,10 +802,11 @@ def show_homepage_with_login():
     }
     div[data-testid="column"]:nth-child(2) [data-baseweb="input"]:focus-within,
     div[data-testid="column"]:nth-child(2) [data-baseweb="base-input"]:focus-within {
-        border-color: #10B981 !important;
-        box-shadow: 0 0 0 2px rgba(16,185,129,.2) !important;
+        border-color: #F97316 !important;
+        box-shadow: 0 0 0 2px rgba(249,115,22,.2) !important;
     }
 
+    /* ── The actual input element — every state ── */
     div[data-testid="column"]:nth-child(2) [data-baseweb="input"] input,
     div[data-testid="column"]:nth-child(2) [data-baseweb="base-input"] input,
     div[data-testid="column"]:nth-child(2) input[type="text"],
@@ -390,7 +815,7 @@ def show_homepage_with_login():
         background-color: #1e293b !important;
         color: #f1f5f9 !important;
         -webkit-text-fill-color: #f1f5f9 !important;
-        caret-color: #10B981 !important;
+        caret-color: #F97316 !important;
         border: none !important;
     }
     div[data-testid="column"]:nth-child(2) input::placeholder {
@@ -398,6 +823,7 @@ def show_homepage_with_login():
         -webkit-text-fill-color: rgba(241,245,249,.32) !important;
     }
 
+    /* ── Chrome/Safari autofill override (the inset shadow trick) ── */
     div[data-testid="column"]:nth-child(2) input:-webkit-autofill,
     div[data-testid="column"]:nth-child(2) input:-webkit-autofill:hover,
     div[data-testid="column"]:nth-child(2) input:-webkit-autofill:focus,
@@ -405,15 +831,17 @@ def show_homepage_with_login():
         -webkit-box-shadow: 0 0 0px 1000px #1e293b inset !important;
         box-shadow: 0 0 0px 1000px #1e293b inset !important;
         -webkit-text-fill-color: #f1f5f9 !important;
-        caret-color: #10B981 !important;
+        caret-color: #F97316 !important;
     }
 
+    /* ── Labels ── */
     div[data-testid="column"]:nth-child(2) label,
     div[data-testid="column"]:nth-child(2) label p {
         color: rgba(241,245,249,.55) !important;
         font-size: 0.8rem !important;
     }
 
+    /* ── Eye icon button in password field ── */
     div[data-testid="column"]:nth-child(2) [data-baseweb="input"] button,
     div[data-testid="column"]:nth-child(2) [data-baseweb="base-input"] button {
         background-color: transparent !important;
@@ -421,9 +849,10 @@ def show_homepage_with_login():
         border: none !important;
     }
 
+    /* ── Sign In button — orange always, white text always ── */
     div[data-testid="column"]:nth-child(2) .stButton > button {
         width: 100% !important;
-        background: linear-gradient(135deg, #10B981, #059669) !important;
+        background: linear-gradient(135deg, #F97316, #EA580C) !important;
         color: #ffffff !important;
         -webkit-text-fill-color: #ffffff !important;
         border: none !important;
@@ -436,15 +865,16 @@ def show_homepage_with_login():
     div[data-testid="column"]:nth-child(2) .stButton > button:hover,
     div[data-testid="column"]:nth-child(2) .stButton > button:active,
     div[data-testid="column"]:nth-child(2) .stButton > button:focus {
-        background: linear-gradient(135deg, #059669, #065f46) !important;
+        background: linear-gradient(135deg, #EA580C, #C2410C) !important;
         color: #ffffff !important;
         -webkit-text-fill-color: #ffffff !important;
         border: none !important;
         outline: none !important;
-        box-shadow: 0 4px 16px rgba(16,185,129,.35) !important;
+        box-shadow: 0 4px 16px rgba(249,115,22,.35) !important;
         transform: translateY(-1px) !important;
     }
 
+    /* ── Streamlit light-theme specific override (belt and braces) ── */
     [data-theme="light"] div[data-testid="column"]:nth-child(2) [data-baseweb="input"],
     [data-theme="light"] div[data-testid="column"]:nth-child(2) [data-baseweb="base-input"],
     [data-theme="light"] div[data-testid="column"]:nth-child(2) input {
@@ -457,39 +887,61 @@ def show_homepage_with_login():
     [data-theme="light"] div[data-testid="column"]:nth-child(2) [data-testid="stVerticalBlock"] {
         background-color: #0f172a !important;
     }
+    /* ── Metrics Guide download button in auth panel ── */
+    div[data-testid="column"]:nth-child(2) .stDownloadButton > button,
+    div[data-testid="column"]:nth-child(2) .stDownloadButton > button:hover,
+    div[data-testid="column"]:nth-child(2) .stDownloadButton > button:active,
+    div[data-testid="column"]:nth-child(2) .stDownloadButton > button:focus {
+        width: 100% !important;
+        background: #16a34a !important;
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+        border: none !important;
+        border-radius: 10px !important;
+        padding: 9px !important;
+        font-size: 0.82rem !important;
+        font-weight: 500 !important;
+        box-shadow: none !important;
+        margin-bottom: 0.3rem !important;
+        letter-spacing: .3px !important;
+        outline: none !important;
+        transform: none !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
+    call_time, call_cnt, rev_time, rev_cnt, lead_time, lead_cnt = get_stats()
+
     # ── HERO HTML ──
-    html_hero = """<!DOCTYPE html><html><head>
+    html_hero = f"""<!DOCTYPE html><html><head>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=Plus+Jakarta+Sans:wght@300;400;500&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
     <style>
-    *{box-sizing:border-box;margin:0;padding:0;}
-    html,body{font-family:'Plus Jakarta Sans',sans-serif;background:#0B1120;color:#E2E8F0;overflow-x:hidden;}
-    body{background:
+    *{{box-sizing:border-box;margin:0;padding:0;}}
+    html,body{{font-family:'Plus Jakarta Sans',sans-serif;background:#0B1120;color:#E2E8F0;overflow-x:hidden;}}
+    body{{background:
         radial-gradient(ellipse 80% 50% at 50% -10%,rgba(59,130,246,.12) 0%,transparent 60%),
-        radial-gradient(ellipse 60% 40% at 90% 80%,rgba(16,185,129,.35) 0%,transparent 55%),
-        #0B1120;}
-    body::before{content:"";position:fixed;inset:0;
+        radial-gradient(ellipse 60% 40% at 90% 80%,rgba(249,115,22,.08) 0%,transparent 55%),
+        #0B1120;}}
+    body::before{{content:"";position:fixed;inset:0;
         background-image:linear-gradient(rgba(255,255,255,.022) 1px,transparent 1px),
             linear-gradient(90deg,rgba(255,255,255,.022) 1px,transparent 1px);
-        background-size:48px 48px;pointer-events:none;}
-    .hero{display:flex;flex-direction:column;align-items:center;text-align:center;padding:3rem 2rem 2.5rem;}
-    .logos{display:flex;align-items:center;margin-bottom:1rem;}
-    .lname{font-size:1.25rem;font-weight:700;color:#fff;padding:0 1.6rem;}
-    .lsep{width:1px;height:48px;background:linear-gradient(180deg,transparent,#10B981E0,transparent);box-shadow:0 0 8px rgba(16,185,129,.35);}
-    .tagline{font-family:'Fira Code',monospace;font-size:.75rem;color:rgba(255,255,255,.32);letter-spacing:1.5px;margin-bottom:2rem;}
-    .eyebrow{display:inline-flex;align-items:center;gap:.45rem;font-family:'Fira Code',monospace;font-size:.65rem;
-        letter-spacing:2.5px;text-transform:uppercase;color:#10B981;background:rgba(16,185,129,.2);
-        border:1px solid rgba(16,185,129,.2);border-radius:100px;padding:.28rem .95rem;margin-bottom:1.2rem;}
-    .dot{width:5px;height:5px;background:#10B981;border-radius:50%;box-shadow:0 0 5px #10B981;
-        animation:p 2s ease-in-out infinite;}
-    @keyframes p{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.45;transform:scale(1.4);}}
-    .headline{font-family:'Playfair Display',serif;font-size:clamp(2rem,5vw,3.5rem);
-        font-weight:800;line-height:1.09;color:#fff;letter-spacing:-1.5px;margin-bottom:.65rem;}
-    .accent{background:linear-gradient(125deg,#10B981,#34D399 40%,#A7F3D0);
-        -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
-    .sub{font-size:1rem;font-weight:300;color:rgba(255,255,255,.38);max-width:560px;}
+        background-size:48px 48px;pointer-events:none;}}
+    .hero{{display:flex;flex-direction:column;align-items:center;text-align:center;padding:3rem 2rem 2.5rem;}}
+    .logos{{display:flex;align-items:center;margin-bottom:1rem;}}
+    .lname{{font-size:1.25rem;font-weight:700;color:#fff;padding:0 1.6rem;}}
+    .lsep{{width:1px;height:48px;background:linear-gradient(180deg,transparent,rgba(249,115,22,.85),transparent);box-shadow:0 0 8px rgba(249,115,22,.5);}}
+    .tagline{{font-family:'Fira Code',monospace;font-size:.75rem;color:rgba(255,255,255,.32);letter-spacing:1.5px;margin-bottom:2rem;}}
+    .eyebrow{{display:inline-flex;align-items:center;gap:.45rem;font-family:'Fira Code',monospace;font-size:.65rem;
+        letter-spacing:2.5px;text-transform:uppercase;color:#F97316;background:rgba(249,115,22,.08);
+        border:1px solid rgba(249,115,22,.18);border-radius:100px;padding:.28rem .95rem;margin-bottom:1.2rem;}}
+    .dot{{width:5px;height:5px;background:#F97316;border-radius:50%;box-shadow:0 0 5px #F97316;
+        animation:p 2s ease-in-out infinite;}}
+    @keyframes p{{0%,100%{{opacity:1;transform:scale(1);}}50%{{opacity:.45;transform:scale(1.4);}}}}
+    .headline{{font-family:'Playfair Display',serif;font-size:clamp(2rem,5vw,3.5rem);
+        font-weight:800;line-height:1.09;color:#fff;letter-spacing:-1.5px;margin-bottom:.65rem;}}
+    .accent{{background:linear-gradient(125deg,#F97316,#FB923C 40%,#FBBF24);
+        -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}}
+    .sub{{font-size:1rem;font-weight:300;color:rgba(255,255,255,.38);max-width:500px;}}
     </style></head><body>
     <div class="hero">
       <div class="logos">
@@ -498,17 +950,26 @@ def show_homepage_with_login():
         <div class="lname">Skill Arbitrage</div>
       </div>
       <div class="tagline">India Learning &nbsp;📖&nbsp; India Earning</div>
-      <div class="eyebrow"><span class="dot"></span>Revenue Analytics Hub</div>
-      <div class="headline">Revenue Performance,<br><span class="accent">tracked live</span></div>
-      <div class="sub">Real-time insights into enrollments, collections &amp; target achievement</div>
+      <div class="eyebrow"><span class="dot"></span>Internal Analytics Hub</div>
+      <div class="headline">All your dashboards,<br><span class="accent">at one place</span></div>
+      <div class="sub">Real-time insights across Leads, Revenue &amp; Calling</div>
     </div>
     </body></html>"""
     st.iframe(html_hero, height=420)
 
-    # ── AUTH PANEL ──
+    # ── AUTH PANEL ─────────────────────────────────────────────
     left, mid, right = st.columns([1, 1, 1])
     with mid:
         auth_tab = st.session_state.get('auth_tab', 'signin')
+
+        st.download_button(
+            label="📖 Download Metrics Guide",
+            data=generate_consolidated_metrics_guide(),
+            file_name="Analytics_Metrics_Guide.pdf",
+            mime="application/pdf",
+            key="dl_consolidated_guide_home",
+            use_container_width=True,
+        )
 
         st.markdown("""
         <div style="text-align:center;margin-bottom:.8rem;">
@@ -525,23 +986,106 @@ def show_homepage_with_login():
 
         if st.session_state.get('password_correct'):
             st.rerun()
-
-    # ── Simple footer ──
-    st.markdown("""
-    <div style='text-align:center;padding:2rem 1rem 1.2rem;border-top:1px solid rgba(255,255,255,.06);margin-top:2.5rem;'>
-        <div style='font-family:"Fira Code",monospace;font-size:.64rem;color:rgba(255,255,255,.28);margin-bottom:.4rem;'>
-            For Internal Use of Sales and Operations Team Only
-            <span style='display:inline-block;width:3px;height:3px;background:#10B98166;border-radius:50%;margin:0 .45rem;vertical-align:middle;'></span>
-            All Rights Reserved
-        </div>
-        <div style='font-family:"Fira Code",monospace;font-size:.58rem;color:rgba(255,255,255,.14);'>
-            Developed and Designed by Amit Ray
-            <span style='display:inline-block;width:3px;height:3px;background:#10B98166;border-radius:50%;margin:0 .45rem;vertical-align:middle;'></span>
-            Reach out for Support and Queries
-        </div>
+            
+    # ── STATS + CARDS + FOOTER HTML ──
+    html_bottom = f"""<!DOCTYPE html><html><head>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Plus+Jakarta+Sans:wght@300;400;500&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
+    <style>
+    *{{box-sizing:border-box;margin:0;padding:0;}}
+    html,body{{font-family:'Plus Jakarta Sans',sans-serif;background:#0B1120;color:#E2E8F0;}}
+    .stats{{display:flex;justify-content:center;gap:1rem;flex-wrap:wrap;padding:2.5rem 2rem 1.5rem;}}
+    .sc{{display:flex;align-items:center;gap:.8rem;background:rgba(255,255,255,.04);
+        border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:.85rem 1.3rem;
+        min-width:230px;flex:1;max-width:310px;transition:all .2s;}}
+    .sc:hover{{transform:translateY(-2px);}}
+    .sc.co:hover{{border-color:rgba(249,115,22,.22);background:rgba(249,115,22,.04);}}
+    .sc.cg:hover{{border-color:rgba(52,211,153,.22);background:rgba(52,211,153,.04);}}
+    .sb{{background:rgba(59,130,246,.14);}}
+    .cb:hover{{border-color:rgba(59,130,246,.22);background:rgba(59,130,246,.04);}}
+    .si{{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.88rem;flex-shrink:0;}}
+    .so{{background:rgba(249,115,22,.14);}} .sg{{background:rgba(52,211,153,.12);}} .sp{{background:rgba(139,92,246,.12);}}
+    .sinfo{{display:flex;flex-direction:column;gap:2px;}}
+    .slbl{{font-family:'Fira Code',monospace;font-size:.55rem;text-transform:uppercase;color:rgba(255,255,255,.28);}}
+    .sval{{font-family:'Fira Code',monospace;font-size:.76rem;color:rgba(255,255,255,.8);white-space:nowrap;}}
+    .ssub{{font-family:'Fira Code',monospace;font-size:.54rem;color:rgba(255,255,255,.18);}}
+    .pl,.pw{{margin-left:auto;font-family:'Fira Code',monospace;font-size:.52rem;letter-spacing:.8px;text-transform:uppercase;border-radius:20px;padding:2px 8px;}}
+    .pl{{color:#34D399;background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.18);}}
+    .pw{{color:#FBBF24;background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.18);}}
+    .dsec{{padding:0 2rem 3.5rem;max-width:1080px;margin:0 auto;}}
+    .sh{{display:flex;align-items:center;gap:1rem;margin-bottom:1.8rem;}}
+    .sl{{flex:1;height:1px;background:rgba(255,255,255,.07);}}
+    .slb{{font-family:'Fira Code',monospace;font-size:.62rem;letter-spacing:2.5px;text-transform:uppercase;color:rgba(255,255,255,.2);}}
+    .grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:1.2rem;}}
+    @media(max-width:900px){{.grid{{grid-template-columns:1fr;}}}}
+    @media(max-width:1200px) and (min-width:901px){{.grid{{grid-template-columns:repeat(2,1fr);}}}}
+    .dc{{background:rgba(255,255,255,.033);border:1px solid rgba(255,255,255,.08);border-radius:16px;
+        padding:1.6rem 1.5rem 1.3rem;display:flex;flex-direction:column;gap:.65rem;
+        transition:transform .25s,box-shadow .25s,border-color .25s;}}
+    .dc:hover{{transform:translateY(-5px);}}
+    .dc.wip{{opacity:.5;}}
+    .dc-o{{border-top:2px solid rgba(249,115,22,.4);}}
+    .dc-g{{border-top:2px solid rgba(52,211,153,.35);}}
+    .dc-p{{border-top:2px solid rgba(139,92,246,.3);}}
+    .dc-o:hover{{border-color:#F97316;background:rgba(249,115,22,.04);box-shadow:0 18px 50px rgba(249,115,22,.09);}}
+    .dc-g:hover{{border-color:#34D399;background:rgba(52,211,153,.04);box-shadow:0 18px 50px rgba(52,211,153,.08);}}
+    .dc-b{{border-top:2px solid #3B82F6;}}
+    .dc-b:hover{{border-color:#3B82F6;background:rgba(59,130,246,.04);box-shadow:0 18px 50px rgba(59,130,246,.09);}}
+    .dh{{display:flex;align-items:flex-start;justify-content:space-between;}}
+    .di{{font-size:1.65rem;}}
+    .wb{{font-family:'Fira Code',monospace;font-size:.5rem;text-transform:uppercase;color:#FBBF24;
+        background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.18);border-radius:6px;padding:3px 7px;}}
+    .dt{{font-family:'Playfair Display',serif;font-size:1.1rem;font-weight:600;color:#fff;}}
+    .dd{{font-size:.77rem;color:rgba(255,255,255,.38);line-height:1.7;}}
+    .tags{{display:flex;flex-wrap:wrap;gap:.32rem;}}
+    .tag{{font-family:'Fira Code',monospace;font-size:.54rem;color:rgba(255,255,255,.26);
+        background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.07);border-radius:5px;padding:2px 7px;text-transform:uppercase;}}
+    .foot{{border-top:1px solid rgba(255,255,255,.06);padding:1.6rem 2rem;text-align:center;}}
+    .f1{{font-family:'Fira Code',monospace;font-size:.64rem;color:rgba(255,255,255,.28);margin-bottom:.4rem;}}
+    .f2{{font-family:'Fira Code',monospace;font-size:.58rem;color:rgba(255,255,255,.14);}}
+    .fd{{display:inline-block;width:3px;height:3px;background:rgba(249,115,22,.4);border-radius:50%;margin:0 .45rem;vertical-align:middle;}}
+    </style></head><body>
+    <div class="stats">
+      <div class="sc co"><div class="si so">🔔</div>
+        <div class="sinfo"><span class="slbl">Calling Data</span><span class="sval">{call_time}</span><span class="ssub">{call_cnt} records</span></div>
+        <span class="pl">● Live</span></div>
+      <div class="sc cg"><div class="si sg">💰</div>
+        <div class="sinfo"><span class="slbl">Revenue Data</span><span class="sval">{rev_time}</span><span class="ssub">{rev_cnt} records</span></div>
+        <span class="pl">● Live</span></div>
+      <div class="sc cb"><div class="si sb">📊</div>
+         <div class="sinfo"><span class="slbl">Leads Data</span>
+         <span class="sval">{lead_time}</span>
+         <span class="ssub">{lead_cnt} records</span></div>
+         <span class="pl">● Live</span></div>
     </div>
-    """, unsafe_allow_html=True)
-
+    <div class="dsec">
+      <div class="sh"><div class="sl"></div><span class="slb">Dashboards</span><div class="sl"></div></div>
+      <div class="grid">
+        <div class="dc dc-o">
+          <div class="dh"><div class="di">🔔</div></div>
+          <div class="dt">Calling Metrics</div>
+          <div class="dd">Full CDR analysis across Ozonetel, Acefone &amp; Manual. Agent performance, break tracking, productive hours &amp; leaderboards.</div>
+          <div class="tags"><span class="tag">Ozonetel</span><span class="tag">Acefone</span><span class="tag">Manual</span><span class="tag">Teams</span></div>
+        </div>
+        <div class="dc dc-g">
+          <div class="dh"><div class="di">💰</div></div>
+          <div class="dt">Revenue Metrics</div>
+          <div class="dd">Enrollment revenue, target achievement &amp; caller-level breakdown. Source mix &amp; team leaderboards.</div>
+          <div class="tags"><span class="tag">Enrollments</span><span class="tag">Targets</span><span class="tag">Achievement</span><span class="tag">Teams</span></div>
+        </div>
+        <div class="dc dc-b">
+           <div class="dh"><div class="di">📊</div></div>
+           <div class="dt">Lead Metrics</div>
+           <div class="dd">Assigned lead distribution, potential breached leads & less-dialled leads analysis. Stage-by-stage callerwise and teamwise breakdown.</div>
+           <div class="tags"><span class="tag">Assigned</span><span class="tag">Breached</span><span class="tag">Less Dialled</span><span class="tag">Stages</span></div>
+       </div>
+      </div>
+    </div>
+    <div class="foot">
+      <div class="f1">For Internal Use of Sales and Operations Team Only<span class="fd"></span>All Rights Reserved</div>
+      <div class="f2">Developed and Designed by Amit Ray<span class="fd"></span>Reach out for Support and Queries</div>
+    </div>
+    </body></html>"""
+    st.iframe(html_bottom, height=640)
 @st.cache_data(ttl=300, show_spinner=False)
 
 def _load_rev_update_team_sheet():
@@ -580,6 +1124,1486 @@ def _load_rev_update_team_sheet():
             # Sort by month desc before dropping duplicates if month is available
             df = df.sort_values(mc, ascending=False, na_position='last')
         df = df.drop_duplicates(subset='merge_key', keep='first').reset_index(drop=True)
+    return df
+def run_calling_dashboard():
+    # ADD THIS CSS BLOCK FIRST:
+    st.markdown("""
+    <style>
+    [data-testid="stMainBlockContainer"] {
+        max-width: 100% !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+    }
+    .block-container {
+        max-width: 100% !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRT73ztvPNZSvIu5WLxo-3WQ76JMAnt4P9dITd4EAbjSvuDytfgvdfri1WPXotCjm_Etnb80_Q7S-wf/pub?gid=0&single=true&output=csv"
+
+    # --- PROFESSIONAL WARM THEME ---
+    st.markdown("""
+    <style>
+    @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+
+    :root {
+        --accent-primary:   #F97316;
+        --accent-secondary: #EF4444;
+        --accent-success:   #EAB308;
+        --accent-warn:      #FBBF24;
+        --accent-danger:    #DC2626;
+        --gold:             #F59E0B;
+        --silver:           #9CA3AF;
+        --bronze:           #CD7F32;
+        --radius-sm:        8px;
+        --radius-md:        12px;
+        --radius-lg:        16px;
+        --shadow-sm:        0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+        --shadow-md:        0 4px 16px rgba(0,0,0,.10);
+        --shadow-lg:        0 8px 32px rgba(0,0,0,.14);
+        --transition:       all 0.22s cubic-bezier(.4,0,.2,1);
+    }
+
+    [data-testid="stAppViewContainer"]:not([class*="dark"]) {
+        --bg-base:      #FFF8F3;
+        --bg-surface:   #FFFFFF;
+        --bg-elevated:  #FFFFFF;
+        --bg-muted:     #FEF3E8;
+        --border:       rgba(249,115,22,.12);
+        --text-primary: #111827;
+        --text-muted:   #6B7280;
+        --metric-bg:    #FFFFFF;
+    }
+
+    @media (prefers-color-scheme: dark) {
+        :root {
+            --bg-base:      #0F0A05;
+            --bg-surface:   #1A1006;
+            --bg-elevated:  #231508;
+            --bg-muted:     #1E1207;
+            --border:       rgba(249,115,22,.10);
+            --text-primary: #FEF3E8;
+            --text-muted:   #D1A67A;
+            --metric-bg:    #231508;
+        }
+    }
+
+    [data-theme="dark"] {
+        --bg-base:      #0F0A05 !important;
+        --bg-surface:   #1A1006 !important;
+        --bg-elevated:  #231508 !important;
+        --bg-muted:     #1E1207 !important;
+        --border:       rgba(249,115,22,.10) !important;
+        --text-primary: #FEF3E8 !important;
+        --text-muted:   #D1A67A !important;
+        --metric-bg:    #231508 !important;
+    }
+
+    html, body, [class*="css"] { font-family: 'DM Sans', sans-serif !important; }
+
+    footer { visibility: hidden; }
+    [data-testid="stStatusWidget"], .stStatusWidget { display: none !important; }
+    [data-testid="stMainViewContainer"] { padding-top: 1.5rem; }
+    [data-testid="stSidebar"] { border-right: 1px solid var(--border, rgba(249,115,22,.12)); }
+
+    .cw-header {
+        background: linear-gradient(135deg, #1c0700 0%, #7c2d12 50%, #431407 100%);
+        border-radius: var(--radius-lg);
+        padding: 1.5rem 2rem 1.2rem;
+        margin-bottom: 1.2rem;
+        position: relative;
+        overflow: hidden;
+        box-shadow: var(--shadow-lg);
+    }
+    .cw-header::before, .cw-header::after { display: none; }
+    .cw-title { font-size: 1.65rem; font-weight: 700; color: #FFFFFF; letter-spacing: .5px; margin: 0 0 .25rem; }
+    .cw-subtitle { font-size: .82rem; color: rgba(255,255,255,.6); font-weight: 400; margin: 0; font-family: 'DM Mono', monospace; }
+    .cw-badge {
+        display: inline-flex; align-items: center; gap: 5px;
+        background: var(--bg-muted, #FEF3E8);
+        border: 1px solid var(--border, rgba(249,115,22,.12));
+        border-radius: 20px; padding: 3px 10px; font-size: .73rem;
+        color: var(--text-primary, #111827); font-family: 'DM Mono', monospace;
+    }
+    .cw-pulse {
+        width: 6px; height: 6px; background: #EAB308; border-radius: 50%;
+        display: inline-block; animation: pulse-ring 1.8s ease-in-out infinite;
+    }
+    @keyframes pulse-ring {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50%       { opacity: .5; transform: scale(1.4); }
+    }
+
+    .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: .75rem; margin: .5rem 0 1rem; }
+    .metric-card {
+        background: var(--metric-bg, #fff);
+        border: 1px solid var(--border, rgba(249,115,22,.12));
+        border-radius: var(--radius-md); padding: .9rem 1rem;
+        transition: var(--transition); box-shadow: var(--shadow-sm);
+        position: relative; overflow: hidden; text-align: center;
+    }
+    .metric-card::before {
+        content: ""; position: absolute; top: 0; left: 0;
+        width: 100%; height: 3px;
+        background: linear-gradient(90deg, #F97316, #EF4444);
+        opacity: 0; transition: opacity .2s;
+    }
+    .metric-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .metric-card:hover::before { opacity: 1; }
+    .metric-label { font-size: .68rem; font-weight: 600; text-transform: uppercase; letter-spacing: .8px; color: var(--text-muted, #6B7280); margin: 0 0 .3rem; }
+    .metric-value { font-size: 1.45rem; font-weight: 700; color: var(--text-primary, #111827); line-height: 1; font-family: 'DM Mono', monospace; }
+    .metric-delta { font-size: .7rem; color: #EAB308; margin-top: .2rem; font-weight: 500; }
+
+    .section-header { display: flex; align-items: center; gap: .6rem; margin: 1.5rem 0 .8rem; }
+    .section-header-line { flex: 1; height: 1px; background: linear-gradient(90deg, #F97316, transparent); opacity: .35; }
+    .section-title { font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.2px; color: #F97316; white-space: nowrap; text-align: center; }
+
+    .static-team-header {
+        text-align: center; margin: 2rem 0 .6rem; font-size: 1rem; font-weight: 700;
+        text-transform: uppercase; letter-spacing: 1px; color: #F97316;
+        display: flex; align-items: center; justify-content: center; gap: .75rem;
+    }
+    .static-team-header::before, .static-team-header::after {
+        content: ""; flex: 1; max-width: 120px; height: 1px;
+        background: linear-gradient(90deg, transparent, #F97316); opacity: .4;
+    }
+    .static-team-header::after { background: linear-gradient(90deg, #F97316, transparent); }
+
+    .insight-card {
+        background: var(--metric-bg, #fff);
+        border: 1px solid var(--border, rgba(249,115,22,.12));
+        border-radius: var(--radius-md); padding: 1rem 1.1rem;
+        margin-bottom: .6rem; box-shadow: var(--shadow-sm); transition: var(--transition);
+    }
+    .insight-card:hover { box-shadow: var(--shadow-md); }
+    .insight-card.good  { border-left: 3px solid #EAB308; }
+    .insight-card.warn  { border-left: 3px solid #FBBF24; }
+    .insight-card.bad   { border-left: 3px solid #EF4444; }
+    .insight-card.info  { border-left: 3px solid #F97316; }
+    .insight-icon { font-size: 1.1rem; }
+    .insight-title { font-size: .82rem; font-weight: 700; color: var(--text-primary, #111827); margin: .2rem 0; text-align: center; }
+    .insight-body { font-size: .76rem; color: var(--text-muted, #6B7280); line-height: 1.5; text-align: center; }
+
+    [data-testid="stTabs"] [role="tablist"] { gap: .3rem; border-bottom: 1px solid var(--border, rgba(249,115,22,.12)); padding-bottom: 0; }
+    [data-testid="stTabs"] button[role="tab"] {
+        font-family: 'DM Sans', sans-serif !important; font-size: .82rem !important;
+        font-weight: 600 !important; letter-spacing: .3px;
+        border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+        padding: .55rem 1.1rem !important; transition: var(--transition);
+    }
+
+    div[data-testid="stDataFrame"] thead tr th {
+        background: linear-gradient(135deg, #431407, #7c1d1d) !important;
+        color: #fff !important; font-family: 'DM Sans', sans-serif !important;
+        font-size: .72rem !important; font-weight: 700 !important; letter-spacing: .6px;
+        text-transform: uppercase; white-space: normal !important; word-wrap: break-word !important;
+        text-align: center !important; vertical-align: middle !important;
+        min-width: 100px !important; padding: 10px !important;
+    }
+
+    [data-testid="stSidebar"] .stButton>button {
+        width: 100%; font-family: 'DM Sans', sans-serif !important;
+        font-weight: 600 !important; font-size: .82rem !important;
+        border-radius: var(--radius-sm); transition: var(--transition);
+        background: linear-gradient(135deg, #431407, #7c1d1d) !important;
+        color: #fff !important; border: none !important;
+    }
+    [data-testid="stSidebar"] .stButton>button:hover {
+        opacity: .88 !important; transform: translateY(-1px) !important;
+    }
+
+    .stDownloadButton>button {
+        background: linear-gradient(135deg, #431407, #7c1d1d) !important;
+        color: #fff !important; border: none !important;
+        border-radius: var(--radius-sm) !important;
+        font-family: 'DM Sans', sans-serif !important;
+        font-size: .78rem !important; font-weight: 600 !important;
+        transition: var(--transition) !important;
+    }
+    .stDownloadButton>button:hover { opacity: .88; transform: translateY(-1px); }
+
+    hr { border-color: var(--border, rgba(249,115,22,.12)) !important; margin: 1.2rem 0 !important; }
+
+    .brand-name {
+        font-size: .85rem;
+        font-weight: 700;
+        letter-spacing: -.3px;
+        color: #F97316;
+    }
+
+    .brand-tagline {
+        font-size: .58rem;
+        letter-spacing: .8px;
+        font-family: monospace;
+        margin-bottom: .9rem;
+        color: #EA580C;
+    }
+    .js-plotly-plot { border-radius: var(--radius-md); overflow: hidden; }
+
+    .kpi-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; border-radius: 20px; font-size: .7rem; font-weight: 600; font-family: 'DM Mono', monospace; }
+    .kpi-pill.green  { background: rgba(234,179,8,.15);   color: #CA8A04; }
+    .kpi-pill.amber  { background: rgba(251,191,36,.15);  color: #D97706; }
+    .kpi-pill.red    { background: rgba(239,68,68,.15);   color: #DC2626; }
+    .kpi-pill.blue   { background: rgba(249,115,22,.15);  color: #EA580C; }
+    </style>
+    """, unsafe_allow_html=True)
+
+
+    # ─────────────────────────────────────────────
+    # GLOBAL HELPER FUNCTIONS
+    # ─────────────────────────────────────────────
+
+    def style_total(row):
+        if row["CALLER"] == "TOTAL":
+            return ['font-weight: bold; background-color: #374151; color: #FFFFFF;'] * len(row)
+        return [''] * len(row)
+
+    def style_static(row):
+        if row["CALLER"] == "TOTAL":
+            return ['font-weight: bold; background-color: #374151; color: #FFFFFF;'] * len(row)
+        return [''] * len(row)
+
+    def format_dur_hm(total_seconds):
+        if pd.isna(total_seconds) or total_seconds <= 0: return "0h 0m"
+        tm = int(round(total_seconds / 60))
+        return f"{tm // 60}h {tm % 60}m"
+
+    def get_display_gap_seconds(start_time, end_time):
+        if pd.isna(start_time) or pd.isna(end_time): return 0
+        s = start_time.replace(second=0, microsecond=0)
+        e = end_time.replace(second=0, microsecond=0)
+        return (e - s).total_seconds()
+
+    def section_header(label):
+        st.markdown(f"""
+        <div class="section-header">
+            <div class="section-header-line"></div>
+            <span class="section-title">{label}</span>
+            <div class="section-header-line" style="background:linear-gradient(90deg,transparent,#F97316)"></div>
+        </div>""", unsafe_allow_html=True)
+
+    def _unique_approvals(series):
+        seen = {}
+        for v in series.dropna().astype(str):
+            v = v.strip()
+            k = v.lower()
+            if k and k not in seen:
+                seen[k] = v
+        return ", ".join(seen.values()) if seen else "—"
+
+    def style_team_manual_total(row):
+        if row.get('TEAM') == 'TOTAL':
+            return ['font-weight:bold;background-color:#374151;color:#FFFFFF;'] * len(row)
+        return [''] * len(row)
+    # ─────────────────────────────────────────────
+    # DATA FETCHING
+    # ─────────────────────────────────────────────
+
+    @st.cache_data(ttl=120, show_spinner=False)
+    def get_metadata():
+        df_meta = pd.read_csv(CSV_URL)
+        df_meta.columns = df_meta.columns.str.strip()
+        df_meta['merge_key'] = df_meta['Caller Name'].str.strip().str.lower()
+        teams = sorted(df_meta['Team Name'].dropna().unique())
+        verticals = sorted(df_meta['Vertical'].dropna().unique())
+        return teams, verticals, df_meta
+
+    @st.cache_data(ttl=600, show_spinner=False)
+    def get_global_last_update():
+        query = """
+        WITH combined AS (
+            SELECT updated_at, updated_at_ampm FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`
+            UNION ALL
+            SELECT StartTime as updated_at, updated_at_ampm FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls`
+        )
+        SELECT updated_at_ampm FROM combined WHERE updated_at IS NOT NULL ORDER BY updated_at DESC LIMIT 1
+        """
+        try:
+            res = client.query(query).to_dataframe()
+            return str(res['updated_at_ampm'].iloc[0]) if not res.empty else "N/A"
+        except:
+            return "N/A"
+
+    @st.cache_data(ttl=600, show_spinner=False)
+    def get_available_dates():
+        query = """
+        SELECT MIN(min_d) as min_date, MAX(max_d) as max_date FROM (
+            SELECT MIN(`Call Date`) as min_d, MAX(`Call Date`) as max_d
+            FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`
+            UNION ALL
+            SELECT MIN(CallDate) as min_d, MAX(CallDate) as max_d
+            FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls`
+        )
+        """
+        df_dates = client.query(query).to_dataframe()
+        if not df_dates.empty and not pd.isna(df_dates['min_date'].iloc[0]):
+            return df_dates['min_date'].iloc[0], df_dates['max_date'].iloc[0]
+        return date.today(), date.today()
+
+    @st.cache_data(ttl=120, show_spinner=False)
+    def fetch_stage_changed_data(start_date, end_date):
+        q = f"""
+            SELECT * FROM `studious-apex-488820-c3.crm_dashboard.stage_changed`
+            WHERE Date BETWEEN '{start_date}' AND '{end_date}'
+        """
+        df = client.query(q).to_dataframe()
+        if not df.empty:
+            df['Stage_Changed_By'] = df['Stage_Changed_By'].astype(str).str.strip()
+            df['merge_key'] = df['Stage_Changed_By'].str.lower()
+        return df
+
+    @st.cache_data(ttl=120, show_spinner=False)
+    def fetch_call_data(start_date, end_date):
+        q_ace = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls` WHERE `Call Date` BETWEEN '{start_date}' AND '{end_date}'"
+        df_ace = client.query(q_ace).to_dataframe()
+        if not df_ace.empty:
+            df_ace['source'] = 'Acefone'
+            df_ace['unique_lead_id'] = df_ace['client_number']
+
+        q_ozo = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls` WHERE CallDate BETWEEN '{start_date}' AND '{end_date}'"
+        df_ozo = client.query(q_ozo).to_dataframe()
+        if not df_ozo.empty:
+            df_ozo['unique_lead_id'] = df_ozo['phone_number']
+            df_ozo = df_ozo.rename(columns={
+                'CallID': 'call_id', 'AgentName': 'call_owner', 'phone_number': 'client_number',
+                'StartTime': 'call_datetime', 'CallDate': 'Call Date', 'duration_sec': 'call_duration',
+                'Status': 'status', 'Type': 'direction', 'Disposition': 'reason'
+            })
+            df_ozo['status'] = df_ozo['status'].str.lower().replace({'unanswered': 'missed'})
+            df_ozo['direction'] = df_ozo['direction'].str.lower().replace({'manual': 'outbound'})
+            df_ozo['source'] = 'Ozonetel'
+
+        q_man = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.manual_calls` WHERE Call_Date BETWEEN '{start_date}' AND '{end_date}'"
+        df_man = client.query(q_man).to_dataframe()
+        if not df_man.empty:
+            df_man['unique_lead_id'] = df_man['client_number']
+            df_man = df_man.rename(columns={'Call_Date': 'Call Date', 'Approved_By': 'reason'})
+            df_man['status'] = 'answered'
+            df_man['direction'] = 'outbound'
+            df_man['source'] = 'Manual'
+            df_man['call_datetime'] = pd.NaT
+
+        df = pd.concat([df_ace, df_ozo, df_man], ignore_index=True)
+        if not df.empty:
+            df['call_endtime'] = pd.to_datetime(df['call_datetime'], utc=True).dt.tz_convert('Asia/Kolkata')
+            df['call_duration'] = pd.to_numeric(df['call_duration'], errors='coerce').fillna(0)
+            df['call_starttime'] = df['call_endtime'] - pd.to_timedelta(df['call_duration'], unit='s')
+
+            ozo_mask = df['source'] == 'Ozonetel'
+            df.loc[ozo_mask, 'call_starttime'] = df.loc[ozo_mask, 'call_endtime']
+            df.loc[ozo_mask, 'call_endtime']   = (
+                df.loc[ozo_mask, 'call_starttime']
+                + pd.to_timedelta(df.loc[ozo_mask, 'call_duration'], unit='s')
+            )
+
+            df['call_starttime_clean'] = df['call_starttime'].dt.tz_localize(None)
+            df['call_endtime_clean']   = df['call_endtime'].dt.tz_localize(None)
+        return df
+
+
+    # ─────────────────────────────────────────────
+    # CORE METRICS PROCESSING
+    # ─────────────────────────────────────────────
+
+    def process_metrics_logic(df_filtered):
+        agents_list = []
+        total_duration_agg = 0
+        ist_tz = pytz.timezone("Asia/Kolkata")
+
+        for owner, agent_group in df_filtered.groupby('call_owner'):
+            total_ans, total_miss, total_calls = 0, 0, 0
+            total_above_3min, total_mid_calls, total_long_calls, agent_valid_dur = 0, 0, 0, 0
+            total_break_sec_all_days, total_active_days = 0, 0
+            daily_io_list, daily_break_list, all_issues = [], [], []
+
+            for c_date, day_group in agent_group.groupby('Call Date'):
+                timed_group = day_group[day_group['call_starttime'].notna()].sort_values('call_starttime')
+                total_active_days += 1
+                ans  = len(day_group[day_group['status'].str.lower() == 'answered'])
+                miss = len(day_group[day_group['status'].str.lower() == 'missed'])
+                total_ans  += ans
+                total_miss += miss
+                total_calls += len(day_group)
+
+                total_above_3min  += len(day_group[day_group['call_duration'] >= 180])
+                total_mid_calls   += len(day_group[(day_group['call_duration'] >= 900) & (day_group['call_duration'] < 1200)])
+                total_long_calls  += len(day_group[day_group['call_duration'] >= 1200])
+                day_dur = day_group.loc[day_group['call_duration'] >= 180, 'call_duration'].sum()
+                agent_valid_dur += day_dur
+
+                if timed_group.empty: continue
+
+                first_call_start = timed_group['call_starttime'].min()
+                last_call_end    = timed_group['call_endtime'].max()
+                daily_io_list.append(
+                    f"{c_date.strftime('%d/%m')}: In {first_call_start.strftime('%I:%M %p')} · Out {last_call_end.strftime('%I:%M %p')}"
+                )
+
+                start_office = ist_tz.localize(datetime.combine(c_date, time(10, 0)))
+                end_office   = ist_tz.localize(datetime.combine(c_date, time(20, 0)))
+
+                today_ist = datetime.now(ist_tz).date()
+                if first_call_start > ist_tz.localize(datetime.combine(c_date, time(10, 15))): all_issues.append("Late Check-In")
+                if last_call_end < end_office and c_date != today_ist: all_issues.append("Early Check-Out")
+
+                day_breaks, day_break_sec = [], 0
+
+                if first_call_start > start_office:
+                    g = get_display_gap_seconds(start_office, first_call_start)
+                    if g >= 900:
+                        day_breaks.append({'s': start_office, 'e': first_call_start, 'dur': g})
+                        day_break_sec += g
+
+                if len(timed_group) > 1:
+                    for i in range(len(timed_group) - 1):
+                        cur_end   = timed_group['call_endtime'].iloc[i]
+                        nxt_start = timed_group['call_starttime'].iloc[i + 1]
+                        act_s = max(cur_end,   start_office)
+                        act_e = min(nxt_start, end_office)
+                        if act_e > act_s:
+                            g = get_display_gap_seconds(act_s, act_e)
+                            if g >= 900:
+                                day_breaks.append({'s': act_s, 'e': act_e, 'dur': g})
+                                day_break_sec += g
+
+                today_ist = datetime.now(ist_tz).date()
+                effective_end_office = end_office
+                if c_date == today_ist:
+                    now_ist = datetime.now(ist_tz).replace(second=0, microsecond=0)
+                    effective_end_office = min(end_office, now_ist)
+
+                if c_date != today_ist:
+                    if last_call_end < end_office:
+                        g = get_display_gap_seconds(last_call_end, end_office)
+                        if g >= 900:
+                            day_breaks.append({'s': last_call_end, 'e': end_office, 'dur': g})
+                            day_break_sec += g
+
+                if c_date == today_ist:
+                    remaining = get_display_gap_seconds(last_call_end, end_office)
+                    day_break_sec += remaining
+                total_break_sec_all_days += day_break_sec
+                if day_breaks:
+                    display_break_sec = sum(b['dur'] for b in day_breaks)
+                    b_str = f"{c_date.strftime('%d/%m')}: {len(day_breaks)} breaks : {format_dur_hm(display_break_sec)}"
+                    for b in day_breaks:
+                        b_str += f"\n  {b['s'].strftime('%I:%M %p')}→{b['e'].strftime('%I:%M %p')} ({format_dur_hm(b['dur'])})"
+                    daily_break_list.append(b_str)
+
+                day_prod_sec = 36000 - day_break_sec
+                if len(day_group[day_group['call_duration'] >= 180]) < 40: all_issues.append("Low Calls")
+                if day_dur < 11700:    all_issues.append("Low Duration")
+                if len(day_breaks) > 2: all_issues.append("Excessive Breaks")
+                if day_prod_sec < 18000: all_issues.append("Less Productive")
+
+            total_duration_agg += agent_valid_dur
+            prod_sec_total = (36000 * total_active_days) - total_break_sec_all_days
+
+            agents_list.append({
+                "IN/OUT TIME": "\n".join(daily_io_list),
+                "CALLER": owner,
+                "TEAM": agent_group['Team Name'].iloc[0] if not pd.isna(agent_group['Team Name'].iloc[0]) else "Others",
+                "TOTAL CALLS": int(total_calls),
+                "CALL STATUS": f"{total_ans} Ans / {total_miss} Unans",
+                "PICK UP RATIO %": f"{round((total_ans / total_calls * 100)) if total_calls > 0 else 0}%",
+                "CALLS > 3 MINS": int(total_above_3min),
+                "CALLS 15-20 MINS": int(total_mid_calls),
+                "20+ MIN CALLS": int(total_long_calls),
+                "CALL DURATION > 3 MINS": format_dur_hm(agent_valid_dur),
+                "PRODUCTIVE HOURS": format_dur_hm(prod_sec_total),
+                "BREAKS (>=15 MINS)": "\n---\n".join(daily_break_list) if daily_break_list else "0",
+                "REMARKS": ", ".join(sorted(set(all_issues))) if all_issues else "None",
+                "raw_prod_sec": prod_sec_total,
+                "raw_dur_sec": agent_valid_dur,
+            })
+
+        return pd.DataFrame(agents_list), total_duration_agg
+
+
+    # ─────────────────────────────────────────────
+    # INSIGHTS COMPUTATION
+    # ─────────────────────────────────────────────
+
+    def compute_team_insights(df_merged, report_df):
+        insights = []
+        if df_merged.empty or report_df.empty:
+            return insights
+
+        team_dur = report_df.groupby("TEAM")["raw_dur_sec"].mean().sort_values(ascending=False)
+        if len(team_dur) >= 1:
+            top_team = team_dur.index[0]
+            top_val  = format_dur_hm(team_dur.iloc[0])
+            insights.append({
+                "type": "good", "icon": "🏆",
+                "title": f"Top Team by Avg Call Duration: {top_team}",
+                "body": f"Averaging {top_val} of qualifying call duration per agent — highest across all teams."
+            })
+
+        exclude_teams = ['Others', 'CD - Community Manager', 'CD - Community', 'Criminal - Community Manager',
+                         'Criminal - Community', 'ID - Community Manager', 'ID - Community',
+                         'Clerkship community', 'Women ai - Community']
+
+        manual_df = df_merged[(df_merged['source'] == 'Manual') & (~df_merged['Team Name'].isin(exclude_teams))]
+        if not manual_df.empty:
+            man_counts = manual_df.groupby('Team Name').agg(
+                total_manual=('source', 'count'),
+                unique_agents=('call_owner', 'nunique')
+            ).sort_values('total_manual', ascending=False)
+            if not man_counts.empty:
+                top_man_team = man_counts.index[0]
+                insights.append({
+                    "type": "bad", "icon": "⚠️",
+                    "title": f"Focus Required: {top_man_team} (Highest manual calls)",
+                    "body": f"Total {int(man_counts.iloc[0]['total_manual'])} Manual Calls are getting dialled by {int(man_counts.iloc[0]['unique_agents'])} agents."
+                })
+
+        df_merged['_ans'] = df_merged['status'].str.lower() == 'answered'
+        pur = df_merged.groupby('Team Name')['_ans'].mean().mul(100).round(1)
+        best_pur  = pur.idxmax()
+        worst_pur = pur.idxmin()
+        if best_pur != worst_pur:
+            insights.append({
+                "type": "info", "icon": "🔔",
+                "title": f"Pick-Up Ratio Spread: {best_pur} vs {worst_pur}",
+                "body": (f"{best_pur} leads at {pur[best_pur]}% answer rate. "
+                         f"{worst_pur} trails at {pur[worst_pur]}%. "
+                         f"Gap of {round(pur[best_pur]-pur[worst_pur],1)} pp — review missed-call handling in {worst_pur}.")
+            })
+
+        long_rate = report_df.groupby("TEAM").apply(
+            lambda g: g["20+ MIN CALLS"].sum() / g["TOTAL CALLS"].sum() * 100
+            if g["TOTAL CALLS"].sum() > 0 else 0
+        ).round(2)
+        if not long_rate.empty:
+            best_long = long_rate.idxmax()
+            insights.append({
+                "type": "good", "icon": "💬",
+                "title": f"Highest Deep-Engagement Rate: {best_long}",
+                "body": (f"{long_rate[best_long]}% of calls in {best_long} exceed 20 minutes — "
+                         f"a strong signal of qualified prospect conversations. Replicate best practices across other teams.")
+            })
+
+        break_df = report_df[~report_df["TEAM"].isin(exclude_teams)]
+        remarks_series = break_df["REMARKS"].str.contains("Excessive Breaks", na=False)
+        if remarks_series.sum() > 0:
+            b_teams = break_df.loc[remarks_series, "TEAM"].value_counts().idxmax()
+            b_count = remarks_series.sum()
+            insights.append({
+                "type": "warn", "icon": "⏸️",
+                "title": f"Break Discipline Alert — {b_teams}",
+                "body": f"{b_count} agent(s) flagged for excessive breaks (>2 breaks ≥15 min/day). Heaviest cluster in {b_teams}."
+            })
+
+        prod_df = report_df[~report_df["TEAM"].isin(exclude_teams)]
+        if not prod_df.empty:
+            team_avg_prod = prod_df.groupby("TEAM")["raw_prod_sec"].mean().sort_values()
+            if not team_avg_prod.empty:
+                worst_prod_team = team_avg_prod.index[0]
+                agent_count = len(prod_df[prod_df["TEAM"] == worst_prod_team])
+                insights.append({
+                    "type": "bad", "icon": "⏱️",
+                    "title": f"Focus Required: Lowest Productive Hours: {worst_prod_team}",
+                    "body": f"{agent_count} agents on {worst_prod_team} team have the least average productive hours as compared to other teams."
+                })
+
+        return insights
+    @st.cache_data(show_spinner=False)
+    def generate_calling_helper_pdf_bytes() -> bytes:
+        
+        buffer = io.BytesIO()
+        ORANGE_DARK=colors.HexColor("#7c2d12"); ORANGE_MID=colors.HexColor("#431407")
+        ORANGE_PALE=colors.HexColor("#FEF3E8"); ORANGE_ROW=colors.HexColor("#FFF8F3")
+        GREY_DARK=colors.HexColor("#374151"); GREY_MID=colors.HexColor("#6B7280")
+        WHITE=colors.white; BLACK=colors.HexColor("#111827"); W,H=A4
+
+        def s(name,**kw):
+            d=dict(fontName='Helvetica',fontSize=9,textColor=BLACK,spaceAfter=3,leading=14)
+            d.update(kw); return ParagraphStyle(name,**d)
+
+        S={'body':s('body'),
+           'label':s('label',fontName='Helvetica-Bold',fontSize=8,textColor=ORANGE_DARK,spaceAfter=1),
+           'formula':s('formula',fontName='Helvetica-Oblique',fontSize=8.5,textColor=colors.HexColor("#7c2d12"),backColor=ORANGE_PALE,leftIndent=8,rightIndent=8),
+           'footer':s('footer',fontSize=7.5,textColor=GREY_MID,alignment=TA_CENTER)}
+
+        class CoverBlock(Flowable):
+            def __init__(self,w): Flowable.__init__(self); self.w=w; self.height=90
+            def draw(self):
+                c=self.canv
+                c.setFillColor(ORANGE_DARK); c.rect(0,52,self.w,38,fill=1,stroke=0)
+                c.setFillColor(ORANGE_MID);  c.rect(0,22,self.w,30,fill=1,stroke=0)
+                c.setFillColor(colors.HexColor("#1c0700")); c.rect(0,0,self.w,22,fill=1,stroke=0)
+                c.setFillColor(WHITE); c.setFont("Helvetica-Bold",22)
+                c.drawCentredString(self.w/2,66,"CALLING METRICS DASHBOARD")
+                c.setFillColor(colors.HexColor("#FBBF24")); c.setFont("Helvetica-Bold",11)
+                c.drawCentredString(self.w/2,34,"Logic & Metric Reference Guide")
+                c.setFillColor(colors.HexColor("#FDE68A")); c.setFont("Helvetica",8.5)
+                c.drawCentredString(self.w/2,8,"LawSikho & Skill Arbitrage  \u00b7  Sales & Operations Team  \u00b7  Internal Use Only")
+
+        class SectionBanner(Flowable):
+            def __init__(self,icon,title,color=None,w=None):
+                Flowable.__init__(self); self.icon=icon; self.title=title
+                self.color=color or ORANGE_DARK; self.w=w or (W-30*mm); self.height=22
+            def draw(self):
+                c=self.canv; c.setFillColor(self.color)
+                c.roundRect(0,0,self.w,self.height,4,fill=1,stroke=0)
+                c.setFillColor(WHITE); c.setFont("Helvetica-Bold",11)
+                c.drawString(10,6,f"{self.icon}  {self.title}")
+
+        def btable(rows,cw=None):
+            cw=cw or [44*mm,116*mm]
+            data=[[Paragraph(f"<b>{r[0]}</b>",S['label']),Paragraph(r[1],S['body'])] for r in rows]
+            t=Table(data,colWidths=cw,hAlign='LEFT')
+            t.setStyle(TableStyle([
+                ('BACKGROUND',(0,0),(0,-1),ORANGE_PALE),('VALIGN',(0,0),(-1,-1),'TOP'),
+                ('GRID',(0,0),(-1,-1),0.3,colors.HexColor("#FDE68A")),
+                ('ROWBACKGROUNDS',(0,0),(-1,-1),[WHITE,ORANGE_ROW]),
+                ('LEFTPADDING',(0,0),(-1,-1),6),('RIGHTPADDING',(0,0),(-1,-1),6),
+                ('TOPPADDING',(0,0),(-1,-1),4),('BOTTOMPADDING',(0,0),(-1,-1),4)]))
+            return t
+
+        def ltable(rows):
+            data=[[Paragraph(f"<b>{r[0]}</b>",S['label']),Paragraph(r[1],S['formula'])] for r in rows]
+            t=Table(data,colWidths=[52*mm,108*mm],hAlign='LEFT')
+            t.setStyle(TableStyle([
+                ('VALIGN',(0,0),(-1,-1),'TOP'),('GRID',(0,0),(-1,-1),0.3,colors.HexColor("#FDE68A")),
+                ('ROWBACKGROUNDS',(0,0),(-1,-1),[WHITE,ORANGE_ROW]),
+                ('LEFTPADDING',(0,0),(-1,-1),6),('RIGHTPADDING',(0,0),(-1,-1),6),
+                ('TOPPADDING',(0,0),(-1,-1),4),('BOTTOMPADDING',(0,0),(-1,-1),4)]))
+            return t
+
+        SP=Spacer; BAN=SectionBanner; cw=W-30*mm
+        HR=lambda: HRFlowable(width="100%",thickness=0.6,color=colors.HexColor("#FBBF24"),spaceAfter=6,spaceBefore=4)
+
+        story=[
+            SP(1,18*mm),CoverBlock(cw),SP(1,10*mm),
+            Paragraph("This document explains every metric, table, tab, and column in the Calling Metrics Dashboard. Use it as a quick reference to understand how each number is calculated and what each section means.",S['body']),
+            SP(1,6*mm),
+            BAN("📋","SECTION 1 — DASHBOARD TABS OVERVIEW"),SP(1,3*mm),
+            Paragraph("The dashboard has three tabs. Each serves a different purpose.",S['body']),SP(1,2*mm),
+            btable([
+                ("🚀 Dynamic Dashboard","The main report tab. Shows agent-level performance for the selected date range — Top 3 highlights, Summary KPIs, and the full Agent Performance Table. Click 'Generate Dynamic Report' in the sidebar to load it."),
+                ("📅 Duration Report","A team-by-team breakdown showing call duration metrics only. Each team gets its own table sorted by call duration. TLs and ATLs are grouped separately at the bottom. Useful for sharing per-team performance without exposing cross-team data. Click 'Generate Duration Report' in the sidebar."),
+                ("🧠 Insights & Leaderboard","Auto-populated from whichever report was generated last. Shows 5-6 auto-generated team insights and a Team Leaderboard table. No separate button needed — switch to this tab after generating any report."),
+            ]),SP(1,6*mm),
+            BAN("🏆","SECTION 2 — TOP 6 PERFORMANCE HIGHLIGHTS"),SP(1,3*mm),
+            Paragraph("Six highlight cards at the top of the Dynamic Dashboard arranged in two rows of three. Each picks the single best agent in one dimension.",S['body']),SP(1,2*mm),
+            btable([
+                ("🥇 Top Performer","Agent with the highest total Call Duration for calls above 3 minutes (raw_dur_sec). Agents are sorted by qualifying call duration descending — the top row wins this card."),
+                ("✆ Highest Calls","Agent with the highest Total Calls count across all statuses (answered + missed). Sorted separately — a different agent may win this card."),
+                ("🗣️ Deep Engagement","Agent with the most calls lasting 20 minutes or more (duration >= 1200 seconds). Signals high-quality prospect conversations."),
+                ("📋 Highest Follow Ups","Agent with the highest count of Follow Up For Closure stage changes in the stage_changed table for the selected date range."),
+                ("🔍 Highest Discovery Done","Agent with the highest count of Discovery Call Done stage changes in the stage_changed table for the selected date range."),
+                ("🗺️ Highest Roadmap Done","Agent with the highest count of Roadmap Done stage changes in the stage_changed table for the selected date range."),
+            ]),SP(1,6*mm),
+            BAN("📊","SECTION 3 — SUMMARY METRICS (KPI CARDS)"),SP(1,3*mm),
+            Paragraph("Eight KPI cards shown below the Top 6 highlights. Aggregate numbers across ALL agents and sources for the selected date range.",S['body']),SP(1,2*mm),
+            ltable([
+                ("Acefone Calls","Count of rows where source = 'Acefone'."),
+                ("Ozonetel Calls","Count of rows where source = 'Ozonetel'."),
+                ("Manual Calls","Count of rows where source = 'Manual'. Calls logged manually by agents and approved — not system-generated CDR."),
+                ("Unique Leads","Count of distinct phone numbers across all sources. One lead dialled multiple times still counts as 1 unique lead."),
+                ("Avg Prod Hrs","Average Productive Hours across all active agents. Productive Hours = (10 hrs x active days) - total break time >= 15 mins. Shown as Xh Ym."),
+                ("Follow Ups Done","Total count of Follow Up For Closure stage changes across all agents in the stage_changed table for the selected date range."),
+                ("Discovery Done","Total count of Discovery Call Done stage changes across all agents in the stage_changed table for the selected date range."),
+                ("Roadmaps Done","Total count of Roadmap Done (stored as 'RoadmapÂ Done' in BigQuery) stage changes across all agents in the stage_changed table for the selected date range."),
+            ]),SP(1,6*mm),
+            BAN("📋","SECTION 4 — AGENT PERFORMANCE TABLE"),SP(1,3*mm),
+            Paragraph("Main data table in the Dynamic Dashboard. One row per active agent, sorted by Call Duration > 3 Mins descending. Top 3 rows get medal emojis. A bold TOTAL row is appended at the bottom.",S['body']),SP(1,2*mm),
+            btable([
+                ("Rank","Medal emoji for top 3 agents by call duration: Gold, Silver, Bronze."),
+                ("IN/OUT TIME","First call start (In) and last call end (Out) per day. Format: DD/MM: In HH:MM AM/PM . Out HH:MM AM/PM. Derived from call_starttime and call_endtime after IST conversion."),
+                ("CALLER","Agent name from the team sheet, normalised via lowercase merge key. Falls back to raw system name if not matched."),
+                ("TEAM","Team name from the team sheet. Shows 'Others' if the agent is unmatched."),
+                ("TOTAL CALLS","All calls for this agent in the date range — all statuses combined."),
+                ("CALL STATUS","'X Ans / Y Unans' — count of answered and missed/unanswered calls for this agent."),
+                ("PICK UP RATIO %","Answered / Total Calls x 100 for this agent, rounded to nearest whole percent."),
+                ("CALLS > 3 MINS","Count of calls where duration >= 180 seconds. Qualifying threshold for duration metrics."),
+                ("CALLS 15-20 MINS","Count of calls where duration >= 900 seconds AND < 1200 seconds. Mid-range engagement."),
+                ("20+ MIN CALLS","Count of calls where duration >= 1200 seconds. Deep engagement indicator."),
+                ("CALL DURATION > 3 MINS","Sum of duration for calls >= 3 minutes, shown as Xh Ym."),
+                ("FOLLOW UPS DONE","Count of Follow Up For Closure stage changes attributed to this agent in the stage_changed BigQuery table for the selected date range. Sourced via Stage_Changed_By field mapped to Caller Name using the team sheet merge key."),
+                ("DISCOVERY DONE","Count of Discovery Call Done stage changes attributed to this agent in the stage_changed BigQuery table for the selected date range."),
+                ("ROADMAPS DONE","Count of Roadmap Done stage changes (stored as 'RoadmapÂ Done' in BigQuery) attributed to this agent in the stage_changed BigQuery table for the selected date range."),
+                ("Productive Hours","(10 hrs x active days) - total break seconds. For the current day, productive hours = elapsed time from office start to last call end, minus any mid-day breaks. The end-of-day remaining time (last call → 8 PM) is excluded so today's figure reflects only time actually worked so far. Previous days use the standard 10-hr window. Expressed as Xh Ym."),
+                ("BREAKS (>=15 MINS)","Gaps between calls of 15+ minutes shown per day with time ranges. Gaps < 15 mins are ignored. For the current day, the end-of-day gap (last call → 8 PM) is excluded from the break list and count since the caller may still be working — only real mid-day gaps are shown. The break total duration shown matches only the listed breaks."),
+                ("REMARKS","Auto-flagged issues: Late Check-In (first call after 10:15 AM), Early Check-Out (last call before 8 PM), Low Calls (<40 qualifying/day), Low Duration (<3h 15m/day), Excessive Breaks (>2 breaks >= 15 mins/day), Less Productive (<5 hrs productive/day)."),
+            ],cw=[46*mm,114*mm]),SP(1,6*mm),
+            BAN("📅","SECTION 5 — DURATION REPORT TAB"),SP(1,3*mm),
+            Paragraph("Generates a simplified shareable table per team showing duration columns only — no break details or remarks.",S['body']),SP(1,2*mm),
+            btable([
+                ("Team separation","Each team gets its own section and table. Teams with zero qualifying duration are skipped entirely."),
+                ("TL / ATL separation","Agents flagged as TL, ATL, AD, Team Lead, or Team Leader in the team sheet are shown in a single 'TL Duration Report' section at the bottom. Only TLs with > 5 mins qualifying duration are included."),
+                ("Columns shown","CALLER, TOTAL CALLS, CALL STATUS, PICK UP RATIO %, CALLS > 3 MINS, CALLS 15-20 MINS, 20+ MIN CALLS, CALL DURATION > 3 MINS. Same definitions as Section 4."),
+                ("Sorting","Within each team table, agents are sorted by Call Duration > 3 Mins descending."),
+                ("TOTAL row","Each team table has a TOTAL row summing calls and duration."),
+                ("CDR per team","Each team section has its own Download CDR button exporting only that team's raw records."),
+            ]),SP(1,6*mm),
+            BAN("🏅","SECTION 6 — TEAM LEADERBOARD (INSIGHTS TAB)"),SP(1,3*mm),
+            Paragraph("Appears in the Insights tab. Aggregates all agents by team, ranked by total call duration descending. Only shown when no Team or Name filter is active.",S['body']),SP(1,2*mm),
+            ltable([
+                ("Team","Team name from the team sheet."),
+                ("Agents","Count of distinct agents from this team in the report."),
+                ("Total Calls","Sum of all calls across all agents in this team."),
+                ("Total Dur (h)","Sum of qualifying call duration (>3 min) in hours, 1 decimal place."),
+                ("Avg Dur/Agent (h)","Total Duration divided by agent count for this team, in hours."),
+                ("Avg Prod Hrs (h)","Average productive hours per agent in this team, in hours."),
+                ("20+ Min Calls","Sum of 20+ minute calls across all agents in this team."),
+                ("Medal","Gold, Silver, Bronze for the top 3 teams by Total Duration."),
+            ]),SP(1,6*mm),
+            BAN("📥","SECTION 7 — CDR & STAGE CHANGED DOWNLOAD"),SP(1,3*mm),
+            Paragraph("Two download buttons appear side by side below the Agent Performance Table. Download CDR exports raw call detail records (one row per call). Download Stage Changed Report exports stage change activity from the stage_changed BigQuery table for the selected date range.",S['body']),SP(1,2*mm),
+            btable([
+                ("Date","Date of the stage change. Primary date filter for this report."),
+                ("FirstName / LastName","Lead's first and last name from the stage_changed table."),
+                ("EmailAddress","Lead's email address."),
+                ("Phone / Alternate Phone","Lead's phone numbers."),
+                ("New_Contact_Stage","The stage the lead was moved to: Discovery Call Done, RoadmapÂ Done, Follow Up For Closure, etc."),
+                ("Stage_Changed_By","Agent who changed the stage. Mapped to Caller Name via team sheet merge key."),
+                ("OwnerIdEmailAddress","Email of the lead owner in the CRM."),
+                ("Team Name / Vertical","Team and vertical from the team sheet, merged on Stage_Changed_By."),
+                ("StageChangeComment","Free-text comment entered at the time of stage change, if any."),
+            ]),SP(1,3*mm),
+            Paragraph("The CDR columns are as follows:",S['body']),SP(1,2*mm),
+            btable([
+                ("client_number","Lead phone number. Unique lead identifier."),
+                ("call_datetime","Original timestamp from the source system (UTC). For Ozonetel: call start. For Acefone: call end."),
+                ("call_starttime_clean","Call start time in IST, timezone stripped. Used for break and productive hours calculations."),
+                ("call_endtime_clean","Call end time in IST, timezone stripped. For Acefone: call_datetime. For Ozonetel: start + duration."),
+                ("call_duration","Call duration in seconds. Zero-duration answered calls from Ozonetel are excluded before ingestion."),
+                ("status","Call outcome: 'answered' or 'missed'. Ozonetel 'unanswered' mapped to 'missed'."),
+                ("direction","Call direction: 'outbound' or 'inbound'. Ozonetel 'manual' mapped to 'outbound'."),
+                ("service","Service or campaign name (Acefone only)."),
+                ("reason","Disposition or reason code. For Manual calls this is the Approver name."),
+                ("call_owner","Agent name after team sheet normalisation. Raw system name replaced by canonical Caller Name."),
+                ("Call Date","Date of the call only. Used for day-level grouping."),
+                ("updated_at_ampm","Timestamp when the record was last written to BigQuery, in AM/PM format."),
+                ("Team Name","Team name from the team sheet, merged on lowercase agent name."),
+                ("Vertical","Business vertical from the team sheet (e.g. Lawsikho, Skill Arbitrage)."),
+                ("Analyst","Analyst name from the team sheet, if populated."),
+                ("source","Data source: 'Acefone', 'Ozonetel', or 'Manual'."),
+            ],cw=[46*mm,114*mm]),SP(1,6*mm),
+            BAN("⚠️","SECTION 8 — HIGHEST MANUAL CALLS TABLE (DYNAMIC DASHBOARD)"),SP(1,3*mm),
+            Paragraph("Appears below the CDR download button in the Dynamic Dashboard when manual calls exist in the selected date range. Shows agent-level manual call activity sorted by count descending. No medal ranking — manual calls are a flag, not an achievement.",S['body']),SP(1,2*mm),
+            btable([
+                ("CALLER",                "Agent name from the team sheet, same as the main performance table."),
+                ("VERTICAL",              "Business vertical from the team sheet (e.g. Lawsikho, Skill Arbitrage)."),
+                ("TEAM",                  "Team name from the team sheet."),
+                ("MANUAL CALLS COUNT",    "Total number of manual call entries for this agent in the selected date range. Sorted descending — highest manual caller appears at top."),
+                ("MANUAL CALLS DURATION", "Total duration of manual calls for this agent in Xh Ym format. Sourced from the call_duration column of the manual_calls BigQuery table."),
+                ("APPROVED BY",           "Unique approver names from the Approved_By field, deduplicated case-insensitively (e.g. 'John', 'john', 'JOHN' collapse to one entry). Multiple unique approvers are separated by ', '."),
+                ("TOTAL row",             "Bottom row summing Manual Calls Count and Duration across all agents shown."),
+            ]),SP(1,6*mm),
+
+            BAN("⚠️","SECTION 9 — TEAM MANUAL CALLS TABLE (INSIGHTS TAB)"),SP(1,3*mm),
+            Paragraph("Appears at the bottom of the Insights & Leaderboard tab after generating any report. Shows the same manual call data aggregated by team instead of by agent. Sorted by Manual Calls Count descending.",S['body']),SP(1,2*mm),
+            btable([
+                ("VERTICAL",              "Business vertical from the team sheet."),
+                ("TEAM",                  "Team name. The TOTAL row at the bottom sums across all teams."),
+                ("MANUAL CALLS COUNT",    "Total manual calls across all agents in this team."),
+                ("MANUAL CALLS DURATION", "Total manual call duration across all agents in this team, in Xh Ym format."),
+                ("APPROVALS BY",          "All unique approver names across all agents in this team, deduplicated case-insensitively and joined by ', '."),
+                ("Why no medals?",        "Manual calls indicate reliance on manual logging rather than system-dialled calls. High manual call counts may signal data quality gaps or agents bypassing the dialler. This table exists for monitoring, not ranking."),
+            ]),SP(1,6*mm),
+
+            BAN("📖","KEY TERMS GLOSSARY",color=GREY_DARK),SP(1,3*mm),
+            btable([
+                ("Qualifying Call","Any call with duration >= 180 seconds (3 minutes). Used for all duration metrics and performance flags."),
+                ("Office Hours","10:00 AM to 8:00 PM IST (10 hours = 36,000 seconds). Reference window for breaks and productive hours."),
+                ("Break","A gap between consecutive calls >= 900 seconds (15 minutes). Shorter gaps are ignored."),
+                ("Productive Hours","(10 hrs x active days) - total break seconds. Expressed as Xh Ym."),
+                ("Late Check-In","First call of the day starts after 10:15 AM IST."),
+                ("Early Check-Out","Last call of the day ends before 8:00 PM IST."),
+                ("Low Calls","Fewer than 40 qualifying calls (>3 min) in a single day."),
+                ("Low Duration","Total qualifying duration < 3h 15m (11,700 seconds) in a single day."),
+                ("Excessive Breaks","More than 2 breaks >= 15 minutes in a single day."),
+                ("Less Productive","Productive seconds < 5 hours (18,000 seconds) in a single day."),
+                ("Merge Key","Lowercase-stripped agent name used to join call data with the team sheet. Also used to map Stage_Changed_By in the stage_changed table to the canonical Caller Name."),
+                ("Stage Changed By","Agent attributed with a stage change. Joined to team sheet via lowercase merge key to resolve Team Name and Vertical."),
+                ("RoadmapÂ Done","The exact value stored in BigQuery's stage_changed table for Roadmap Done stage. The Â character is a BigQuery encoding artifact. Counts are matched against this exact string."),
+                ("Stage-only Callers","Agents with no calls in the selected period but with at least one Follow Up, Discovery, or Roadmap stage change. These agents appear at the bottom of the Agent Performance Table with 0 in all call metric columns."),
+                ("IST","Indian Standard Time (UTC+5:30). All timestamps are converted to IST for display and calculations."),
+            ],cw=[46*mm,114*mm]),
+            SP(1,8*mm),HR(),
+            Paragraph("Designed by Amit Ray  \u00b7  amitray@lawsikho.com  \u00b7  For Internal Use of Sales and Operations Team Only. All Rights Reserved.",S['footer']),
+        ]
+
+        doc=SimpleDocTemplate(buffer,pagesize=A4,leftMargin=15*mm,rightMargin=15*mm,topMargin=14*mm,bottomMargin=14*mm,title="Calling Metrics — Logic Reference Guide",author="Amit Ray")
+        doc.build(story)
+        return buffer.getvalue()
+
+    # ─────────────────────────────────────────────
+    # SIDEBAR & UI
+    # ─────────────────────────────────────────────
+
+    # ─────────────────────────────────────────────
+    # SIDEBAR — DATA + CONTROLS
+    # ─────────────────────────────────────────────
+
+    teams, verticals, df_team_mapping = get_metadata()
+    min_date_raw, max_date_raw = get_available_dates()
+    min_date = pd.Timestamp(min_date_raw).date()
+    max_date = pd.Timestamp(max_date_raw).date()
+
+    st.sidebar.markdown("""
+    <div style='padding:.5rem 0 .4rem; text-align:center;'>
+        <div style='font-size:.72rem; font-weight:700; text-transform:uppercase;
+                    letter-spacing:1px; color:var(--text-muted,#6B7280);'>Report Controls</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    date_range = st.sidebar.date_input(
+        "📅 Date Range",
+        value=(max_date, max_date),
+        min_value=min_date,
+        max_value=max_date,
+        format="DD-MM-YYYY",
+        key="call_date_range"
+    )
+    if isinstance(date_range, tuple) and len(date_range) == 2:
+        start_date, end_date = date_range
+    else:
+        start_date = end_date = date_range if not isinstance(date_range, tuple) else date_range[0]
+
+    # ── Role-aware sidebar filters ──────────────────────────
+    _role       = st.session_state.get('rf_role', 'admin')
+    _rf_teams   = st.session_state.get('rf_teams', [])
+    _rf_cname   = st.session_state.get('rf_caller_name', '')
+
+    if _role == 'admin':
+        selected_team     = st.sidebar.multiselect("👥 Filter by Team",     options=teams,     key="call_team_filter")
+        selected_vertical = st.sidebar.multiselect("👑 Filter by Vertical", options=verticals, key="call_vert_filter")
+        search_query      = st.sidebar.text_input("👤 Search Caller Name",                     key="call_search")
+    elif _role == 'vertical_head':
+        selected_team     = _rf_teams
+        selected_vertical = []
+        search_query      = st.sidebar.text_input("👤 Search Caller Name", key="call_search")
+        st.sidebar.caption(f"🔒 Showing: {', '.join(_rf_teams)}")
+    elif _role in ('tl', 'trainer'):
+        selected_team     = _rf_teams
+        selected_vertical = []
+        search_query      = st.sidebar.text_input("👤 Search Caller Name", key="call_search")
+        st.sidebar.caption(f"🔒 Team: {', '.join(_rf_teams)}")
+    else:  # caller — only sees their own data
+        selected_team     = []
+        selected_vertical = []
+        search_query      = _rf_cname
+        st.sidebar.caption(f"👤 Viewing: {_rf_cname}")
+
+    gen_dynamic = st.sidebar.button("🚀 Generate Dynamic Report",  key="call_gen_dynamic")
+    gen_static  = st.sidebar.button("📅 Generate Duration Report", key="call_gen_static")
+
+
+
+
+    # ─────────────────────────────────────────────
+    # HEADER BANNER
+    # ─────────────────────────────────────────────
+
+    last_update_str = get_global_last_update()
+    display_start   = start_date.strftime('%d-%m-%Y')
+    display_end     = end_date.strftime('%d-%m-%Y')
+
+    st.markdown(f"""
+    <div class="cw-header">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:.75rem;">
+            <div>
+                <div class="cw-title">🔔 CALLING METRICS</div>
+                <div class="cw-subtitle">DURATION PERIOD&nbsp;·&nbsp; {display_start} to {display_end}</div>
+            </div>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.25rem;">
+                <span class="cw-badge"><span class="cw-pulse"></span>OZONETEL &amp; ACEFONE</span>
+                <span class="cw-badge">🕐 UPDATED AT: {last_update_str}</span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+    # ─────────────────────────────────────────────
+    # TABS
+    # ─────────────────────────────────────────────
+
+    tab1, tab2, tab3 = st.tabs([
+        "🚀 Dynamic Dashboard",
+        "📅 Duration Report",
+        "🧠 Insights & Leaderboard"
+    ])
+
+
+    # ══════════════════════════════════════════════
+    # TAB 1 — DYNAMIC DASHBOARD
+    # ══════════════════════════════════════════════
+
+    with tab1:
+        if gen_dynamic:
+            with st.spinner("Calculating metrics…"):
+                df_raw = fetch_call_data(start_date, end_date)
+                if df_raw.empty:
+                    st.warning("No data found for the selected period.")
+                else:
+                    df_raw['merge_key'] = df_raw['call_owner'].str.strip().str.lower()
+                    df = pd.merge(df_raw, df_team_mapping, on='merge_key', how='left')
+                    df['call_owner'] = df['Caller Name'].fillna(df['call_owner'])
+                    df = df[df['call_owner'].notna() & (df['call_owner'] != '')]
+
+                    if selected_team:     df = df[df['Team Name'].isin(selected_team)]
+                    if selected_vertical: df = df[df['Vertical'].isin(selected_vertical)]
+                    if search_query:      df = df[df['call_owner'].str.contains(search_query, case=False, na=False)]
+                    if df.empty:
+                        st.error("No results match the selected filters.")
+                    else:
+                        report_df, total_duration_agg = process_metrics_logic(df)
+
+                        # ── Stage Changed Data ──────────────────────────────────
+                        sc_df_raw = fetch_stage_changed_data(start_date, end_date)
+                        sc_export_df = pd.DataFrame()
+                        stage_counts = {}
+                        if not sc_df_raw.empty:
+                            sc_merged_full = pd.merge(
+                                sc_df_raw,
+                                df_team_mapping[['merge_key', 'Caller Name', 'Team Name', 'Vertical']].drop_duplicates('merge_key'),
+                                on='merge_key', how='left'
+                            )
+                            sc_merged_full['Stage_Changed_By'] = sc_merged_full['Caller Name'].fillna(sc_merged_full['Stage_Changed_By'])
+                            sc_export_df = sc_merged_full.copy()
+                            for caller, grp in sc_merged_full.groupby('Stage_Changed_By'):
+                                stage_counts[caller] = {
+                                    'DISCOVERY DONE':   int(grp['New_Contact_Stage'].str.contains('Discovery', case=False, na=False).sum()),
+                                    'ROADMAPS DONE':   int(grp['New_Contact_Stage'].str.contains('Roadmap', case=False, na=False).sum()),
+                                    'FOLLOW UPS DONE':   int(grp['New_Contact_Stage'].str.contains('Follow Up', case=False, na=False).sum()),
+                                }
+
+                        report_df['DISCOVERY DONE']  = report_df['CALLER'].map(lambda c: stage_counts.get(c, {}).get('DISCOVERY DONE', 0))
+                        report_df['ROADMAPS DONE']   = report_df['CALLER'].map(lambda c: stage_counts.get(c, {}).get('ROADMAPS DONE', 0))
+                        report_df['FOLLOW UPS DONE'] = report_df['CALLER'].map(lambda c: stage_counts.get(c, {}).get('FOLLOW UPS DONE', 0))
+
+                        # ── Add stage-only callers (no calls but has stage changes) ──
+                        existing_callers = set(report_df['CALLER'].str.strip().str.lower())
+                        stage_only_rows  = []
+                        for sc_caller, sc_vals in stage_counts.items():
+                            if sc_caller.strip().lower() in existing_callers:
+                                continue
+                            if sc_vals.get('DISCOVERY DONE', 0) == 0 and \
+                               sc_vals.get('ROADMAPS DONE', 0) == 0 and \
+                               sc_vals.get('FOLLOW UPS DONE', 0) == 0:
+                                continue
+                            # Look up team from team mapping
+                            _mk = sc_caller.strip().lower()
+                            _tm_row = df_team_mapping[df_team_mapping['merge_key'] == _mk]
+                            _team   = _tm_row.iloc[0]['Team Name'] if not _tm_row.empty else 'Others'
+                            # Apply same filters as main df
+                            if selected_team and _team not in selected_team:
+                                continue
+                            if search_query and search_query.lower() not in sc_caller.lower():
+                                continue
+                            stage_only_rows.append({
+                                "IN/OUT TIME"           : "-",
+                                "CALLER"                : sc_caller,
+                                "TEAM"                  : _team,
+                                "TOTAL CALLS"           : 0,
+                                "CALL STATUS"           : "-",
+                                "PICK UP RATIO %"       : "-",
+                                "CALLS > 3 MINS"        : 0,
+                                "CALLS 15-20 MINS"      : 0,
+                                "20+ MIN CALLS"         : 0,
+                                "CALL DURATION > 3 MINS": format_dur_hm(0),
+                                "FOLLOW UPS DONE"       : sc_vals.get('FOLLOW UPS DONE', 0),
+                                "DISCOVERY DONE"        : sc_vals.get('DISCOVERY DONE', 0),
+                                "ROADMAPS DONE"         : sc_vals.get('ROADMAPS DONE', 0),
+                                "PRODUCTIVE HOURS"      : format_dur_hm(0),
+                                "BREAKS (>=15 MINS)"    : "-",
+                                "REMARKS"               : "-",
+                                "raw_prod_sec"          : 0,
+                                "raw_dur_sec"           : 0,
+                            })
+
+                        if stage_only_rows:
+                            report_df = pd.concat(
+                                [report_df, pd.DataFrame(stage_only_rows)],
+                                ignore_index=True
+                            )
+
+                        report_df = report_df.sort_values(by="raw_dur_sec", ascending=False)
+                        report_df['Rank'] = ""
+                        if len(report_df) > 0: report_df.iloc[0, report_df.columns.get_loc('Rank')] = "🥇"
+                        if len(report_df) > 1: report_df.iloc[1, report_df.columns.get_loc('Rank')] = "🥈"
+                        if len(report_df) > 2: report_df.iloc[2, report_df.columns.get_loc('Rank')] = "🥉"
+
+                        # ── Store for Insights tab ──
+                        st.session_state['insights_df']     = df.copy()
+                        st.session_state['insights_report'] = report_df.copy()
+                        st.session_state['insights_source'] = "Dynamic Report"
+
+                        section_header("🏆 TOP 6 PERFORMANCE HIGHLIGHTS")
+                        top_cols = st.columns(6)
+
+                        top_dur = report_df.iloc[0]
+                        with top_cols[0]:
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top: 3px solid var(--gold);">
+                                <div class="metric-label">🥇 TOP PERFORMER</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_dur['CALLER']}</div>
+                                <div class="metric-delta">{top_dur['CALL DURATION > 3 MINS']} Duration</div>
+                            </div>""", unsafe_allow_html=True)
+
+                        top_calls = report_df.sort_values('TOTAL CALLS', ascending=False).iloc[0]
+                        with top_cols[1]:
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top: 3px solid #F97316;">
+                                <div class="metric-label">✆ HIGHEST CALLS</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_calls['CALLER']}</div>
+                                <div class="metric-delta">{top_calls['TOTAL CALLS']} Total Calls</div>
+                            </div>""", unsafe_allow_html=True)
+
+                        top_long = report_df.sort_values('20+ MIN CALLS', ascending=False).iloc[0]
+                        with top_cols[2]:
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top: 3px solid var(--bronze);">
+                                <div class="metric-label">🗣️ DEEP ENGAGEMENT</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_long['CALLER']}</div>
+                                <div class="metric-delta">{top_long['20+ MIN CALLS']} Long Calls</div>
+                            </div>""", unsafe_allow_html=True)
+
+                        top_fup = report_df.sort_values('FOLLOW UPS DONE', ascending=False).iloc[0]
+                        with top_cols[3]:
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top: 3px solid #F97316;">
+                                <div class="metric-label">📋 HIGHEST FOLLOW UPS</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_fup['CALLER']}</div>
+                                <div class="metric-delta">{top_fup['FOLLOW UPS DONE']} Follow Ups Done</div>
+                            </div>""", unsafe_allow_html=True)
+
+                        top_disc = report_df.sort_values('DISCOVERY DONE', ascending=False).iloc[0]
+                        with top_cols[4]:
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top: 3px solid var(--gold);">
+                                <div class="metric-label">🔍 HIGHEST DISCOVERY</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_disc['CALLER']}</div>
+                                <div class="metric-delta">{top_disc['DISCOVERY DONE']} Discoveries Done</div>
+                            </div>""", unsafe_allow_html=True)
+
+                        top_road = report_df.sort_values('ROADMAPS DONE', ascending=False).iloc[0]
+                        with top_cols[5]:
+                            st.markdown(f"""
+                            <div class="metric-card" style="border-top: 3px solid var(--bronze);">
+                                <div class="metric-label">🗺️ HIGHEST ROADMAP</div>
+                                <div class="metric-value" style="font-size:.85rem;">{top_road['CALLER']}</div>
+                                <div class="metric-delta">{top_road['ROADMAPS DONE']} Roadmaps Done</div>
+                            </div>""", unsafe_allow_html=True)
+
+                        section_header("SUMMARY METRICS")
+                        _total_fup  = int(report_df['FOLLOW UPS DONE'].sum())
+                        _total_disc = int(report_df['DISCOVERY DONE'].sum())
+                        _total_road = int(report_df['ROADMAPS DONE'].sum())
+                        kpis = [
+                            ("Acefone Calls",  len(df[df['source'] == 'Acefone']),              "🔵"),
+                            ("Ozonetel Calls", len(df[df['source'] == 'Ozonetel']),             "🟠"),
+                            ("Manual Calls",   len(df[df['source'] == 'Manual']),               "✏️"),
+                            ("Unique Leads",   df['unique_lead_id'].nunique(),                  "👤"),
+                            ("Avg Prod Hrs",   format_dur_hm(report_df["raw_prod_sec"].mean()), "⏱"),
+                            ("Follow Ups Done",  _total_fup,  "📋"),
+                            ("Discovery Done",   _total_disc, "🔍"),
+                            ("Roadmaps Done",    _total_road, "🗺️"),
+                        ]
+
+                        cols = st.columns(len(kpis))
+                        for col, (label, val, icon) in zip(cols, kpis):
+                            with col:
+                                st.markdown(f"""
+                                <div class="metric-card">
+                                    <div class="metric-label">{icon} {label}</div>
+                                    <div class="metric-value">{val}</div>
+                                </div>""", unsafe_allow_html=True)
+
+                        st.divider()
+                        section_header("AGENT PERFORMANCE TABLE")
+
+                        import re as _re
+                        _total_ans_sum = 0; _total_miss_sum = 0
+                        for _cs in report_df["CALL STATUS"]:
+                            _m = _re.match(r'(\d+) Ans / (\d+) Unans', str(_cs))
+                            if _m:
+                                _total_ans_sum  += int(_m.group(1))
+                                _total_miss_sum += int(_m.group(2))
+                        _total_calls_sum = int(report_df["TOTAL CALLS"].sum())
+                        _total_pur = (f"{round(_total_ans_sum / _total_calls_sum * 100)}%"
+                                      if _total_calls_sum > 0 else "0%")
+
+                        total_row = pd.DataFrame([{
+                            "Rank": "",
+                            "IN/OUT TIME": "-", "CALLER": "TOTAL", "TEAM": "-",
+                            "TOTAL CALLS": _total_calls_sum,
+                            "CALL STATUS": f"{_total_ans_sum} Ans / {_total_miss_sum} Unans",
+                            "PICK UP RATIO %": _total_pur,
+                            "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
+                            "CALLS 15-20 MINS": int(report_df["CALLS 15-20 MINS"].sum()),
+                            "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
+                            "CALL DURATION > 3 MINS": format_dur_hm(total_duration_agg),
+                            "FOLLOW UPS DONE": int(report_df["FOLLOW UPS DONE"].sum()),
+                            "DISCOVERY DONE":  int(report_df["DISCOVERY DONE"].sum()),
+                            "ROADMAPS DONE":   int(report_df["ROADMAPS DONE"].sum()),
+                            "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod_sec"].sum()),
+                            "BREAKS (>=15 MINS)": "-", "REMARKS": "-"
+                        }])
+
+                        display_cols = [
+                            "Rank", "IN/OUT TIME", "CALLER", "TEAM", "TOTAL CALLS", "CALL STATUS",
+                            "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS",
+                            "20+ MIN CALLS", "CALL DURATION > 3 MINS",
+                            "FOLLOW UPS DONE", "DISCOVERY DONE", "ROADMAPS DONE",
+                            "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)", "REMARKS"
+                        ]
+
+                        final_df = pd.concat([report_df, total_row], ignore_index=True)
+                        st.dataframe(
+                            final_df.style.apply(style_total, axis=1)
+                                          .set_properties(**{'white-space': 'pre-wrap'}),
+                            column_order=display_cols,
+                            width='stretch', hide_index=True
+                        )
+
+                        st.divider()
+                        target_cols = [
+                            "client_number", "call_datetime", "call_starttime_clean",
+                            "call_endtime_clean", "call_duration", "status", "direction",
+                            "service", "reason", "call_owner", "Call Date",
+                            "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"
+                        ]
+                        existing_cols = [c for c in target_cols if c in df.columns]
+
+                        _sc_export_cols = [
+                            "Date", "FirstName", "LastName", "EmailAddress", "Phone",
+                            "Alternate_Phone_Number", "New_Contact_Stage", "Stage_Changed_By",
+                            "OwnerIdEmailAddress", "Team Name", "Vertical", "StageChangeComment"
+                        ]
+                        _sc_existing = [c for c in _sc_export_cols if c in sc_export_df.columns]
+
+                        _dl_cdr_col, _dl_sc_col = st.columns(2)
+                        with _dl_cdr_col:
+                            st.download_button(
+                                label="📥 Download CDR",
+                                data=df[existing_cols].to_csv(index=False).encode('utf-8'),
+                                file_name="CDR_LOG.csv", mime='text/csv',
+                                key="dl_cdr_dynamic"
+                            )
+                        with _dl_sc_col:
+                            _sc_bytes = (
+                                sc_export_df[_sc_existing].to_csv(index=False).encode('utf-8')
+                                if not sc_export_df.empty and _sc_existing
+                                else b"No stage changed data for this period."
+                            )
+                            st.download_button(
+                                label="📥 Download Stage Changed Report",
+                                data=_sc_bytes,
+                                file_name="Stage_Changed_Report.csv",
+                                mime='text/csv',
+                                key="dl_stage_changed_dynamic"
+                            )
+
+                        # ── Manual Calls Table ──
+                        manual_df_view = df[df['source'] == 'Manual'].copy()
+                        if not manual_df_view.empty:
+                            st.divider()
+                            section_header("⚠️ HIGHEST MANUAL CALLS")
+
+                            man_agg = (
+                                manual_df_view.groupby('call_owner', sort=False)
+                                .agg(
+                                    Vertical  = ('Vertical',      'first'),
+                                    Team      = ('Team Name',     'first'),
+                                    Count     = ('source',        'count'),
+                                    DurSec    = ('call_duration', 'sum'),
+                                    Approvals = ('reason',        _unique_approvals),
+                                )
+                                .reset_index()
+                                .sort_values('Count', ascending=False)
+                                .reset_index(drop=True)
+                            )
+
+                            man_display = pd.DataFrame({
+                                'CALLER'               : man_agg['call_owner'],
+                                'VERTICAL'             : man_agg['Vertical'].fillna('—'),
+                                'TEAM'                 : man_agg['Team'].fillna('—'),
+                                'MANUAL CALLS COUNT'   : man_agg['Count'],
+                                'MANUAL CALLS DURATION': man_agg['DurSec'].apply(format_dur_hm),
+                                'APPROVED BY'          : man_agg['Approvals'],
+                            })
+
+                            total_man_row = pd.DataFrame([{
+                                'CALLER'               : 'TOTAL',
+                                'VERTICAL'             : '—',
+                                'TEAM'                 : '—',
+                                'MANUAL CALLS COUNT'   : int(man_agg['Count'].sum()),
+                                'MANUAL CALLS DURATION': format_dur_hm(man_agg['DurSec'].sum()),
+                                'APPROVED BY'          : '—',
+                            }])
+
+                            man_final = pd.concat([man_display, total_man_row], ignore_index=True)
+                            st.dataframe(
+                                man_final.style.apply(style_total, axis=1),
+                                width='stretch', hide_index=True
+                            )
+
+        else:
+            st.markdown("""
+            <div style='text-align:center;padding:6rem 1rem;opacity:.6;'>
+                <div style='font-size:4rem;margin-bottom:1rem;'>🚀</div>
+                <div style='font-size:.9rem;font-weight:600;'>Select a date range and click <b>Generate Dynamic Report</b></div>
+            </div>""", unsafe_allow_html=True)
+
+
+    # ══════════════════════════════════════════════
+    # TAB 2 — DURATION REPORT
+    # ══════════════════════════════════════════════
+
+    with tab2:
+        if gen_static:
+            with st.spinner("Building static layouts…"):
+                df_raw = fetch_call_data(start_date, end_date)
+                if df_raw.empty:
+                    st.warning("No data found.")
+                else:
+                    df_raw['merge_key'] = df_raw['call_owner'].str.strip().str.lower()
+                    df_static_master = pd.merge(df_raw, df_team_mapping, on='merge_key', how='left')
+                    df_static_master['call_owner'] = df_static_master['Caller Name'].fillna(df_static_master['call_owner'])
+
+                    if selected_team:     df_static_master = df_static_master[df_static_master['Team Name'].isin(selected_team)]
+                    if selected_vertical: df_static_master = df_static_master[df_static_master['Vertical'].isin(selected_vertical)]
+                    if search_query:      df_static_master = df_static_master[df_static_master['call_owner'].str.contains(search_query, case=False, na=False)]
+
+                    if df_static_master.empty:
+                        st.error("No results match filters.")
+                    else:
+                        tl_ad_mask = pd.Series(False, index=df_static_master.index)
+                        for col in df_team_mapping.columns:
+                            if col in df_static_master.columns:
+                                clean_col = df_static_master[col].fillna('').astype(str).str.strip().str.upper()
+                                tl_ad_mask |= clean_col.isin(['TL', 'ATL', 'TEAM LEAD', 'TEAM LEADER'])
+
+                        static_display_cols = [
+                            "CALLER", "TOTAL CALLS", "CALL STATUS", "PICK UP RATIO %",
+                            "CALLS > 3 MINS", "CALLS 15-20 MINS", "20+ MIN CALLS",
+                            "CALL DURATION > 3 MINS"
+                        ]
+
+                        normal_team_data = df_static_master[~tl_ad_mask]
+                        normal_teams     = sorted(normal_team_data['Team Name'].dropna().unique())
+
+                        for team in normal_teams:
+                            team_df = normal_team_data[normal_team_data['Team Name'] == team]
+                            report_df, team_dur_agg_sec = process_metrics_logic(team_df)
+                            if team_dur_agg_sec > 0:
+                                report_df = report_df.sort_values(by="raw_dur_sec", ascending=False)
+                                st.markdown(f"""
+                                <div class="static-team-header">
+                                    DURATION REPORT — {team.upper()} &nbsp;({display_start} to {display_end})
+                                </div>""", unsafe_allow_html=True)
+
+                                total_row = pd.DataFrame([{
+                                    "CALLER": "TOTAL",
+                                    "TOTAL CALLS": int(report_df["TOTAL CALLS"].sum()),
+                                    "CALL STATUS": "-", "PICK UP RATIO %": "-",
+                                    "CALLS > 3 MINS": int(report_df["CALLS > 3 MINS"].sum()),
+                                    "CALLS 15-20 MINS": int(report_df["CALLS 15-20 MINS"].sum()),
+                                    "20+ MIN CALLS": int(report_df["20+ MIN CALLS"].sum()),
+                                    "CALL DURATION > 3 MINS": format_dur_hm(team_dur_agg_sec)
+                                }])
+                                final_team_df = pd.concat([report_df[static_display_cols], total_row], ignore_index=True)
+                                calc_h = (len(final_team_df) + 1) * 35 + 20
+                                st.dataframe(
+                                    final_team_df.style.apply(style_static, axis=1)
+                                                       .set_properties(**{'white-space': 'pre-wrap'}),
+                                    column_order=static_display_cols,
+                                    width='stretch', hide_index=True, height=calc_h
+                                )
+
+                                target_cols = [
+                                    "client_number", "call_datetime", "call_starttime_clean",
+                                    "call_endtime_clean", "call_duration", "status", "direction",
+                                    "service", "reason", "call_owner", "Call Date",
+                                    "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"
+                                ]
+                                existing_cols = [c for c in target_cols if c in team_df.columns]
+                                st.download_button(
+                                    label=f"📥 Download CDR — {team}",
+                                    data=team_df[existing_cols].to_csv(index=False).encode('utf-8'),
+                                    file_name=f"CDR_{team}.csv", mime='text/csv',
+                                    key=f"dl_team_{team}"
+                                )
+                                st.divider()
+
+                        tl_ad_pool = df_static_master[tl_ad_mask]
+                        if not tl_ad_pool.empty:
+                            report_df_tl, tl_dur_agg_sec = process_metrics_logic(tl_ad_pool)
+                            active_tl = report_df_tl[report_df_tl['raw_dur_sec'] > 300].sort_values(by="raw_dur_sec", ascending=False)
+                            if not active_tl.empty:
+                                st.markdown(f"""
+                                <div class="static-team-header">
+                                    TL'S DURATION REPORT &nbsp;({display_start} to {display_end})
+                                </div>""", unsafe_allow_html=True)
+                                total_row_tl = pd.DataFrame([{
+                                    "CALLER": "TOTAL",
+                                    "TOTAL CALLS": int(active_tl["TOTAL CALLS"].sum()),
+                                    "CALL STATUS": "-", "PICK UP RATIO %": "-",
+                                    "CALLS > 3 MINS": int(active_tl["CALLS > 3 MINS"].sum()),
+                                    "CALLS 15-20 MINS": int(active_tl["CALLS 15-20 MINS"].sum()),
+                                    "20+ MIN CALLS": int(active_tl["20+ MIN CALLS"].sum()),
+                                    "CALL DURATION > 3 MINS": format_dur_hm(active_tl["raw_dur_sec"].sum())
+                                }])
+                                final_tl_df = pd.concat([active_tl[static_display_cols], total_row_tl], ignore_index=True)
+                                calc_h_tl = (len(final_tl_df) + 1) * 35 + 20
+                                st.dataframe(
+                                    final_tl_df.style.apply(style_static, axis=1)
+                                                     .set_properties(**{'white-space': 'pre-wrap'}),
+                                    column_order=static_display_cols,
+                                    width='stretch', hide_index=True, height=calc_h_tl
+                                )
+                                valid_tls    = active_tl['CALLER'].unique()
+                                final_tl_cdr = tl_ad_pool[tl_ad_pool['call_owner'].isin(valid_tls)]
+                                target_cols  = [
+                                    "client_number", "call_datetime", "call_starttime_clean",
+                                    "call_endtime_clean", "call_duration", "status", "direction",
+                                    "service", "reason", "call_owner", "Call Date",
+                                    "updated_at_ampm", "Team Name", "Vertical", "Analyst", "source"
+                                ]
+                                existing_cols = [c for c in target_cols if c in final_tl_cdr.columns]
+                                st.download_button(
+                                    label="📥 Download TL CDR",
+                                    data=final_tl_cdr[existing_cols].to_csv(index=False).encode('utf-8'),
+                                    file_name="CDR_TL_AD.csv", mime='text/csv',
+                                    key="dl_tl_ad_final_last"
+                                )
+
+                        # ── Store full dataset for Insights tab ──
+                        report_all, _ = process_metrics_logic(
+                            df_static_master[df_static_master['call_owner'].notna() & (df_static_master['call_owner'] != '')]
+                        )
+                        st.session_state['insights_df']     = df_static_master.copy()
+                        st.session_state['insights_report'] = report_all.copy()
+                        st.session_state['insights_source'] = "Duration Report"
+
+        else:
+            st.markdown("""
+            <div style='text-align:center;padding:6rem 1rem;opacity:.6;'>
+                <div style='font-size:4rem;margin-bottom:1rem;'>📅</div>
+                <div style='font-size:.9rem;font-weight:600;'>Click <b>Generate Duration Report</b> in the sidebar</div>
+            </div>""", unsafe_allow_html=True)
+
+
+    # ══════════════════════════════════════════════
+    # TAB 3 — INSIGHTS (auto-populated from session state)
+    # ══════════════════════════════════════════════
+
+    with tab3:
+        if 'insights_df' in st.session_state and 'insights_report' in st.session_state:
+            df_ins       = st.session_state['insights_df']
+            report_df_all = st.session_state['insights_report']
+            source_label  = st.session_state.get('insights_source', 'Report')
+
+            st.markdown(f"""
+            <div style='text-align:center;margin-bottom:1rem;'>
+                <span style='font-size:.75rem;font-weight:600;color:#F97316;
+                             background:rgba(249,115,22,.1);border:1px solid rgba(249,115,22,.2);
+                             border-radius:20px;padding:4px 14px;font-family:DM Mono,monospace;'>
+                    ⚡ AUTO-GENERATED FROM {source_label.upper()}
+                </span>
+            </div>""", unsafe_allow_html=True)
+
+            section_header("🧠 GENERATED TEAM INSIGHTS")
+            insights = compute_team_insights(df_ins, report_df_all)
+
+            if insights:
+                cols_ins = st.columns(2)
+                for i, ins in enumerate(insights):
+                    with cols_ins[i % 2]:
+                        st.markdown(f"""
+                        <div class="insight-card {ins['type']}">
+                            <div style='display:flex;align-items:center;justify-content:center;gap:.4rem;'>
+                                <span class="insight-icon">{ins['icon']}</span>
+                                <span class="insight-title">{ins['title']}</span>
+                            </div>
+                            <div class="insight-body">{ins['body']}</div>
+                        </div>""", unsafe_allow_html=True)
+            else:
+                st.info("Not enough data to generate comparative insights.")
+
+            st.divider()
+
+            if not selected_team and not search_query:
+                section_header("🏅 TEAM LEADERBOARD")
+                lb = (
+                    report_df_all.groupby("TEAM")
+                    .agg(
+                        agents=("CALLER", "count"),
+                        total_calls=("TOTAL CALLS", "sum"),
+                        total_dur_h=("raw_dur_sec", lambda x: round(x.sum() / 3600, 1)),
+                        avg_dur_h=("raw_dur_sec", lambda x: round(x.mean() / 3600, 1)),
+                        avg_prod_h=("raw_prod_sec", lambda x: round(x.mean() / 3600, 1)),
+                        long_calls=("20+ MIN CALLS", "sum"),
+                    )
+                    .reset_index().sort_values("total_dur_h", ascending=False)
+                    .rename(columns={
+                        "TEAM": "Team", "agents": "Agents", "total_calls": "Total Calls",
+                        "total_dur_h": "Total Dur (h)", "avg_dur_h": "Avg Dur/Agent (h)",
+                        "avg_prod_h": "Avg Prod Hrs (h)", "long_calls": "20+ Min Calls"
+                    })
+                )
+                medals = (["🥇", "🥈", "🥉"] + [""] * max(0, len(lb) - 3))[:len(lb)]
+                lb.insert(0, "🏅", medals)
+                lb = lb.reset_index(drop=True)
+                st.dataframe(lb, width='stretch', hide_index=True)
+
+        # ── Team Manual Calls ──
+            manual_team_df = df_ins[df_ins['source'] == 'Manual'].copy()
+            if not manual_team_df.empty:
+                st.divider()
+                section_header("⚠️ TEAM MANUAL CALLS")
+
+                team_man_agg = (
+                    manual_team_df.groupby('Team Name', sort=False)
+                    .agg(
+                        Vertical  = ('Vertical',      'first'),
+                        Count     = ('source',        'count'),
+                        DurSec    = ('call_duration', 'sum'),
+                        Approvals = ('reason',        _unique_approvals),
+                    )
+                    .reset_index()
+                    .sort_values('Count', ascending=False)
+                    .reset_index(drop=True)
+                )
+
+                team_man_display = pd.DataFrame({
+                    'VERTICAL'             : team_man_agg['Vertical'].fillna('—'),
+                    'TEAM'                 : team_man_agg['Team Name'],
+                    'MANUAL CALLS COUNT'   : team_man_agg['Count'],
+                    'MANUAL CALLS DURATION': team_man_agg['DurSec'].apply(format_dur_hm),
+                    'APPROVALS BY'         : team_man_agg['Approvals'],
+                })
+
+                total_team_man = pd.DataFrame([{
+                    'VERTICAL'             : '—',
+                    'TEAM'                 : 'TOTAL',
+                    'MANUAL CALLS COUNT'   : int(team_man_agg['Count'].sum()),
+                    'MANUAL CALLS DURATION': format_dur_hm(team_man_agg['DurSec'].sum()),
+                    'APPROVALS BY'         : '—',
+                }])
+
+                team_man_final = pd.concat([team_man_display, total_team_man], ignore_index=True)
+                st.dataframe(
+                    team_man_final.style.apply(style_team_manual_total, axis=1),
+                    width='stretch', hide_index=True
+                )
+
+        else:
+            st.markdown("""
+            <div style='text-align:center;padding:6rem 1rem;opacity:.6;'>
+                <div style='font-size:4rem;margin-bottom:1rem;'>🧠</div>
+                <div style='font-size:.9rem;font-weight:600;'>
+                    Generate a <b>Dynamic Report</b> or <b>Duration Report</b> first —<br>
+                    Insights will appear here automatically.
+                </div>
+            </div>""", unsafe_allow_html=True)
+
 
 def run_revenue_dashboard():
     # ADD THIS CSS BLOCK FIRST:
@@ -2678,14 +4702,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         st.sidebar.caption(f"👤 Viewing: {_rf_cname}")
 
     gen_report = st.sidebar.button("💰 Generate Revenue Report", key="rev_gen_btn")
-    st.sidebar.download_button(
-        label="📖 Metrics Guide (PDF)",
-        data=generate_helper_pdf_bytes(),
-        file_name="Revenue_Metrics_Logic_Guide.pdf",
-        mime="application/pdf",
-        key="dl_helper_pdf"
-    )
-  
+
 
     # ─────────────────────────────────────────────
     # HEADER BANNER
@@ -4352,16 +6369,16 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         <div style='text-align:center;padding:.55rem .8rem;
                                     background:rgba(255,255,255,.04);
                                     border:1px solid rgba(255,255,255,.10);
-                                    border-radius:10px;line-height:1.6;'>
-                            <span style='font-size:.72rem;color:rgba(255,255,255,.5);'>
+                                    border-radius:10px;line-height:1.6;color:{_diff_color};'>
+                            <span style='font-size:.72rem;color:{_diff_color};'>
                                 Difference in Revenue&nbsp;
                             </span>
                             <span style='font-size:.88rem;font-weight:700;
                                          color:{_diff_color};font-family:DM Mono,monospace;'>
                                 {_diff_sign}₹{int(abs(round(_diff))):,}
                             </span><br>
-                            <span style='font-size:.65rem;color:rgba(255,255,255,.3);
-                                         font-family:DM Mono,monospace;'>
+                            <span style='font-size:.65rem;color:{_diff_color};
+                                         font-family:DM Mono,monospace;opacity:.85;'>
                                 Today: ₹{int(round(_total_fetched)):,}
                                 &nbsp;−&nbsp;
                                 Report: ₹{int(round(_total_rev)):,}
@@ -4781,6 +6798,810 @@ border:2px solid #0d2137;'>{_hdg}</div>
                         )
 
 
+def run_leads_dashboard():
+    st.markdown("""
+    <style>
+    [data-testid="stMainBlockContainer"] {
+        max-width: 100% !important;
+        padding-left: 2rem !important;
+        padding-right: 2rem !important;
+    }
+    .block-container { max-width: 100% !important; }
+    </style>
+    """, unsafe_allow_html=True)
+ 
+    # ── CONSTANTS ──────────────────────────────────────────────────────────────
+    _CSV_URL     = "https://docs.google.com/spreadsheets/d/e/2PACX-1vRT73ztvPNZSvIu5WLxo-3WQ76JMAnt4P9dITd4EAbjSvuDytfgvdfri1WPXotCjm_Etnb80_Q7S-wf/pub?gid=0&single=true&output=csv"
+    _LEADS_TABLE = "studious-apex-488820-c3.crm_dashboard.lsq_leads"
+ 
+    _STAGE_MAP = {
+        'FRESH'             : ['New Lead', 'Re-enquired Lead', 'Opportunity Created'],
+        'DNP'               : ['Call Not Picking Up', 'Call Not Connected'],
+        'CBL'               : ['Call Back Later'],
+        'FLW-UP'            : ['Follow Up For Closure'],
+        'COUNSELLED'        : ['Counselled lead'],
+        'DISCOVERY'         : ['Discovery Call Done'],
+        'ROADMAP'           : ['Roadmap Done'],
+        'MBL'               : ['May buy later'],
+        'ACTUALLY-ENROLLED' : ['Actually Enrolled'],
+        'INVALID/NTINTRSTD' : ['Irrelevant lead', 'Not Interested', 'Invalid'],
+        'BOOKING-RCVD'      : ['Booking fees received'],
+        'LOAN-PNDG'         : ['Loan pending'],
+        'COLL-DNE'          : ['Collections done'],
+        'PRE-SALES'         : ['Pre-Sales Registrations'],
+        'COURSE ENROLLED'   : ['Course Enrolled'],
+    }
+ 
+    _BREACHED_COL_MAP = {
+        'CBL'       : ['Call Back Later'],
+        'FLW-UP'    : ['Follow Up For Closure'],
+        'COUNSELLED': ['Counselled lead'],
+        'DISCOVERY' : ['Discovery Call Done'],
+        'ROADMAP'   : ['Roadmap Done'],
+    }
+ 
+    _DIALLED_COL_MAP = {
+        'CALL NOT PICKING UP': ['Call Not Picking Up'],
+        'CALL NOT CONNECTED' : ['Call Not Connected'],
+    }
+ 
+    st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Mono:wght@400;500&display=swap');
+ 
+:root {
+    --ld-accent: #3B82F6; --ld-deep: #1D4ED8; --ld-deepest: #1e3a8a;
+    --ld-light: #DBEAFE;
+    --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,.08);
+    --shadow-md: 0 4px 16px rgba(0,0,0,.10);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,.14);
+    --transition: all 0.22s cubic-bezier(.4,0,.2,1);
+}
+[data-testid="stAppViewContainer"]:not([class*="dark"]) {
+    --bg-base:#EFF6FF;--bg-surface:#FFFFFF;--bg-muted:#DBEAFE;
+    --border:rgba(59,130,246,.12);--text-primary:#111827;
+    --text-muted:#6B7280;--metric-bg:#FFFFFF;
+}
+@media (prefers-color-scheme: dark) {
+    :root{--bg-base:#0A0F1E;--bg-surface:#111827;--bg-elevated:#1E293B;
+          --bg-muted:#1E3A5F;--border:rgba(59,130,246,.10);
+          --text-primary:#EFF6FF;--text-muted:#93C5FD;--metric-bg:#1E293B;}
+}
+[data-theme="dark"]{
+    --bg-base:#0A0F1E!important;--bg-surface:#111827!important;
+    --bg-elevated:#1E293B!important;--bg-muted:#1E3A5F!important;
+    --border:rgba(59,130,246,.10)!important;--text-primary:#EFF6FF!important;
+    --text-muted:#93C5FD!important;--metric-bg:#1E293B!important;
+}
+html,body,[class*="css"]{font-family:'DM Sans',sans-serif!important;}
+footer{visibility:hidden;}
+[data-testid="stStatusWidget"]{display:none!important;}
+[data-testid="stSidebar"]{border-right:1px solid var(--border,rgba(59,130,246,.12));}
+ 
+.ld-header{
+    background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 45%,#1e40af 100%);
+    border-radius:var(--radius-lg);padding:1.5rem 2rem 1.2rem;
+    margin-bottom:1.2rem;position:relative;overflow:hidden;box-shadow:var(--shadow-lg);
+}
+.ld-header::before{
+    content:"";position:absolute;top:-40px;right:-40px;width:200px;height:200px;
+    background:radial-gradient(circle,rgba(59,130,246,.25) 0%,transparent 70%);border-radius:50%;
+}
+.ld-title{font-size:1.65rem;font-weight:700;color:#FFF;letter-spacing:.5px;margin:0 0 .25rem;}
+.ld-subtitle{font-size:.82rem;color:rgba(255,255,255,.6);margin:0;font-family:'DM Mono',monospace;}
+.ld-badge{
+    display:inline-flex;align-items:center;gap:5px;
+    background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.18);
+    border-radius:20px;padding:3px 10px;font-size:.73rem;
+    color:rgba(255,255,255,.9);font-family:'DM Mono',monospace;
+}
+.ld-pulse{
+    width:6px;height:6px;background:#60A5FA;border-radius:50%;
+    display:inline-block;animation:pulse-ld 1.8s ease-in-out infinite;
+}
+@keyframes pulse-ld{0%,100%{opacity:1;transform:scale(1);}50%{opacity:.5;transform:scale(1.4);}}
+ 
+.ld-metric-card{
+    background:var(--metric-bg,#fff);border:1px solid var(--border,rgba(59,130,246,.12));
+    border-radius:var(--radius-md);padding:.9rem 1rem;transition:var(--transition);
+    box-shadow:var(--shadow-sm);position:relative;overflow:hidden;text-align:center;
+}
+.ld-metric-card::before{
+    content:"";position:absolute;top:0;left:0;width:100%;height:3px;
+    background:linear-gradient(90deg,#3B82F6,#60A5FA);opacity:0;transition:opacity .2s;
+}
+.ld-metric-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-md);}
+.ld-metric-card:hover::before{opacity:1;}
+.ld-metric-label{font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.8px;
+    color:var(--text-muted,#6B7280);margin:0 0 .3rem;}
+.ld-metric-value{font-size:1.45rem;font-weight:700;color:var(--text-primary,#111827);
+    line-height:1;font-family:'DM Mono',monospace;}
+ 
+.ld-section-header{display:flex;align-items:center;gap:.6rem;margin:1.5rem 0 .8rem;}
+.ld-section-line{flex:1;height:1px;background:linear-gradient(90deg,#3B82F6,transparent);opacity:.35;}
+.ld-section-title{font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:1.2px;
+    color:#3B82F6;white-space:nowrap;text-align:center;}
+ 
+.ld-insight-card{background:var(--metric-bg,#fff);border:1px solid var(--border,rgba(59,130,246,.12));
+    border-radius:var(--radius-md);padding:1rem 1.1rem;margin-bottom:.6rem;
+    box-shadow:var(--shadow-sm);transition:var(--transition);}
+.ld-insight-card:hover{box-shadow:var(--shadow-md);}
+.ld-insight-card.good{border-left:3px solid #3B82F6;}
+.ld-insight-card.warn{border-left:3px solid #FBBF24;}
+.ld-insight-card.bad{border-left:3px solid #F87171;}
+.ld-insight-card.info{border-left:3px solid #60A5FA;}
+ 
+div[data-testid="stDataFrame"] thead tr th{
+    background:linear-gradient(135deg,#1e3a8a,#1d4ed8)!important;
+    color:#fff!important;font-family:'DM Sans',sans-serif!important;
+    font-size:.72rem!important;font-weight:700!important;letter-spacing:.6px;
+    text-transform:uppercase;white-space:normal!important;word-wrap:break-word!important;
+    text-align:center!important;vertical-align:middle!important;
+    min-width:80px!important;padding:10px!important;
+}
+[data-testid="stSidebar"] .stButton>button{
+    width:100%;font-family:'DM Sans',sans-serif!important;font-weight:600!important;
+    font-size:.82rem!important;border-radius:var(--radius-sm);transition:var(--transition);
+    background:linear-gradient(135deg,#1d4ed8,#1e3a8a)!important;
+    color:#fff!important;border:none!important;
+}
+[data-testid="stSidebar"] .stButton>button:hover{opacity:.88!important;transform:translateY(-1px)!important;}
+.stDownloadButton>button{
+    background:linear-gradient(135deg,#1d4ed8,#1e3a8a)!important;color:#fff!important;
+    border:none!important;border-radius:var(--radius-sm)!important;
+    font-family:'DM Sans',sans-serif!important;font-weight:600!important;
+    font-size:.82rem!important;width:100%!important;transition:var(--transition)!important;
+}
+hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!important;}
+</style>
+""", unsafe_allow_html=True)
+ 
+    def _ld_section_header(label):
+        st.markdown(f"""
+        <div class="ld-section-header">
+            <div class="ld-section-line"></div>
+            <span class="ld-section-title">{label}</span>
+            <div class="ld-section-line" style="background:linear-gradient(90deg,transparent,#3B82F6)"></div>
+        </div>""", unsafe_allow_html=True)
+ 
+    def _style_caller(row):
+        if row.get('CALLER') == 'TOTAL':
+            return ['font-weight:bold;background-color:#374151;color:#FFFFFF;'] * len(row)
+        return [''] * len(row)
+ 
+    def _style_team(row):
+        if row.get('TEAM') == 'TOTAL':
+            return ['font-weight:bold;background-color:#374151;color:#FFFFFF;'] * len(row)
+        return [''] * len(row)
+ 
+    def _merge_team_ld(df, df_meta):
+        df_w = df.copy()
+        df_w['merge_key'] = df_w['Owner'].astype(str).str.strip().str.lower()
+        slim = df_meta[['merge_key','Caller Name','Team Name','Vertical']].drop_duplicates('merge_key')
+        merged = pd.merge(df_w, slim, on='merge_key', how='left')
+        merged['Owner']     = merged['Caller Name'].fillna(merged['Owner'])
+        merged['Team Name'] = merged['Team Name'].fillna('Others')
+        merged['Vertical']  = merged['Vertical'].fillna('Others')
+        merged = merged[merged['Team Name'] != 'Others']
+        return merged
+ 
+    def _append_caller_total_ld(df):
+        if df.empty: return df
+        nc  = [c for c in df.columns if c not in ('CALLER','TEAM')]
+        row = {'CALLER':'TOTAL','TEAM':'—'}
+        for c in nc: row[c] = int(df[c].sum())
+        return pd.concat([df, pd.DataFrame([row])], ignore_index=True)
+ 
+    def _append_team_total_ld(df):
+        if df.empty: return df
+        nc  = [c for c in df.columns if c != 'TEAM']
+        row = {'TEAM':'TOTAL'}
+        for c in nc: row[c] = int(df[c].sum())
+        return pd.concat([df, pd.DataFrame([row])], ignore_index=True)
+ 
+    def _show_caller(df, msg="No data."):
+        if df.empty: st.info(msg); return
+        final = _append_caller_total_ld(df)
+        h = min((len(final) + 1) * 35 + 20, 800)
+        st.dataframe(final.style.apply(_style_caller, axis=1),
+                     width='stretch', hide_index=True, height=h)
+ 
+    def _show_team(df, msg="No data."):
+        if df.empty: st.info(msg); return
+        final = _append_team_total_ld(df)
+        h = min((len(final) + 1) * 35 + 20, 600)
+        st.dataframe(final.style.apply(_style_team, axis=1),
+                     width='stretch', hide_index=True, height=h)
+        
+    def _build_leads_xlsx_bytes_ld(df_rows):
+        EXPORT_COLS = [
+            'AssignedOn', 'FirstName', 'LastName', 'Email', 'PhoneNumber',
+            'Alternate_PhoneNumber', 'Owner', 'ContactStage', 'LastCalledDate',
+            'Follow_up_date', 'Enquired_Course', 'Campaign_Name',
+            'Phone_call_counter', 'Assigned_On_Call_Counter', 'Team', 'Vertical', 'AssignedBy'
+        ]
+        df = df_rows.copy()
+        if 'Team' not in df.columns and 'Team Name' in df.columns:
+            df['Team'] = df['Team Name']
+        cols = [c for c in EXPORT_COLS if c in df.columns]
+        df   = df[cols].reset_index(drop=True)
+
+        HDR_FILL  = PatternFill("solid", start_color="1e3a8a", end_color="1e3a8a")
+        HDR_FONT  = Font(bold=True, color="FFFFFF", name="Calibri", size=10)
+        ALT_FILL  = PatternFill("solid", start_color="EFF6FF", end_color="EFF6FF")
+        WHT_FILL  = PatternFill("solid", start_color="FFFFFF", end_color="FFFFFF")
+        DATA_FONT = Font(name="Calibri", size=10)
+        CENTER    = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        LEFT      = Alignment(horizontal='left',   vertical='center', wrap_text=True)
+        BORDER    = Border(
+            left=Side(style='thin', color='BFDBFE'), right=Side(style='thin', color='BFDBFE'),
+            top=Side(style='thin',  color='BFDBFE'), bottom=Side(style='thin', color='BFDBFE'),
+        )
+        COL_WIDTHS = {
+            'AssignedOn': 14, 'FirstName': 18, 'LastName': 18, 'Email': 32,
+            'PhoneNumber': 14, 'Alternate_PhoneNumber': 18, 'Owner': 24,
+            'ContactStage': 24, 'LastCalledDate': 14, 'Follow_up_date': 14,
+            'Enquired_Course': 26, 'Campaign_Name': 22, 'Phone_call_counter': 12,
+            'Assigned_On_Call_Counter': 14, 'Team': 24, 'Vertical': 18, 'AssignedBy': 20,
+        }
+        wb = Workbook(); ws = wb.active; ws.title = "Breached Leads"
+        for c_idx, col in enumerate(cols, 1):
+            cell = ws.cell(1, c_idx, col.replace('_', ' ').upper())
+            cell.fill, cell.font, cell.alignment, cell.border = HDR_FILL, HDR_FONT, CENTER, BORDER
+        ws.row_dimensions[1].height = 26
+        for r_idx, (_, row) in enumerate(df.iterrows(), 2):
+            fill = ALT_FILL if r_idx % 2 == 0 else WHT_FILL
+            for c_idx, col in enumerate(cols, 1):
+                val = row[col]
+                try:
+                    if pd.isna(val): val = ''
+                except (TypeError, ValueError): pass
+                if hasattr(val, 'strftime'): val = val.strftime('%Y-%m-%d')
+                cell = ws.cell(r_idx, c_idx, val)
+                cell.fill, cell.font, cell.alignment, cell.border = fill, DATA_FONT, LEFT, BORDER
+        for c_idx, col in enumerate(cols, 1):
+            ws.column_dimensions[get_column_letter(c_idx)].width = COL_WIDTHS.get(col, 16)
+        ws.freeze_panes = "A2"
+        buf = io.BytesIO(); wb.save(buf)
+        return buf.getvalue()
+ 
+    def _stage_counts(grp, col_map):
+        row, total = {}, 0
+        for col, stages in col_map.items():
+            cnt = int(grp['ContactStage'].isin(stages).sum())
+            row[col] = cnt; total += cnt
+        row['TOTAL'] = total
+        return row
+ 
+    @st.cache_data(ttl=120, show_spinner=False)
+    def _ld_get_metadata():
+        df = pd.read_csv(_CSV_URL)
+        df.columns = df.columns.str.strip()
+        df['merge_key'] = df['Caller Name'].str.strip().str.lower()
+        return sorted(df['Team Name'].dropna().unique()), sorted(df['Vertical'].dropna().unique()), df
+ 
+    @st.cache_data(ttl=300, show_spinner=False)
+    def _ld_last_update():
+        try:
+            r = client.query(
+                f"SELECT MAX(updated_at_ampm) AS lu FROM `{_LEADS_TABLE}` WHERE updated_at_ampm IS NOT NULL"
+            ).to_dataframe()
+            return str(r['lu'].iloc[0]) if not r.empty and r['lu'].iloc[0] else "N/A"
+        except Exception: return "N/A"
+ 
+    @st.cache_data(ttl=600, show_spinner=False)
+    def _ld_available_dates():
+        try:
+            r = client.query(
+                f"SELECT MIN(AssignedOn) AS mn, MAX(AssignedOn) AS mx FROM `{_LEADS_TABLE}`"
+            ).to_dataframe()
+            if not r.empty and not pd.isna(r['mn'].iloc[0]):
+                return r['mn'].iloc[0], r['mx'].iloc[0]
+        except Exception: pass
+        return date.today(), date.today()
+ 
+    @st.cache_data(ttl=120, show_spinner=False)
+    def _ld_fetch(start_date, end_date):
+        q = f"""
+            SELECT * FROM `{_LEADS_TABLE}`
+            WHERE AssignedOn BETWEEN '{start_date}' AND '{end_date}'
+        """
+        df = client.query(q).to_dataframe()
+        if not df.empty:
+            df['Owner']        = df['Owner'].astype(str).str.strip()
+            df['ContactStage'] = (
+                df['ContactStage'].astype(str)
+                .str.replace('\xa0', ' ', regex=False)  
+                .str.replace('Â', '', regex=False) 
+                .str.replace(r'\s+', ' ', regex=True)   
+                .str.strip())
+            df['ContactStage'] = df['ContactStage'].astype(str).str.strip()
+            df['Follow_up_date'] = pd.to_datetime(df['Follow_up_date'], errors='coerce')
+            df['LastCalledDate'] = pd.to_datetime(df['LastCalledDate'], errors='coerce')
+            df['Assigned_On_Call_Counter'] = pd.to_numeric(
+                df['Assigned_On_Call_Counter'], errors='coerce').fillna(0)
+        return df
+ 
+    def _proc_assigned_caller(df_m):
+        rows = []
+        for owner, g in df_m.groupby('Owner'):
+            team = g['Team Name'].mode().iloc[0] if len(g) else 'Others'
+            r = {'CALLER': owner, 'TEAM': team}
+            r.update(_stage_counts(g, _STAGE_MAP))
+            rows.append(r)
+        if not rows: return pd.DataFrame()
+        return pd.DataFrame(rows).sort_values('TOTAL', ascending=False).reset_index(drop=True)
+ 
+    def _proc_assigned_team(df_m):
+        rows = []
+        for team, g in df_m.groupby('Team Name'):
+            r = {'TEAM': team}; r.update(_stage_counts(g, _STAGE_MAP)); rows.append(r)
+        if not rows: return pd.DataFrame()
+        return pd.DataFrame(rows).sort_values('TOTAL', ascending=False).reset_index(drop=True)
+ 
+    def _get_breached(df_m):
+        now_ts = pd.Timestamp.now().normalize()
+        cut    = now_ts - pd.Timedelta(days=3)
+        all_s  = [s for v in _BREACHED_COL_MAP.values() for s in v]
+        fup    = df_m['Follow_up_date'].isna() | (df_m['Follow_up_date'] < now_ts)
+        lcd    = df_m['LastCalledDate'].notna() & (df_m['LastCalledDate'] < cut)
+        return df_m[fup & lcd & df_m['ContactStage'].isin(all_s)].copy()
+ 
+    def _proc_breached_caller(df_m):
+        df_b = _get_breached(df_m); rows = []
+        for owner, g in df_b.groupby('Owner'):
+            team = g['Team Name'].mode().iloc[0] if len(g) else 'Others'
+            r = {'CALLER': owner, 'TEAM': team}; r.update(_stage_counts(g, _BREACHED_COL_MAP)); rows.append(r)
+        if not rows: return pd.DataFrame()
+        return pd.DataFrame(rows).sort_values('TOTAL', ascending=False).reset_index(drop=True)
+ 
+    def _proc_breached_team(df_m):
+        df_b = _get_breached(df_m); rows = []
+        for team, g in df_b.groupby('Team Name'):
+            r = {'TEAM': team}; r.update(_stage_counts(g, _BREACHED_COL_MAP)); rows.append(r)
+        if not rows: return pd.DataFrame()
+        return pd.DataFrame(rows).sort_values('TOTAL', ascending=False).reset_index(drop=True)
+ 
+    def _get_less_dialled(df_m):
+        all_s = [s for v in _DIALLED_COL_MAP.values() for s in v]
+        return df_m[(df_m['Assigned_On_Call_Counter'] < 11) & df_m['ContactStage'].isin(all_s)].copy()
+ 
+    def _proc_ld_caller(df_m):
+        df_ld = _get_less_dialled(df_m); rows = []
+        for owner, g in df_ld.groupby('Owner'):
+            team = g['Team Name'].mode().iloc[0] if len(g) else 'Others'
+            r = {'CALLER': owner, 'TEAM': team}; r.update(_stage_counts(g, _DIALLED_COL_MAP)); rows.append(r)
+        if not rows: return pd.DataFrame()
+        return pd.DataFrame(rows).sort_values('TOTAL', ascending=False).reset_index(drop=True)
+ 
+    def _proc_ld_team(df_m):
+        df_ld = _get_less_dialled(df_m); rows = []
+        for team, g in df_ld.groupby('Team Name'):
+            r = {'TEAM': team}; r.update(_stage_counts(g, _DIALLED_COL_MAP)); rows.append(r)
+        if not rows: return pd.DataFrame()
+        return pd.DataFrame(rows).sort_values('TOTAL', ascending=False).reset_index(drop=True)
+ 
+    def _compute_insights(df_ac, df_bc, df_ldc, df_at, df_bt, df_ldt):
+        ins = []
+        if not df_ac.empty:
+            t = df_ac.iloc[0]
+            ins.append({"type":"good","icon":"🏆",
+                "title":f"Highest Assigned Leads — {t['CALLER']}",
+                "body":(f"{t['CALLER']} holds the highest lead count with {t['TOTAL']} leads. "
+                        f"Team: {t['TEAM']}. Fresh: {t.get('FRESH',0)} · "
+                        f"Counselled: {t.get('COUNSELLED',0)} · Enrolled: {t.get('COURSE ENROLLED',0)}.")})
+        if not df_at.empty:
+            t = df_at.iloc[0]
+            ins.append({"type":"good","icon":"🏅",
+                "title":f"Highest Assigned Leads — Team: {t['TEAM']}",
+                "body":(f"{t['TEAM']} received the most leads with {t['TOTAL']} assignments. "
+                        f"Fresh: {t.get('FRESH',0)} · DNP: {t.get('DNP',0)} · "
+                        f"Course Enrolled: {t.get('COURSE ENROLLED',0)}.")})
+        if not df_bc.empty:
+            t = df_bc.iloc[0]
+            ins.append({"type":"bad","icon":"⚠️",
+                "title":f"Highest Potential Breached — {t['CALLER']}",
+                "body":(f"{t['CALLER']} has {t['TOTAL']} leads with overdue follow-up and no recent call. "
+                        f"Team: {t['TEAM']}. CBL: {t.get('CBL',0)} · FLW-UP: {t.get('FLW-UP',0)} · "
+                        f"Counselled: {t.get('COUNSELLED',0)}. Immediate action required.")})
+        if not df_bt.empty:
+            t = df_bt.iloc[0]
+            ins.append({"type":"warn","icon":"🚨",
+                "title":f"Highest Potential Breached — Team: {t['TEAM']}",
+                "body":(f"{t['TEAM']} leads the breached list with {t['TOTAL']} overdue leads. "
+                        f"CBL: {t.get('CBL',0)} · FLW-UP: {t.get('FLW-UP',0)} · "
+                        f"Counselled: {t.get('COUNSELLED',0)}. Schedule recovery sessions.")})
+        if not df_ldc.empty:
+            t = df_ldc.iloc[0]
+            ins.append({"type":"warn","icon":"📞",
+                "title":f"Highest Less Dialled — {t['CALLER']}",
+                "body":(f"{t['CALLER']} has {t['TOTAL']} DNP leads with <11 dial attempts. "
+                        f"Team: {t['TEAM']}. Not Picking Up: {t.get('CALL NOT PICKING UP',0)} · "
+                        f"Not Connected: {t.get('CALL NOT CONNECTED',0)}. Increase dial frequency.")})
+        if not df_ldt.empty:
+            t = df_ldt.iloc[0]
+            ins.append({"type":"info","icon":"📈",
+                "title":f"Highest Less Dialled — Team: {t['TEAM']}",
+                "body":(f"{t['TEAM']} has {t['TOTAL']} less-dialled leads below 11 attempts. "
+                        f"Maximise dial frequency before these leads degrade further.")})
+        return ins[:6]
+ 
+    @st.cache_data(show_spinner=False)
+    def _ld_pdf_bytes() -> bytes:
+        from reportlab.lib.pagesizes import A4 as _A4
+        from reportlab.lib import colors as _colors
+        from reportlab.lib.units import mm as _mm
+        from reportlab.lib.styles import ParagraphStyle as _PS
+        from reportlab.platypus import (SimpleDocTemplate as _SDT, Paragraph as _P,
+                                         Spacer as _Sp, Table as _T, TableStyle as _TS,
+                                         HRFlowable as _HR, Flowable as _F)
+        from reportlab.lib.enums import TA_CENTER as _TAC
+        import io as _io
+ 
+        buf     = _io.BytesIO()
+        BD      = _colors.HexColor("#1e3a8a"); BM=_colors.HexColor("#1d4ed8")
+        BP      = _colors.HexColor("#DBEAFE"); BR=_colors.HexColor("#EFF6FF")
+        GD      = _colors.HexColor("#374151"); GM=_colors.HexColor("#6B7280")
+        W_      = _colors.white;               BK=_colors.HexColor("#111827")
+        PW, PH  = _A4
+ 
+        def sty(name,**kw):
+            d=dict(fontName='Helvetica',fontSize=9,textColor=BK,spaceAfter=3,leading=14)
+            d.update(kw); return _PS(name,**d)
+ 
+        S={'b':sty('b_ld'),'l':sty('l_ld',fontName='Helvetica-Bold',fontSize=8,textColor=BD,spaceAfter=1),
+           'f':sty('f_ld',fontName='Helvetica-Oblique',fontSize=8.5,textColor=BM,backColor=BP,leftIndent=8,rightIndent=8),
+           'ft':sty('ft_ld',fontSize=7.5,textColor=GM,alignment=_TAC)}
+ 
+        class Cover(_F):
+            def __init__(self,w): _F.__init__(self); self.w=w; self.height=90
+            def draw(self):
+                c=self.canv
+                c.setFillColor(BD); c.rect(0,52,self.w,38,fill=1,stroke=0)
+                c.setFillColor(BM); c.rect(0,22,self.w,30,fill=1,stroke=0)
+                c.setFillColor(_colors.HexColor("#0f172a")); c.rect(0,0,self.w,22,fill=1,stroke=0)
+                c.setFillColor(W_); c.setFont("Helvetica-Bold",22)
+                c.drawCentredString(self.w/2,66,"LEAD METRICS DASHBOARD")
+                c.setFillColor(_colors.HexColor("#BFDBFE")); c.setFont("Helvetica-Bold",11)
+                c.drawCentredString(self.w/2,34,"Logic & Metric Reference Guide")
+                c.setFillColor(_colors.HexColor("#DBEAFE")); c.setFont("Helvetica",8.5)
+                c.drawCentredString(self.w/2,8,
+                    "LawSikho & Skill Arbitrage  \u00b7  Internal Use Only")
+ 
+        class Ban(_F):
+            def __init__(self,icon,title,color=None,w=None):
+                _F.__init__(self); self.icon=icon; self.title=title
+                self.color=color or BD; self.w=w or (PW-30*_mm); self.height=22
+            def draw(self):
+                c=self.canv; c.setFillColor(self.color)
+                c.roundRect(0,0,self.w,self.height,4,fill=1,stroke=0)
+                c.setFillColor(W_); c.setFont("Helvetica-Bold",11)
+                c.drawString(10,6,f"{self.icon}  {self.title}")
+ 
+        def bt(rows,cw=None):
+            cw=cw or [44*_mm,116*_mm]
+            data=[[_P(f"<b>{r[0]}</b>",S['l']),_P(r[1],S['b'])] for r in rows]
+            t=_T(data,colWidths=cw,hAlign='LEFT')
+            t.setStyle(_TS([('BACKGROUND',(0,0),(0,-1),BP),('VALIGN',(0,0),(-1,-1),'TOP'),
+                ('GRID',(0,0),(-1,-1),0.3,_colors.HexColor("#BFDBFE")),
+                ('ROWBACKGROUNDS',(0,0),(-1,-1),[W_,BR]),
+                ('LEFTPADDING',(0,0),(-1,-1),6),('RIGHTPADDING',(0,0),(-1,-1),6),
+                ('TOPPADDING',(0,0),(-1,-1),4),('BOTTOMPADDING',(0,0),(-1,-1),4)]))
+            return t
+ 
+        def lt(rows):
+            data=[[_P(f"<b>{r[0]}</b>",S['l']),_P(r[1],S['f'])] for r in rows]
+            t=_T(data,colWidths=[52*_mm,108*_mm],hAlign='LEFT')
+            t.setStyle(_TS([('VALIGN',(0,0),(-1,-1),'TOP'),
+                ('GRID',(0,0),(-1,-1),0.3,_colors.HexColor("#93C5FD")),
+                ('ROWBACKGROUNDS',(0,0),(-1,-1),[W_,BR]),
+                ('LEFTPADDING',(0,0),(-1,-1),6),('RIGHTPADDING',(0,0),(-1,-1),6),
+                ('TOPPADDING',(0,0),(-1,-1),4),('BOTTOMPADDING',(0,0),(-1,-1),4)]))
+            return t
+ 
+        SP=_Sp; HR_=lambda:_HR(width="100%",thickness=0.6,color=_colors.HexColor("#93C5FD"),spaceAfter=6,spaceBefore=4)
+        cw_=PW-30*_mm
+ 
+        story=[
+            SP(1,18*_mm),Cover(cw_),SP(1,10*_mm),
+            _P("This document explains every metric, table, and column in the Lead Metrics Dashboard.",S['b']),
+            SP(1,6*_mm),
+            Ban("📋","SECTION 1 — TABS OVERVIEW"),SP(1,3*_mm),
+            bt([("📊 Assigned Leads Report",
+                 "Three callerwise tables: (1) Assigned Leads Distribution — all ContactStage buckets per caller; "
+                 "(2) Potential Breached Leads — overdue follow-up + no recent call activity; "
+                 "(3) Less Dialled Leads — DNP leads with <11 dial attempts."),
+                ("🧠 Insights & Teamwise",
+                 "Six auto-generated insights + three teamwise versions of all tables.")]),
+            SP(1,6*_mm),
+            Ban("📊","SECTION 2 — ASSIGNED LEADS DISTRIBUTION"),SP(1,3*_mm),
+            _P("One row per caller. Sorted by TOTAL descending. Date filter = AssignedOn field.",S['b']),SP(1,2*_mm),
+            lt([
+                ("FRESH","New Lead + Re-enquired Lead + Opportunity Created"),
+                ("DNP","Call Not Picking Up + Call Not Connected"),
+                ("CBL","Call Back Later"),("FLW-UP","Follow Up For Closure"),
+                ("COUNSELLED","Counselled lead"),("DISCOVERY","Discovery Call Done"),
+                ("ROADMAP","Roadmap Done"),("MBL","May buy later"),
+                ("ACTUALLY-ENROLLED","Actually Enrolled"),
+                ("INVALID/NTINTRSTD","Irrelevant lead + Not Interested + Invalid"),
+                ("BOOKING-RCVD","Booking fees received"),("LOAN-PNDG","Loan pending"),
+                ("COLL-DNE","Collections done"),("PRE-SALES","Pre-Sales Registrations"),
+                ("COURSE ENROLLED","Course Enrolled"),
+                ("TOTAL","Sum of all stage columns = total assigned leads for this caller/team."),
+            ]),SP(1,6*_mm),
+            Ban("⚠️","SECTION 3 — POTENTIAL BREACHED LEADS"),SP(1,3*_mm),
+            lt([
+                ("Condition 1","Follow_up_date IS NULL OR Follow_up_date < today (IST)."),
+                ("Condition 2","LastCalledDate < today minus 3 days (both conditions required)."),
+                ("Stages","CBL · FLW-UP · COUNSELLED · DISCOVERY · ROADMAP only."),
+                ("TOTAL","Sum of all five stage columns."),
+            ]),SP(1,6*_mm),
+            Ban("📞","SECTION 4 — LESS DIALLED LEADS"),SP(1,3*_mm),
+            lt([
+                ("Filter","Assigned_On_Call_Counter < 11 (fewer than 11 call attempts since assignment)."),
+                ("CALL NOT PICKING UP","ContactStage = 'Call Not Picking Up' with <11 attempts."),
+                ("CALL NOT CONNECTED","ContactStage = 'Call Not Connected' with <11 attempts."),
+                ("TOTAL","Sum of both columns."),
+            ]),SP(1,6*_mm),
+            Ban("📖","KEY TERMS GLOSSARY",color=GD),SP(1,3*_mm),
+            bt([
+                ("AssignedOn","Date the lead was assigned. Primary date filter for the dashboard."),
+                ("Owner","Caller the lead is assigned to. Mapped via lowercase merge key to Caller Name."),
+                ("ContactStage","Current CRM lifecycle stage. Drives all bucketing logic."),
+                ("Follow_up_date","Scheduled follow-up date. NULL or past = overdue."),
+                ("LastCalledDate","Date last called. Used in breached leads filter."),
+                ("Assigned_On_Call_Counter","Call attempts since assignment. Used in less-dialled filter."),
+                ("TOTAL row","Bold dark row at bottom summing all numeric columns."),
+            ]),SP(1,8*_mm),HR_(),
+            _P("Designed by Amit Ray  \u00b7  amitray@lawsikho.in  \u00b7  "
+               "For Internal Use of Sales and Operations Team Only. All Rights Reserved.",S['ft']),
+        ]
+        doc=_SDT(buf,pagesize=_A4,leftMargin=15*_mm,rightMargin=15*_mm,
+                 topMargin=14*_mm,bottomMargin=14*_mm,
+                 title="Lead Metrics — Logic Reference Guide",author="Amit Ray")
+        doc.build(story)
+        return buf.getvalue()
+ 
+    st.sidebar.markdown("""
+    <div style='padding:.5rem 0 .4rem; text-align:center;'>
+        <div style='font-size:.72rem; font-weight:700; text-transform:uppercase;
+                    letter-spacing:1px; color:var(--text-muted,#6B7280);'>Report Controls</div>
+    </div>
+    """, unsafe_allow_html=True)
+ 
+    teams_ld, verts_ld, df_meta_ld = _ld_get_metadata()
+    min_dr, max_dr = _ld_available_dates()
+    min_date_ld = pd.Timestamp(min_dr).date()
+    max_date_ld = pd.Timestamp(max_dr).date()
+ 
+    date_range_ld = st.sidebar.date_input(
+        "📅 Date Range", value=(max_date_ld, max_date_ld),
+        min_value=min_date_ld, max_value=max_date_ld,
+        format="DD-MM-YYYY", key="ld_date_range_cd"
+    )
+    if isinstance(date_range_ld, tuple) and len(date_range_ld) == 2:
+        start_date_ld, end_date_ld = date_range_ld
+    else:
+        start_date_ld = end_date_ld = (
+            date_range_ld if not isinstance(date_range_ld, tuple) else date_range_ld[0])
+ 
+    # ── Role-aware sidebar filters ──────────────────────────
+    _role     = st.session_state.get('rf_role', 'admin')
+    _rf_teams = st.session_state.get('rf_teams', [])
+    _rf_cname = st.session_state.get('rf_caller_name', '')
+
+    if _role == 'admin':
+        sel_team_ld = st.sidebar.multiselect("👥 Filter by Team",     options=teams_ld, key="ld_team_cd")
+        sel_vert_ld = st.sidebar.multiselect("👑 Filter by Vertical", options=verts_ld, key="ld_vert_cd")
+        search_ld   = st.sidebar.text_input("👤 Search Caller Name",                    key="ld_search_cd")
+    elif _role == 'vertical_head':
+        sel_team_ld = _rf_teams
+        sel_vert_ld = []
+        search_ld   = st.sidebar.text_input("👤 Search Caller Name", key="ld_search_cd")
+        st.sidebar.caption(f"🔒 Showing: {', '.join(_rf_teams)}")
+    elif _role in ('tl', 'trainer'):
+        sel_team_ld = _rf_teams
+        sel_vert_ld = []
+        search_ld   = st.sidebar.text_input("👤 Search Caller Name", key="ld_search_cd")
+        st.sidebar.caption(f"🔒 Team: {', '.join(_rf_teams)}")
+    else:  # caller
+        sel_team_ld = []
+        sel_vert_ld = []
+        search_ld   = _rf_cname
+        st.sidebar.caption(f"👤 Viewing: {_rf_cname}")
+ 
+    gen_ld = st.sidebar.button("📊 Generate Leads Report", key="ld_gen_cd")
+
+    last_upd_ld  = _ld_last_update()
+    disp_start   = start_date_ld.strftime('%d-%m-%Y')
+    disp_end     = end_date_ld.strftime('%d-%m-%Y')
+ 
+    st.markdown(f"""
+    <div class="ld-header">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:.75rem;">
+            <div>
+                <div class="ld-title">📊 LEAD METRICS</div>
+                <div class="ld-subtitle">ASSIGNMENT PERIOD&nbsp;·&nbsp; {disp_start} to {disp_end}</div>
+            </div>
+            <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.25rem;">
+                <span class="ld-badge"><span class="ld-pulse"></span>LEADSQUARED DATA</span>
+                <span class="ld-badge">🕐 UPDATED AT: {last_upd_ld}</span>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+ 
+    tab_ld1, tab_ld2 = st.tabs(["📊 Assigned Leads Report", "🧠 Insights & Teamwise"])
+ 
+    with tab_ld1:
+        if gen_ld:
+            with st.spinner("Fetching lead data…"):
+                df_raw_ld = _ld_fetch(start_date_ld, end_date_ld)
+ 
+            if df_raw_ld.empty:
+                st.warning("No leads found for the selected period.")
+            else:
+                with st.spinner("Processing…"):
+                    df_m_ld = _merge_team_ld(df_raw_ld, df_meta_ld)
+                    if sel_team_ld: df_m_ld = df_m_ld[df_m_ld['Team Name'].isin(sel_team_ld)]
+                    if sel_vert_ld: df_m_ld = df_m_ld[df_m_ld['Vertical'].isin(sel_vert_ld)]
+                    if search_ld:   df_m_ld = df_m_ld[df_m_ld['Owner'].str.contains(search_ld, case=False, na=False)]
+ 
+                if df_m_ld.empty:
+                    st.error("No results match the selected filters.")
+                else:
+
+                    df_valid_ld = df_m_ld[df_m_ld['Team Name'] != "Others"]
+                    _ld_section_header("SUMMARY METRICS")
+                    fresh_c = int(df_m_ld['ContactStage'].isin(_STAGE_MAP['FRESH']).sum())
+                    enrolled_c = int(df_valid_ld['ContactStage'].eq("Actually Enrolled").sum())
+                    discovery_c = int(df_valid_ld['ContactStage'].eq("Discovery Call Done").sum())
+                    roadmap_c = int(df_valid_ld['ContactStage'].str.contains('Roadmap', case=False, na=False).sum())
+                    followup_c = int(df_valid_ld['ContactStage'].isin(["Follow Up For Closure","Counselled lead"]).sum())
+                    kc = st.columns(8)
+                    for col, (lbl, val, ico) in zip(kc, [
+                        ("Total Assigned Leads", f"{len(df_m_ld):,}", "📋"),
+                        ("Fresh Leads", f"{fresh_c:,}", "🌱"),
+                        ("Lead Conversions", f"{enrolled_c:,}", "🎓"),
+                        ("Discovery", f"{discovery_c:,}", "🔍"),
+                        ("Roadmap", f"{roadmap_c:,}", "🗺️"),
+                        ("Follow Up / Counselled", f"{followup_c:,}", "📞"),
+                        ("Active Callers", df_m_ld['Owner'].nunique(), "👤"),
+                        ("Active Teams", df_m_ld['Team Name'].nunique(), "👥"),
+                    ]):
+                        with col:
+                            st.markdown(f"""
+                            <div class="ld-metric-card">
+                                <div class="ld-metric-label">{ico} {lbl}</div>
+                                <div class="ld-metric-value">{val}</div>
+                            </div>""", unsafe_allow_html=True)
+ 
+                    st.divider()
+ 
+                    _ld_section_header("ASSIGNED LEADS DISTRIBUTION")
+                    df_ac_ld = _proc_assigned_caller(df_m_ld)
+                    _show_caller(df_ac_ld, "No assigned lead data found.")
+
+                    if not df_m_ld.empty:
+                        col_dl_ac, _ = st.columns([1, 3])
+                        with col_dl_ac:
+                            st.download_button(
+                                label="📥 Download Assigned Leads (.xlsx)",
+                                data=_build_leads_xlsx_bytes_ld(df_m_ld),
+                                file_name=f"Assigned_Leads_{disp_start}_to_{disp_end}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key="dl_ac_leads_ld_xlsx"
+                            )
+
+                    st.divider()
+
+                    _ld_section_header("POTENTIAL BREACHED LEADS AFTER ASSIGNMENT")
+                    cut_disp = (pd.Timestamp.now().normalize() - pd.Timedelta(days=3)).strftime('%d-%m-%Y')
+                    st.caption(f"Leads Breached and dialled before {cut_disp} · "
+                               "of stages Call Back Later, Follow Up, Counselled, Discovery & Roadmap.")
+                    df_bc_ld = _proc_breached_caller(df_m_ld)
+                    _show_caller(df_bc_ld, "No potential breached leads found.")
+ 
+                    df_bc_raw_ld = _get_breached(df_m_ld)
+                    if not df_bc_raw_ld.empty:
+                        col_dl_bc, _ = st.columns([1, 3])
+                        with col_dl_bc:
+                            st.download_button(
+                                label="📥 Download Breached Leads (.xlsx)",
+                                data=_build_leads_xlsx_bytes_ld(df_bc_raw_ld),
+                                file_name=f"Breached_Leads_{disp_start}_to_{disp_end}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key="dl_bc_leads_ld_xlsx"
+                            )
+                    st.divider()
+
+                    _ld_section_header("LESS DIALLED LEADS AFTER ASSIGNMENT")
+                    st.caption("DNP stages (Call Not Picking Up / Call Not Connected) dialled less than 11 times after assignment to counsellor.")
+                    df_ldc_ld = _proc_ld_caller(df_m_ld)
+                    _show_caller(df_ldc_ld, "No less-dialled leads found.")
+
+                    df_ld_raw_ld = _get_less_dialled(df_m_ld)
+                    if not df_ld_raw_ld.empty:
+                        col_dl_ld, _ = st.columns([1, 3])
+                        with col_dl_ld:
+                            st.download_button(
+                                label="📥 Download Less Dialled Leads (.xlsx)",
+                                data=_build_leads_xlsx_bytes_ld(df_ld_raw_ld),
+                                file_name=f"Less_Dialled_Leads_{disp_start}_to_{disp_end}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                key="dl_ld_leads_ld_xlsx"
+                            )
+
+                    st.session_state.update({
+                        'ld_merged_cd'   : df_m_ld.copy(),
+                        'ld_ac_cd'       : df_ac_ld,
+                        'ld_bc_cd'       : df_bc_ld,
+                        'ld_ldc_cd'      : df_ldc_ld,
+                        'ld_generated_cd': True,
+                    })
+        else:
+            st.markdown("""
+            <div style='text-align:center;padding:6rem 1rem;opacity:.6;'>
+                <div style='font-size:4rem;margin-bottom:1rem;'>📊</div>
+                <div style='font-size:.9rem;font-weight:600;'>
+                    Select a date range and click <b>Generate Leads Report</b>
+                </div>
+            </div>""", unsafe_allow_html=True)
+ 
+    # ── TAB 2 ──────────────────────────────────────────────────────────────────
+    with tab_ld2:
+        if st.session_state.get('ld_generated_cd') and 'ld_merged_cd' in st.session_state:
+            df_m_ld  = st.session_state['ld_merged_cd']
+            df_ac_ld = st.session_state.get('ld_ac_cd',  pd.DataFrame())
+            df_bc_ld = st.session_state.get('ld_bc_cd',  pd.DataFrame())
+            df_ld_ld = st.session_state.get('ld_ldc_cd', pd.DataFrame())
+ 
+            df_at_ld  = _proc_assigned_team(df_m_ld)
+            df_bt_ld  = _proc_breached_team(df_m_ld)
+            df_ldt_ld = _proc_ld_team(df_m_ld)
+ 
+            _ld_section_header("🧠 GENERATED LEAD INSIGHTS")
+            insights_ld = _compute_insights(df_ac_ld, df_bc_ld, df_ld_ld, df_at_ld, df_bt_ld, df_ldt_ld)
+            if insights_ld:
+                ic = st.columns(2)
+                for i, ins in enumerate(insights_ld):
+                    with ic[i % 2]:
+                        st.markdown(f"""
+                        <div class="ld-insight-card {ins['type']}">
+                            <div style='display:flex;align-items:center;gap:.4rem;'>
+                                <span class="insight-icon">{ins['icon']}</span>
+                                <span style='font-size:.82rem;font-weight:700;color:var(--text-primary,#111827);'>
+                                    {ins['title']}</span>
+                            </div>
+                            <div style='font-size:.76rem;color:var(--text-muted,#6B7280);line-height:1.5;'>
+                                {ins['body']}</div>
+                        </div>""", unsafe_allow_html=True)
+            else:
+                st.info("Not enough data to generate insights.")
+ 
+            st.divider()
+            _ld_section_header("TEAMWISE ASSIGNED LEADS DISTRIBUTION")
+            _show_team(df_at_ld, "No teamwise data available.")
+ 
+            st.divider()
+            _ld_section_header("TEAMWISE POTENTIAL BREACHED LEADS AFTER ASSIGNMENT")
+            st.caption("Potential leads not dialled in last 3 days / having a older follow up date.")
+            _show_team(df_bt_ld, "No teamwise breached data found.")
+ 
+            st.divider()
+            _ld_section_header("TEAMWISE LESS DIALLED LEADS AFTER ASSIGNMENT")
+            st.caption("DNP Leads dialled less than 11 times after assignment to counsellor")
+            _show_team(df_ldt_ld, "No teamwise less-dialled data found.")
+        else:
+            st.markdown("""
+            <div style='text-align:center;padding:6rem 1rem;opacity:.6;'>
+                <div style='font-size:4rem;margin-bottom:1rem;'>🧠</div>
+                <div style='font-size:.9rem;font-weight:600;'>
+                    Generate a <b>Leads Report</b> first — insights will appear here automatically.
+                </div>
+            </div>""", unsafe_allow_html=True)
+
 # --- MAIN APP ROUTER ---
 if not st.session_state.get('password_correct', False):
     show_homepage_with_login()
@@ -4793,6 +7614,7 @@ else:
     </style>
     """, unsafe_allow_html=True)
 
+    # ── Apply role constraints before any dashboard runs ──────
     _apply_role_filters()
 
     ri   = st.session_state.get('auth_role_info', {'role': 'admin'})
@@ -4807,10 +7629,16 @@ else:
         'caller'       : '📞 Caller',
     }
 
-    _lc = "#10B981"
-    _sc = "#059669"
-    _shc = "rgba(16,185,129,.35)"
+    # ── Previous choice → accent colour ───────────────────────
+    _prev = st.session_state.get("dashboard_choice", "Calling Metrics")
+    if _prev == "Calling Metrics":
+        _lc, _sc, _shc = "#F97316", "rgba(249,115,22,.9)", "rgba(249,115,22,.5)"
+    elif _prev == "Revenue Metrics":
+        _lc, _sc, _shc = "#10B981", "rgba(16,185,129,.9)", "rgba(16,185,129,.5)"
+    else:
+        _lc, _sc, _shc = "#3B82F6", "rgba(59,130,246,.9)", "rgba(59,130,246,.5)"
 
+    # ── User info pill ─────────────────────────────────────────
     st.sidebar.markdown(f"""
     <div style='margin:.4rem 0 .6rem;padding:.55rem .7rem;
                 background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);
@@ -4825,6 +7653,8 @@ else:
     </div>
     """, unsafe_allow_html=True)
 
+    # ── Sign Out ───────────────────────────────────────────────
+    # Center the sign-out button via CSS injection
     st.sidebar.markdown("""
     <style>
     div[data-testid="stSidebar"] div[data-testid="stButton"]:first-of-type > button {
@@ -4849,6 +7679,7 @@ else:
             del st.session_state[k]
         st.rerun()
 
+    # ── Logo ───────────────────────────────────────────────────
     st.sidebar.markdown(f"""
     <div style='padding:.7rem 0 .5rem;text-align:center;
                 border-bottom:1px solid rgba(128,128,128,.15);'>
@@ -4865,4 +7696,24 @@ else:
     </div>
     """, unsafe_allow_html=True)
 
-    run_revenue_dashboard()
+    # ── Navigation ─────────────────────────────────────────────
+    st.sidebar.markdown("""
+    <div style='padding:.5rem 0 .2rem;text-align:center;'>
+        <div style='font-size:.72rem;font-weight:700;text-transform:uppercase;
+                    letter-spacing:1px;color:var(--text-muted,#6B7280);'>Dashboards Navigation</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    choice = st.sidebar.selectbox(
+        "Navigation",
+        ["Calling Metrics", "Revenue Metrics", "Lead Metrics"],
+        key="dashboard_choice",
+        label_visibility="collapsed"
+    )
+
+    if choice == "Calling Metrics":
+        run_calling_dashboard()
+    elif choice == "Revenue Metrics":
+        run_revenue_dashboard()
+    else:
+        run_leads_dashboard()
