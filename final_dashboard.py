@@ -13,7 +13,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib import colors
 from reportlab.lib.units import mm
 from reportlab.lib.styles import ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Flowable
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Flowable, PageBreak
 from reportlab.lib.enums import TA_CENTER
 
 # Openpyxl imports (used by Revenue dashboard)
@@ -28,7 +28,7 @@ st.set_page_config(
     page_title="Analytics Dashboard — LawSikho",
     page_icon="📊",
     layout="wide",
-    initial_sidebar_state="collapsed"    
+    initial_sidebar_state="expanded"    
 )
 
 def get_bq_client():
@@ -379,6 +379,390 @@ def get_stats():
     except:
         return "N/A", "—", "N/A", "—", "N/A", "—"
 
+@st.cache_data(show_spinner=False)
+def generate_consolidated_metrics_guide() -> bytes:
+    """Consolidated PDF guide covering all three dashboards."""
+    buffer = io.BytesIO()
+    W, H = A4
+
+    # ── Color palettes ──
+    O_DARK = colors.HexColor("#7c2d12"); O_MID = colors.HexColor("#431407")
+    O_PALE = colors.HexColor("#FEF3E8"); O_ROW  = colors.HexColor("#FFF8F3")
+    G_DARK = colors.HexColor("#064e3b"); G_MID  = colors.HexColor("#065f46")
+    G_PALE = colors.HexColor("#DCFCE7"); G_ROW  = colors.HexColor("#F0FDF4")
+    B_DARK = colors.HexColor("#1e3a8a"); B_MID  = colors.HexColor("#1d4ed8")
+    B_PALE = colors.HexColor("#DBEAFE"); B_ROW  = colors.HexColor("#EFF6FF")
+    GR_DK  = colors.HexColor("#374151"); GR_MD  = colors.HexColor("#6B7280")
+    WHITE  = colors.white;               BLACK  = colors.HexColor("#111827")
+
+    def s(name, **kw):
+        d = dict(fontName='Helvetica', fontSize=9, textColor=BLACK, spaceAfter=3, leading=14)
+        d.update(kw); return ParagraphStyle(name, **d)
+
+    S_BOD  = s('bod')
+    S_FOOT = s('foot', fontSize=7.5, textColor=GR_MD, alignment=TA_CENTER)
+
+    def lbl_s(name, color): return s(name, fontName='Helvetica-Bold', fontSize=8, textColor=color, spaceAfter=1)
+    def frm_s(name, color, bg): return s(name, fontName='Helvetica-Oblique', fontSize=8.5, textColor=color, backColor=bg, leftIndent=8, rightIndent=8)
+
+    class MasterCover(Flowable):
+        def __init__(self, w): Flowable.__init__(self); self.w = w; self.height = 130
+        def draw(self):
+            c = self.canv
+            c.setFillColor(colors.HexColor("#0f172a")); c.rect(0, 88, self.w, 42, fill=1, stroke=0)
+            c.setFillColor(colors.HexColor("#1e293b")); c.rect(0, 50, self.w, 38, fill=1, stroke=0)
+            c.setFillColor(colors.HexColor("#0f172a")); c.rect(0, 0,  self.w, 50, fill=1, stroke=0)
+            c.setFillColor(WHITE); c.setFont("Helvetica-Bold", 24)
+            c.drawCentredString(self.w/2, 102, "ANALYTICS DASHBOARD")
+            c.setFillColor(colors.HexColor("#94a3b8")); c.setFont("Helvetica-Bold", 12)
+            c.drawCentredString(self.w/2, 61, "Metrics & Logic Reference Guide")
+            c.setFillColor(colors.HexColor("#64748b")); c.setFont("Helvetica", 8)
+            c.drawCentredString(self.w/2, 50, "Covering all three dashboards: Calling  ·  Revenue  ·  Leads")
+            bw = (self.w - 40) / 3
+            for i, (col, lbl) in enumerate([(O_DARK, "CALLING"), (G_DARK, "REVENUE"), (B_DARK, "LEADS")]):
+                x = 20 + i * bw
+                c.setFillColor(col); c.roundRect(x, 22, bw - 8, 20, 3, fill=1, stroke=0)
+                c.setFillColor(WHITE); c.setFont("Helvetica-Bold", 9)
+                c.drawCentredString(x + (bw - 8)/2, 28, lbl)
+            c.setFillColor(colors.HexColor("#475569")); c.setFont("Helvetica", 7.5)
+            c.drawCentredString(self.w/2, 6, "LawSikho & Skill Arbitrage  ·  Sales & Operations Team  ·  Internal Use Only")
+
+    class PartBanner(Flowable):
+        def __init__(self, part_no, title, color, w):
+            Flowable.__init__(self); self.part_no = part_no; self.title = title
+            self.color = color; self.w = w; self.height = 36
+        def draw(self):
+            c = self.canv
+            c.setFillColor(self.color); c.rect(0, 0, self.w, self.height, fill=1, stroke=0)
+            c.setFillColor(colors.HexColor("#ffffff66")); c.setFont("Helvetica", 8)
+            c.drawString(10, 24, self.part_no)
+            c.setFillColor(WHITE); c.setFont("Helvetica-Bold", 15)
+            c.drawString(10, 7, self.title)
+
+    class SectionBanner(Flowable):
+        def __init__(self, icon, title, color, w=None):
+            Flowable.__init__(self); self.icon = icon; self.title = title
+            self.color = color; self.w = w or (W - 30*mm); self.height = 22
+        def draw(self):
+            c = self.canv
+            c.setFillColor(self.color); c.roundRect(0, 0, self.w, self.height, 4, fill=1, stroke=0)
+            c.setFillColor(WHITE); c.setFont("Helvetica-Bold", 11)
+            c.drawString(10, 6, f"{self.icon}  {self.title}")
+
+    def btable(rows, pale, row_col, lbl_color, grid_col=None, cw=None):
+        gc = grid_col or pale
+        SL = lbl_s('lbl_b', lbl_color)
+        data = [[Paragraph(f"<b>{r[0]}</b>", SL), Paragraph(r[1], S_BOD)] for r in rows]
+        t = Table(data, colWidths=cw or [44*mm, 116*mm], hAlign='LEFT')
+        t.setStyle(TableStyle([
+            ('BACKGROUND', (0,0),(0,-1), pale), ('VALIGN',(0,0),(-1,-1),'TOP'),
+            ('GRID',(0,0),(-1,-1),0.3,gc), ('ROWBACKGROUNDS',(0,0),(-1,-1),[WHITE,row_col]),
+            ('LEFTPADDING',(0,0),(-1,-1),6),('RIGHTPADDING',(0,0),(-1,-1),6),
+            ('TOPPADDING',(0,0),(-1,-1),4),('BOTTOMPADDING',(0,0),(-1,-1),4),
+        ])); return t
+
+    def ltable(rows, pale, row_col, lbl_color, frm_color, grid_col=None, cw=None):
+        gc = grid_col or pale
+        SL = lbl_s('lbl_l', lbl_color); SF = frm_s('frm_l', frm_color, pale)
+        data = [[Paragraph(f"<b>{r[0]}</b>", SL), Paragraph(r[1], SF)] for r in rows]
+        t = Table(data, colWidths=cw or [52*mm, 108*mm], hAlign='LEFT')
+        t.setStyle(TableStyle([
+            ('VALIGN',(0,0),(-1,-1),'TOP'), ('GRID',(0,0),(-1,-1),0.3,gc),
+            ('ROWBACKGROUNDS',(0,0),(-1,-1),[WHITE,row_col]),
+            ('LEFTPADDING',(0,0),(-1,-1),6),('RIGHTPADDING',(0,0),(-1,-1),6),
+            ('TOPPADDING',(0,0),(-1,-1),4),('BOTTOMPADDING',(0,0),(-1,-1),4),
+        ])); return t
+
+    SP  = Spacer
+    HR  = lambda col: HRFlowable(width="100%", thickness=0.6, color=col, spaceAfter=6, spaceBefore=4)
+    BAN = SectionBanner
+    cw  = W - 30*mm
+
+    # ── Shortcuts per dashboard ──
+    def obt(rows, extra_cw=None): return btable(rows, O_PALE, O_ROW, O_DARK, colors.HexColor("#FDE68A"), cw=extra_cw)
+    def olt(rows):                 return ltable(rows, O_PALE, O_ROW, O_DARK, O_MID, colors.HexColor("#FDE68A"))
+    def gbt(rows, extra_cw=None): return btable(rows, G_PALE, G_ROW, G_DARK, colors.HexColor("#D1FAE5"), cw=extra_cw)
+    def glt(rows):                 return ltable(rows, G_PALE, G_ROW, G_DARK, G_MID, colors.HexColor("#A7F3D0"))
+    def bbt(rows, extra_cw=None): return btable(rows, B_PALE, B_ROW, B_DARK, colors.HexColor("#BFDBFE"), cw=extra_cw)
+    def blt(rows):                 return ltable(rows, B_PALE, B_ROW, B_DARK, B_MID, colors.HexColor("#93C5FD"))
+
+    story = [
+        SP(1,18*mm), MasterCover(cw), SP(1,10*mm),
+        Paragraph("This guide covers all three analytics dashboards in a single reference document. "
+                  "Use it to understand how every metric, table, column, and figure is calculated.", S_BOD),
+        SP(1,4*mm),
+        HR(colors.HexColor("#334155")),
+
+        # ══════════════════════════════════════════════
+        # PART I — CALLING METRICS DASHBOARD
+        # ══════════════════════════════════════════════
+        PageBreak(),
+        PartBanner("PART I", "CALLING METRICS DASHBOARD", O_DARK, cw), SP(1,8*mm),
+        Paragraph("Logic & reference for the Calling Metrics Dashboard — agents, call stats, stage changes, "
+                  "productive hours, breaks, and CDR downloads.", S_BOD), SP(1,6*mm),
+
+        BAN("📋","SECTION 1 — DASHBOARD TABS OVERVIEW", O_DARK), SP(1,3*mm),
+        Paragraph("The dashboard has three tabs.", S_BOD), SP(1,2*mm),
+        obt([
+            ("🚀 Dynamic Dashboard","Main report tab. Agent-level performance for the selected date range — Top 3 highlights, Summary KPIs, and Agent Performance Table. Click 'Generate Dynamic Report' to load."),
+            ("📅 Duration Report","Team-by-team breakdown showing call duration metrics only. TLs/ATLs grouped separately. Click 'Generate Duration Report' in the sidebar."),
+            ("🧠 Insights & Leaderboard","Auto-populated from whichever report was generated last. Shows team insights and a Team Leaderboard. No separate button needed."),
+        ]), SP(1,6*mm),
+
+        BAN("🏆","SECTION 2 — TOP 6 PERFORMANCE HIGHLIGHTS", O_DARK), SP(1,3*mm),
+        Paragraph("Six cards arranged in two rows of three — each picks the best agent in one dimension.", S_BOD), SP(1,2*mm),
+        obt([
+            ("🥇 Top Performer","Agent with the highest total Call Duration for calls above 3 minutes."),
+            ("✆ Highest Calls","Agent with the highest Total Calls count across all statuses."),
+            ("🗣️ Deep Engagement","Agent with the most calls lasting 20+ minutes (>= 1200 seconds)."),
+            ("📋 Highest Follow Ups","Agent with the highest Follow Up For Closure stage changes in the stage_changed table."),
+            ("🔍 Highest Discovery Done","Agent with the highest Discovery Call Done stage changes."),
+            ("🗺️ Highest Roadmap Done","Agent with the highest Roadmap Done stage changes."),
+        ]), SP(1,6*mm),
+
+        BAN("📊","SECTION 3 — SUMMARY METRICS (KPI CARDS)", O_DARK), SP(1,3*mm),
+        Paragraph("Eight KPI cards — aggregate numbers across ALL agents for the selected date range.", S_BOD), SP(1,2*mm),
+        olt([
+            ("Acefone Calls","Count of rows where source = 'Acefone'."),
+            ("Ozonetel Calls","Count of rows where source = 'Ozonetel'."),
+            ("Manual Calls","Count of rows where source = 'Manual'. Calls logged manually and approved."),
+            ("Unique Leads","Count of distinct phone numbers across all sources."),
+            ("Avg Prod Hrs","Average Productive Hours = (10 hrs x active days) - total break time >= 15 mins."),
+            ("Follow Ups Done","Total Follow Up For Closure stage changes across all agents."),
+            ("Discovery Done","Total Discovery Call Done stage changes across all agents."),
+            ("Roadmaps Done","Total Roadmap Done stage changes (stored as 'RoadmapÂ Done' in BigQuery)."),
+        ]), SP(1,6*mm),
+
+        BAN("📋","SECTION 4 — AGENT PERFORMANCE TABLE", O_DARK), SP(1,3*mm),
+        Paragraph("One row per active agent, sorted by Call Duration > 3 Mins descending.", S_BOD), SP(1,2*mm),
+        obt([
+            ("CALLER","Agent name from the team sheet, normalised via lowercase merge key."),
+            ("TEAM","Team name from the team sheet. Shows 'Others' if unmatched."),
+            ("TOTAL CALLS","All calls for this agent — all statuses combined."),
+            ("CALL STATUS","'X Ans / Y Unans' — answered and missed/unanswered counts."),
+            ("PICK UP RATIO %","Answered ÷ Total Calls × 100."),
+            ("CALLS > 3 MINS","Count of calls where duration >= 180 seconds."),
+            ("CALLS 15-20 MINS","Count of calls where duration >= 900 and < 1200 seconds."),
+            ("20+ MIN CALLS","Count of calls where duration >= 1200 seconds."),
+            ("CALL DURATION > 3 MINS","Sum of duration for calls >= 3 minutes, shown as Xh Ym."),
+            ("FOLLOW UPS DONE","Follow Up For Closure stage changes attributed to this agent."),
+            ("DISCOVERY DONE","Discovery Call Done stage changes attributed to this agent."),
+            ("ROADMAPS DONE","Roadmap Done stage changes attributed to this agent."),
+            ("Productive Hours","(10 hrs x active days) - total break seconds. Current day: elapsed time from office start to last call end, minus mid-day breaks only."),
+            ("BREAKS (>=15 MINS)","Gaps between calls of 15+ minutes, shown per day. End-of-day gap excluded for current day."),
+            ("REMARKS","Auto-flags: Late Check-In (first call after 10:15 AM), Early Check-Out (last call before 8 PM), Low Calls (<40/day), Low Duration (<3h 15m/day), Excessive Breaks (>2 breaks/day), Less Productive (<5 hrs/day)."),
+        ], extra_cw=[46*mm, 114*mm]), SP(1,6*mm),
+
+        BAN("📅","SECTION 5 — DURATION REPORT TAB", O_DARK), SP(1,3*mm),
+        obt([
+            ("Team separation","Each team gets its own section. Teams with zero qualifying duration are skipped."),
+            ("TL / ATL separation","TLs, ATLs, ADs shown in a single 'TL Duration Report' section at the bottom."),
+            ("Columns shown","CALLER, TOTAL CALLS, CALL STATUS, PICK UP RATIO %, CALLS > 3 MINS, 15-20 MINS, 20+ MIN CALLS, CALL DURATION > 3 MINS."),
+            ("Sorting","Agents sorted by Call Duration > 3 Mins descending within each team."),
+        ]), SP(1,6*mm),
+
+        BAN("🏅","SECTION 6 — TEAM LEADERBOARD (INSIGHTS TAB)", O_DARK), SP(1,3*mm),
+        olt([
+            ("Team","Team name from the team sheet."),
+            ("Total Dur (h)","Sum of qualifying call duration (>3 min) in hours."),
+            ("Avg Dur/Agent (h)","Total Duration ÷ agent count for this team."),
+            ("Avg Prod Hrs (h)","Average productive hours per agent in this team."),
+            ("20+ Min Calls","Sum of 20+ minute calls across all agents in this team."),
+        ]), SP(1,6*mm),
+
+        BAN("📥","SECTION 7 — CDR & STAGE CHANGED DOWNLOAD", O_DARK), SP(1,3*mm),
+        Paragraph("Two download buttons below the Agent Performance Table: CDR (raw call records) and Stage Changed Report.", S_BOD), SP(1,2*mm),
+        obt([
+            ("New_Contact_Stage","Stage the lead moved to: Discovery Call Done, RoadmapÂ Done, Follow Up For Closure, etc."),
+            ("Stage_Changed_By","Agent who changed the stage. Mapped to Caller Name via team sheet merge key."),
+            ("call_duration","Call duration in seconds. Zero-duration answered calls excluded."),
+            ("call_owner","Agent name after team sheet normalisation."),
+            ("source","Data source: 'Acefone', 'Ozonetel', or 'Manual'."),
+        ]), SP(1,6*mm),
+
+        BAN("⚠️","SECTION 8 — MANUAL CALLS TABLE (DYNAMIC DASHBOARD)", O_DARK), SP(1,3*mm),
+        obt([
+            ("MANUAL CALLS COUNT","Total manual call entries for this agent. Sorted descending."),
+            ("MANUAL CALLS DURATION","Total duration of manual calls in Xh Ym."),
+            ("APPROVED BY","Unique approver names, deduplicated case-insensitively."),
+        ]), SP(1,6*mm),
+
+        BAN("📖","KEY TERMS GLOSSARY — CALLING", GR_DK), SP(1,3*mm),
+        obt([
+            ("Qualifying Call","Any call with duration >= 180 seconds (3 minutes)."),
+            ("Office Hours","10:00 AM to 8:00 PM IST (10 hours). Reference window for breaks and productive hours."),
+            ("Break","Gap between consecutive calls >= 900 seconds (15 minutes)."),
+            ("Productive Hours","(10 hrs x active days) - total break seconds."),
+            ("Late Check-In","First call of the day starts after 10:15 AM IST."),
+            ("Early Check-Out","Last call of the day ends before 8:00 PM IST."),
+            ("Merge Key","Lowercase-stripped agent name used to join call data with the team sheet."),
+            ("RoadmapÂ Done","Exact value stored in BigQuery for Roadmap Done. The Â is a BigQuery encoding artifact."),
+            ("Stage-only Callers","Agents with no calls but with at least one stage change — appear at the bottom with 0 in call columns."),
+        ], extra_cw=[46*mm, 114*mm]),
+        SP(1,8*mm), HR(colors.HexColor("#FBBF24")),
+
+        # ══════════════════════════════════════════════
+        # PART II — REVENUE METRICS DASHBOARD
+        # ══════════════════════════════════════════════
+        PageBreak(),
+        PartBanner("PART II", "REVENUE METRICS DASHBOARD", G_DARK, cw), SP(1,8*mm),
+        Paragraph("Logic & reference for the Revenue Metrics Dashboard — callerwise revenue, enrollments, "
+                  "collections, pending revenue, and dropped leads.", S_BOD), SP(1,6*mm),
+
+        BAN("🏆","SECTION 1 — TOP 3 REVENUE HIGHLIGHTS", G_DARK), SP(1,3*mm),
+        gbt([
+            ("🥇 Top Revenue — Caller","Caller with highest Calling Revenue (Enrollment Rev + Balance Rev). Excludes 'direct' and 'bootcamp-direct'."),
+            ("🎓 Most Enrollments","Caller with most rows where Enrollment = 'New Enrollment'."),
+            ("🥇 Top Revenue — Collection","Caller with highest Collection Revenue (Community + Bootcamp Collections)."),
+        ]), SP(1,4*mm),
+
+        BAN("💵","SECTION 2 — REVENUE SUMMARY METRICS", G_DARK), SP(1,3*mm),
+        Paragraph("Full-picture revenue breakdown. Filter: Fee Paid > 0 applied globally.", S_BOD), SP(1,2*mm),
+        glt([
+            ("Total Revenue (EXCL. Services)","Calling + Bootcamp-Direct + Bootcamp-Collection + Community + Direct/Other + DNA revenue."),
+            ("Calling Revenue (INCL. Funnel)","Fee Paid where Enrollment = 'New Enrollment' OR 'Balance Payment', caller NOT in {direct, bootcamp-direct}."),
+            ("Bootcamp-Direct Revenue","Fee Paid where Enrollment = 'New Enrollment' AND Caller = 'bootcamp-direct'."),
+            ("Bootcamp-Collection Revenue","Fee Paid where Enrollment = 'Bootcamp Collections - Balance Payments'."),
+            ("Community Revenue","Fee Paid from: Community Collections, Other Revenue with community Source, New Enrollment by 'direct' with community Source."),
+            ("Direct/Other Revenue","Fee Paid where Caller='direct', Source has no 'community', Enrollment in {Other Revenue, New Enrollment, Balance Payment}."),
+            ("DNA / Not Updated Yet","Fee Paid where Enrollment column is blank."),
+        ]), SP(1,4*mm),
+
+        BAN("🎓","SECTION 3 — ENROLLMENT SUMMARY METRICS", G_DARK), SP(1,3*mm),
+        glt([
+            ("Total Enrollments","All New Enrollment rows across all callers."),
+            ("Caller Enrollments","New Enrollment rows where Caller is NOT 'direct' or 'bootcamp-direct'."),
+            ("Direct Enrollments","New Enrollment by 'direct' caller AND Source has no 'community'."),
+            ("Bootcamp-Direct Enrollments","New Enrollment where Caller = 'bootcamp-direct'."),
+            ("Community-Direct Enrollments","New Enrollment by 'direct' caller AND Source contains 'community'."),
+        ]), SP(1,4*mm),
+
+        BAN("📞","SECTION 4 — CALLER REVENUE PERFORMANCE TABLE", G_DARK), SP(1,3*mm),
+        Paragraph("Calling agents with Calling Revenue > 0. Sorted by Calling Revenue descending.", S_BOD), SP(1,2*mm),
+        gbt([
+            ("DESIGNATION","Role from team sheet: Academic Counselor, TL, ATL, etc."),
+            ("TOTAL TARGET (₹)","Sum of monthly targets from team sheet for all months in selected range."),
+            ("TILL DAY TARGET (₹)","Total Target × (Mon-Fri days elapsed ÷ (20 × months in range)). Capped at 1.0."),
+            ("ENROLLMENT REV","Fee Paid where Enrollment = 'New Enrollment'."),
+            ("BALANCE REV","Fee Paid where Enrollment = 'New Enrollment - Balance Payment'."),
+            ("CALLING REVENUE","Enrollment Rev + Balance Rev."),
+            ("ACHIEVEMENT %","Calling Revenue ÷ Total Target × 100."),
+        ]), SP(1,4*mm),
+
+        BAN("🏦","SECTION 5 — COLLECTION CALLER REVENUE PERFORMANCE TABLE", G_DARK), SP(1,3*mm),
+        gbt([
+            ("COMMUNITY COLLECTION","Fee Paid where Enrollment = 'Community Collections - Balance Payments'."),
+            ("BOOTCAMP COLLECTION","Fee Paid where Enrollment = 'Bootcamp Collections - Balance Payments'."),
+            ("COLLECTION REVENUE","Community Collection + Bootcamp Collection."),
+            ("ACHIEVEMENT %","Collection Revenue ÷ Total Target × 100."),
+        ]), SP(1,4*mm),
+
+        BAN("📊","SECTION 6 — CALLERWISE PENDING REVENUE TAB", G_DARK), SP(1,3*mm),
+        Paragraph("Auto-loads on tab open. Always shows current + previous month. Not affected by sidebar filters.", S_BOD), SP(1,2*mm),
+        glt([
+            ("Revenue Pool","Sum of Course Price for booking-fee leads with Fee_paid >= ₹999 and positive balance."),
+            ("Balance to be Recovered","Course Price − Fee_paid for each lead. Only leads with balance > 0 are shown."),
+            ("Leads >48 HRS","Count of leads whose enrollment Date is ≤ today − 3 days (IST)."),
+            ("Balance >48 HRS","Sum of pending balance for leads that qualify as >48 hrs overdue."),
+            ("% Pending >48 HRS","Balance >48 HRS ÷ Total Balance × 100."),
+        ]), SP(1,4*mm),
+
+        BAN("🚫","SECTION 7 — CALLERWISE DROPPED LEADS", G_DARK), SP(1,3*mm),
+        glt([
+            ("Attribution Logic","Email match first; if no match, phone match. Unmatched → 'Unknown'."),
+            ("Current Month Drops","Drop form submissions with a timestamp in the current calendar month."),
+            ("Previous Month Drops","Drop form submissions with a timestamp in the previous calendar month."),
+            ("Total Drop Cases","Current + Previous month drops for this caller."),
+        ]), SP(1,4*mm),
+
+        BAN("📖","KEY TERMS GLOSSARY — REVENUE", GR_DK), SP(1,3*mm),
+        gbt([
+            ("New Enrollment","A fresh admission. Counts toward enrollment metrics and Calling Revenue."),
+            ("Balance Payment","Remaining fee from a prior enrollment. NOT a new enrollment."),
+            ("Bootcamp Collections","Balance payments from bootcamp-enrolled students."),
+            ("Community Collections","Balance payments from community-channel students."),
+            ("DNA / Not Updated","Rows with blank Enrollment. Tracked separately."),
+            ("direct","Pseudo-caller for organic closures. Excluded from agent tables."),
+            ("bootcamp-direct","Pseudo-caller for bootcamp direct admissions."),
+            ("Till Day Target","Total Target × (Working Days ÷ (20 × Months)). Working Days = Mon-Fri in range."),
+            ("Changemakers","Special team always routed to Collection table regardless of calling revenue."),
+        ], extra_cw=[44*mm, 116*mm]),
+        SP(1,8*mm), HR(colors.HexColor("#A7F3D0")),
+
+        # ══════════════════════════════════════════════
+        # PART III — LEAD METRICS DASHBOARD
+        # ══════════════════════════════════════════════
+        PageBreak(),
+        PartBanner("PART III", "LEAD METRICS DASHBOARD", B_DARK, cw), SP(1,8*mm),
+        Paragraph("Logic & reference for the Lead Metrics Dashboard — assigned leads, stage distribution, "
+                  "breached leads, and less-dialled leads.", S_BOD), SP(1,6*mm),
+
+        BAN("📋","SECTION 1 — TABS OVERVIEW", B_DARK), SP(1,3*mm),
+        bbt([
+            ("📊 Assigned Leads Report","Three callerwise tables: (1) Assigned Leads Distribution — all ContactStage buckets per caller; "
+             "(2) Potential Breached Leads — overdue follow-up + no recent call activity; "
+             "(3) Less Dialled Leads — DNP leads with <11 dial attempts."),
+            ("🧠 Insights & Teamwise","Six auto-generated insights + three teamwise versions of all tables."),
+        ]), SP(1,6*mm),
+
+        BAN("📊","SECTION 2 — ASSIGNED LEADS DISTRIBUTION", B_DARK), SP(1,3*mm),
+        Paragraph("One row per caller. Sorted by TOTAL descending. Date filter = AssignedOn field.", S_BOD), SP(1,2*mm),
+        blt([
+            ("FRESH","New Lead + Re-enquired Lead + Opportunity Created"),
+            ("DNP","Call Not Picking Up + Call Not Connected"),
+            ("CBL","Call Back Later"), ("FLW-UP","Follow Up For Closure"),
+            ("COUNSELLED","Counselled lead"), ("DISCOVERY","Discovery Call Done"),
+            ("ROADMAP","Roadmap Done"), ("MBL","May buy later"),
+            ("ACTUALLY-ENROLLED","Actually Enrolled"),
+            ("INVALID/NTINTRSTD","Irrelevant lead + Not Interested + Invalid"),
+            ("BOOKING-RCVD","Booking fees received"), ("LOAN-PNDG","Loan pending"),
+            ("COLL-DNE","Collections done"), ("PRE-SALES","Pre-Sales Registrations"),
+            ("COURSE ENROLLED","Course Enrolled"),
+            ("TOTAL","Sum of all stage columns = total assigned leads for this caller/team."),
+        ]), SP(1,6*mm),
+
+        BAN("⚠️","SECTION 3 — POTENTIAL BREACHED LEADS", B_DARK), SP(1,3*mm),
+        blt([
+            ("Condition 1","Follow_up_date IS NULL OR Follow_up_date < today (IST)."),
+            ("Condition 2","LastCalledDate < today minus 3 days (both conditions required)."),
+            ("Stages","CBL · FLW-UP · COUNSELLED · DISCOVERY · ROADMAP only."),
+            ("TOTAL","Sum of all five stage columns."),
+        ]), SP(1,6*mm),
+
+        BAN("📞","SECTION 4 — LESS DIALLED LEADS", B_DARK), SP(1,3*mm),
+        blt([
+            ("Filter","Assigned_On_Call_Counter < 11 (fewer than 11 call attempts since assignment)."),
+            ("CALL NOT PICKING UP","ContactStage = 'Call Not Picking Up' with <11 attempts."),
+            ("CALL NOT CONNECTED","ContactStage = 'Call Not Connected' with <11 attempts."),
+            ("TOTAL","Sum of both columns."),
+        ]), SP(1,6*mm),
+
+        BAN("📖","KEY TERMS GLOSSARY — LEADS", GR_DK), SP(1,3*mm),
+        bbt([
+            ("AssignedOn","Date the lead was assigned. Primary date filter for the dashboard."),
+            ("Owner","Caller the lead is assigned to. Mapped via lowercase merge key to Caller Name."),
+            ("ContactStage","Current CRM lifecycle stage. Drives all bucketing logic."),
+            ("Follow_up_date","Scheduled follow-up date. NULL or past = overdue."),
+            ("LastCalledDate","Date last called. Used in breached leads filter."),
+            ("Assigned_On_Call_Counter","Call attempts since assignment. Used in less-dialled filter."),
+            ("TOTAL row","Bold dark row at bottom summing all numeric columns."),
+        ]),
+        SP(1,10*mm), HR(colors.HexColor("#93C5FD")),
+        Paragraph("Designed by Amit Ray  ·  amitray@lawsikho.in  ·  "
+                  "For Internal Use of Sales and Operations Team Only. All Rights Reserved.", S_FOOT),
+    ]
+
+    doc = SimpleDocTemplate(
+        buffer, pagesize=A4,
+        leftMargin=15*mm, rightMargin=15*mm,
+        topMargin=14*mm, bottomMargin=14*mm,
+        title="Analytics Dashboard — Metrics & Logic Reference Guide",
+        author="Amit Ray",
+    )
+    doc.build(story)
+    return buffer.getvalue()
+
+
 def show_homepage_with_login():
     # ── Full-page dark background + input styling ──
     st.markdown("""
@@ -503,6 +887,26 @@ def show_homepage_with_login():
     [data-theme="light"] div[data-testid="column"]:nth-child(2) [data-testid="stVerticalBlock"] {
         background-color: #0f172a !important;
     }
+    /* ── Metrics Guide download button in auth panel ── */
+    div[data-testid="column"]:nth-child(2) .stDownloadButton > button,
+    div[data-testid="column"]:nth-child(2) .stDownloadButton > button:hover,
+    div[data-testid="column"]:nth-child(2) .stDownloadButton > button:active,
+    div[data-testid="column"]:nth-child(2) .stDownloadButton > button:focus {
+        width: 100% !important;
+        background: #16a34a !important;
+        color: #ffffff !important;
+        -webkit-text-fill-color: #ffffff !important;
+        border: none !important;
+        border-radius: 10px !important;
+        padding: 9px !important;
+        font-size: 0.82rem !important;
+        font-weight: 500 !important;
+        box-shadow: none !important;
+        margin-bottom: 0.3rem !important;
+        letter-spacing: .3px !important;
+        outline: none !important;
+        transform: none !important;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -557,6 +961,15 @@ def show_homepage_with_login():
     left, mid, right = st.columns([1, 1, 1])
     with mid:
         auth_tab = st.session_state.get('auth_tab', 'signin')
+
+        st.download_button(
+            label="📖 Download Metrics Guide",
+            data=generate_consolidated_metrics_guide(),
+            file_name="Analytics_Metrics_Guide.pdf",
+            mime="application/pdf",
+            key="dl_consolidated_guide_home",
+            use_container_width=True,
+        )
 
         st.markdown("""
         <div style="text-align:center;margin-bottom:.8rem;">
@@ -1579,14 +1992,7 @@ def run_calling_dashboard():
     gen_dynamic = st.sidebar.button("🚀 Generate Dynamic Report",  key="call_gen_dynamic")
     gen_static  = st.sidebar.button("📅 Generate Duration Report", key="call_gen_static")
 
-    st.sidebar.download_button(
-        label="📖 Metrics Guide (PDF)",
-        data=generate_calling_helper_pdf_bytes(),
-        file_name="Calling_Metrics_Logic_Guide.pdf",
-        mime="application/pdf",
-        key="dl_calling_helper_pdf"
-    )
-    
+
 
 
     # ─────────────────────────────────────────────
@@ -4296,14 +4702,7 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
         st.sidebar.caption(f"👤 Viewing: {_rf_cname}")
 
     gen_report = st.sidebar.button("💰 Generate Revenue Report", key="rev_gen_btn")
-    st.sidebar.download_button(
-        label="📖 Metrics Guide (PDF)",
-        data=generate_helper_pdf_bytes(),
-        file_name="Revenue_Metrics_Logic_Guide.pdf",
-        mime="application/pdf",
-        key="dl_helper_pdf"
-    )
-  
+
 
     # ─────────────────────────────────────────────
     # HEADER BANNER
@@ -5970,16 +6369,16 @@ hr { border-color: var(--border, rgba(0,0,0,.08)) !important; margin: 1.2rem 0 !
                         <div style='text-align:center;padding:.55rem .8rem;
                                     background:rgba(255,255,255,.04);
                                     border:1px solid rgba(255,255,255,.10);
-                                    border-radius:10px;line-height:1.6;'>
-                            <span style='font-size:.72rem;color:rgba(255,255,255,.5);'>
+                                    border-radius:10px;line-height:1.6;color:{_diff_color};'>
+                            <span style='font-size:.72rem;color:{_diff_color};'>
                                 Difference in Revenue&nbsp;
                             </span>
                             <span style='font-size:.88rem;font-weight:700;
                                          color:{_diff_color};font-family:DM Mono,monospace;'>
                                 {_diff_sign}₹{int(abs(round(_diff))):,}
                             </span><br>
-                            <span style='font-size:.65rem;color:rgba(255,255,255,.3);
-                                         font-family:DM Mono,monospace;'>
+                            <span style='font-size:.65rem;color:{_diff_color};
+                                         font-family:DM Mono,monospace;opacity:.85;'>
                                 Today: ₹{int(round(_total_fetched)):,}
                                 &nbsp;−&nbsp;
                                 Report: ₹{int(round(_total_rev)):,}
@@ -7013,14 +7412,7 @@ hr{border-color:var(--border,rgba(59,130,246,.12))!important;margin:1.2rem 0!imp
         st.sidebar.caption(f"👤 Viewing: {_rf_cname}")
  
     gen_ld = st.sidebar.button("📊 Generate Leads Report", key="ld_gen_cd")
- 
-    st.sidebar.download_button(
-        label="📖 Metrics Guide (PDF)",
-        data=_ld_pdf_bytes(),
-        file_name="Lead_Metrics_Logic_Guide.pdf",
-        mime="application/pdf", key="dl_ld_pdf_cd"
-    )
-    
+
     last_upd_ld  = _ld_last_update()
     disp_start   = start_date_ld.strftime('%d-%m-%Y')
     disp_end     = end_date_ld.strftime('%d-%m-%Y')
