@@ -1,3 +1,25 @@
+"""
+Realtime Lead Information Tracker
+=================================
+A Streamlit app that takes a user-uploaded CSV/Excel of leads (with any subset
+of: Prospect ID / Email / Phone Number / Alternate Number), fetches the latest
+LeadSquared status for those leads, applies the revenue-sheet "Actually Enrolled"
+override, and produces a downloadable Excel file.
+
+REQUIRED SECRETS (in .streamlit/secrets.toml at the top level):
+    SUPABASE_URL     = "..."
+    SUPABASE_KEY     = "..."
+    LSQ_ACCESS_KEY   = "..."
+    LSQ_SECRET_KEY   = "..."
+
+    [gcp_service_account]
+    type = "service_account"
+    project_id = "..."
+    ...
+
+Author: Amit Ray  ·  amitray@lawsikho.in
+"""
+
 import streamlit as st
 import pandas as pd
 import requests
@@ -1103,7 +1125,9 @@ def run_lead_tracker():
                 if c is None:
                     non_empty[k] = 0
                 else:
-                    non_empty[k] = int(df_user[c].astype(str).str.strip().replace({'nan':''}).ne('').sum())
+                    s = df_user[c].astype(str).str.strip().str.lower()
+                    mask = (~s.isin(['', 'nan', 'none', 'null', 'na', '<na>'])) & df_user[c].notna()
+                    non_empty[k] = int(mask.sum())
             cap = " &middot; ".join(
                 f"<span style='font-family:DM Mono,monospace;font-size:.72rem;color:#6B21A8;'>"
                 f"{k}: <b>{v:,}</b></span>"
@@ -1111,8 +1135,8 @@ def run_lead_tracker():
             )
             st.markdown(
                 f"<div style='margin-top:.4rem;padding:.5rem .75rem;background:#FAF5FF;"
-                f"border-left:3px solid #A855F7;border-radius:6px;'>"
-                f"<b style='font-size:.78rem;'>Non-empty values:</b>&nbsp;{cap}</div>",
+                f"border-left:3px solid #A855F7;border-radius:6px;color:#111111;'>"
+                f"<b style='font-size:.78rem;color:#111111;'>Non-empty values:</b>&nbsp;{cap}</div>",
                 unsafe_allow_html=True
             )
 
