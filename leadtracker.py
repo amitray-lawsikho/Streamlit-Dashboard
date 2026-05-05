@@ -1,25 +1,3 @@
-"""
-Realtime Lead Information Tracker
-=================================
-A Streamlit app that takes a user-uploaded CSV/Excel of leads (with any subset
-of: Prospect ID / Email / Phone Number / Alternate Number), fetches the latest
-LeadSquared status for those leads, applies the revenue-sheet "Actually Enrolled"
-override, and produces a downloadable Excel file.
-
-REQUIRED SECRETS (in .streamlit/secrets.toml at the top level):
-    SUPABASE_URL     = "..."
-    SUPABASE_KEY     = "..."
-    LSQ_ACCESS_KEY   = "..."
-    LSQ_SECRET_KEY   = "..."
-
-    [gcp_service_account]
-    type = "service_account"
-    project_id = "..."
-    ...
-
-Author: Amit Ray  ·  amitray@lawsikho.in
-"""
-
 import streamlit as st
 import pandas as pd
 import requests
@@ -480,6 +458,24 @@ def show_login_page():
         if st.session_state.get('password_correct'):
             st.rerun()
 
+    # ── Footer (matching consolidated dashboard) ──
+    html_footer = """<!DOCTYPE html><html><head>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&display=swap" rel="stylesheet"/>
+    <style>
+    *{box-sizing:border-box;margin:0;padding:0;}
+    html,body{background:#0B1120;color:#E2E8F0;font-family:'Fira Code',monospace;}
+    .foot{border-top:1px solid rgba(255,255,255,.06);padding:1.6rem 2rem;text-align:center;margin-top:2rem;}
+    .f1{font-size:.64rem;color:rgba(255,255,255,.28);margin-bottom:.4rem;}
+    .f2{font-size:.58rem;color:rgba(255,255,255,.14);}
+    .fd{display:inline-block;width:3px;height:3px;background:rgba(168,85,247,.4);border-radius:50%;margin:0 .45rem;vertical-align:middle;}
+    </style></head><body>
+    <div class="foot">
+      <div class="f1">For Internal Use of Sales and Operations Team Only<span class="fd"></span>All Rights Reserved</div>
+      <div class="f2">Developed and Designed by Amit Ray<span class="fd"></span>Reach out for Support and Queries</div>
+    </div>
+    </body></html>"""
+    st.iframe(html_footer, height=120)
+
 
 # ════════════════════════════════════════════════════════════════════════════
 # CORE HELPERS
@@ -691,7 +687,7 @@ def fetch_revenue_maps():
 OUTPUT_COLS = [
     'ProspectID', 'FirstName', 'LastName', 'PhoneNumber', 'Alternate_PhoneNumber',
     'Email', 'Funnel_name', 'Bootcamp_Attendance', 'Owner', 'ContactStage',
-    'Follow_up_date', 'Course_Fees', 'Campaign_Name', 'Enquired_Course',
+    'Follow_up_date', 'Campaign_Name', 'Enquired_Course',
     'Phone_call_counter', 'LastCalledDate', 'AssignedBy', 'AssignedOn',
     'Assigned_On_Call_Counter',
 ]
@@ -778,7 +774,6 @@ def map_user_to_lsq(df_user, df_lsq, mapping, phone_map_rev, email_map_rev):
                 'Owner':                   lrow.get('OwnerId', '')                 or '',
                 'ContactStage':            lrow.get('ProspectStage', '')           or '',
                 'Follow_up_date':          lrow.get('Follow_up_date', '')          or '',
-                'Course_Fees':             lrow.get('mx_Course_Fees', '')          or '',
                 'Campaign_Name':           lrow.get('mx_Campaign_Name', '')        or '',
                 'Enquired_Course':         lrow.get('mx_Enquired_Course', '')      or '',
                 'Phone_call_counter':      lrow.get('mx_Phone_call_counter', '')   or '',
@@ -813,7 +808,6 @@ def map_user_to_lsq(df_user, df_lsq, mapping, phone_map_rev, email_map_rev):
 # ════════════════════════════════════════════════════════════════════════════
 
 def build_output_xlsx(df_out, days_back) -> bytes:
-    HDR_FILL  = PatternFill("solid", start_color="3B0764", end_color="3B0764")
     SUB_FILL  = PatternFill("solid", start_color="6B21A8", end_color="6B21A8")
     ALT_FILL  = PatternFill("solid", start_color="FAF5FF", end_color="FAF5FF")
     WHT_FILL  = PatternFill("solid", start_color="FFFFFF", end_color="FFFFFF")
@@ -833,31 +827,24 @@ def build_output_xlsx(df_out, days_back) -> bytes:
     col_headers = [
         'PROSPECT ID', 'FIRST NAME', 'LAST NAME', 'PHONE NUMBER', 'ALTERNATE PHONE',
         'EMAIL', 'FUNNEL NAME', 'BOOTCAMP ATTENDANCE', 'OWNER', 'CONTACT STAGE',
-        'FOLLOW UP DATE', 'COURSE FEES', 'CAMPAIGN NAME', 'ENQUIRED COURSE',
+        'FOLLOW UP DATE', 'CAMPAIGN NAME', 'ENQUIRED COURSE',
         'PHONE CALL COUNTER', 'LAST CALLED DATE', 'ASSIGNED BY', 'ASSIGNED ON',
         'ASSIGNED ON CALL COUNTER', 'MATCH TYPE',
     ]
-    col_widths = [22, 18, 18, 16, 16, 32, 24, 16, 22, 22, 14, 14, 24, 28, 14, 14, 22, 14, 14, 18]
+    col_widths = [22, 18, 18, 16, 16, 32, 24, 16, 22, 22, 14, 24, 28, 14, 14, 22, 14, 14, 18]
 
     wb = Workbook()
     ws = wb.active
     ws.title = "Lead Tracker Output"
 
-    # Title row
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(cols))
-    tc = ws.cell(1, 1, f"REALTIME LEAD INFORMATION TRACKER  ·  Assignments in last {days_back} days  ·  {datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%d-%b-%Y %I:%M %p IST')}")
-    tc.fill = HDR_FILL; tc.font = Font(bold=True, color="FFFFFF", name="Calibri", size=12)
-    tc.alignment = CENTER; tc.border = BORDER
-    ws.row_dimensions[1].height = 26
-
-    # Header row
+    # Header row (row 1)
     for ci, h in enumerate(col_headers, 1):
-        cell = ws.cell(2, ci, h)
+        cell = ws.cell(1, ci, h)
         cell.fill = SUB_FILL; cell.font = HDR_FONT; cell.alignment = CENTER; cell.border = BORDER
-    ws.row_dimensions[2].height = 28
+    ws.row_dimensions[1].height = 28
 
-    # Data rows
-    for r_idx, (_, row) in enumerate(df_out.iterrows(), 3):
+    # Data rows (start at row 2)
+    for r_idx, (_, row) in enumerate(df_out.iterrows(), 2):
         is_alt = (r_idx % 2 == 0)
         match_type = str(row.get('_Match_Type', ''))
         contact_stage = str(row.get('ContactStage', '')).strip().lower()
@@ -887,7 +874,7 @@ def build_output_xlsx(df_out, days_back) -> bytes:
     for ci, w in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(ci)].width = w
 
-    ws.freeze_panes = "A3"
+    ws.freeze_panes = "A2"
 
     buf = io.BytesIO()
     wb.save(buf)
@@ -999,7 +986,7 @@ def run_lead_tracker():
     st.markdown("""
     <div class="lt-step-card">
         <span class="lt-step-num">1</span>
-        <span style="font-weight:700;font-size:1rem;">Upload your assigned-lead list</span>
+        <span style="font-weight:700;font-size:1rem;color:#111111;">Upload your assigned-lead list</span>
         <div style="font-size:.78rem;color:#6B7280;margin-top:.3rem;margin-left:2.2rem;">
             Accepted formats: <b>.csv</b> &middot; <b>.xlsx</b>. The file should contain at least one of:
             Prospect ID, Email, Phone Number, or Alternate Number.
@@ -1049,7 +1036,7 @@ def run_lead_tracker():
         st.markdown("""
         <div class="lt-step-card" style="margin-top:1rem;">
             <span class="lt-step-num">2</span>
-            <span style="font-weight:700;font-size:1rem;">Confirm field mapping</span>
+            <span style="font-weight:700;font-size:1rem;color:#111111;">Confirm field mapping</span>
             <div style="font-size:.78rem;color:#6B7280;margin-top:.3rem;margin-left:2.2rem;">
                 We auto-detect the columns. Adjust below if anything looks wrong.
             </div>
@@ -1133,7 +1120,7 @@ def run_lead_tracker():
     st.markdown("""
     <div class="lt-step-card" style="margin-top:1rem;">
         <span class="lt-step-num">3</span>
-        <span style="font-weight:700;font-size:1rem;">Generate the report</span>
+        <span style="font-weight:700;font-size:1rem;color:#111111;">Generate the report</span>
     </div>
     """, unsafe_allow_html=True)
 
