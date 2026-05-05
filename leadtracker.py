@@ -1,24 +1,4 @@
-"""
-Realtime Lead Information Tracker
-=================================
-A Streamlit app that takes a user-uploaded CSV/Excel of leads (with any subset
-of: Prospect ID / Email / Phone Number / Alternate Number), fetches the latest
-LeadSquared status for those leads, applies the revenue-sheet "Actually Enrolled"
-override, and produces a downloadable Excel file.
 
-REQUIRED SECRETS (in .streamlit/secrets.toml at the top level):
-    SUPABASE_URL     = "..."
-    SUPABASE_KEY     = "..."
-    LSQ_ACCESS_KEY   = "..."
-    LSQ_SECRET_KEY   = "..."
-
-    [gcp_service_account]
-    type = "service_account"
-    project_id = "..."
-    ...
-
-Author: Amit Ray  ·  amitray@lawsikho.in
-"""
 
 import streamlit as st
 import pandas as pd
