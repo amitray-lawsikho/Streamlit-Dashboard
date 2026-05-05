@@ -554,10 +554,10 @@ def detect_fields(columns):
 
 def get_sample_csv_bytes() -> bytes:
     sample = pd.DataFrame({
-        'Prospect ID':      ['', '', '', ''],
-        'Email':            ['user1@example.com', '', 'user3@example.com', ''],
-        'Phone Number':     ['9876543210', '8765432109', '', '7766554433'],
-        'Alternate Number': ['', '7654321098', '9988776655', ''],
+        'Prospect ID':      [],
+        'Email':            [],
+        'Phone Number':     [],
+        'Alternate Number': [],
     })
     return sample.to_csv(index=False).encode('utf-8')
 
