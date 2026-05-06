@@ -1322,14 +1322,5 @@ else:
     </div>
     """, unsafe_allow_html=True)
 
-    st.sidebar.markdown("""
-    <div style='padding:.5rem 0 .2rem;text-align:center;'>
-        <div style='font-size:.72rem;font-weight:700;text-transform:uppercase;
-                    letter-spacing:1px;color:#6B7280;'>App</div>
-        <div style='font-size:.85rem;font-weight:600;color:#A855F7;margin-top:.2rem;'>
-            🎯 Realtime Lead Tracker
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
 
     run_lead_tracker()
