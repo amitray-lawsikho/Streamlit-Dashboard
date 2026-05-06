@@ -1,5 +1,3 @@
-
-
 import streamlit as st
 import pandas as pd
 import requests
@@ -435,7 +433,7 @@ def show_login_page():
       <div class="tagline">India Learning &nbsp;📖&nbsp; India Earning</div>
       <div class="eyebrow"><span class="dot"></span>Realtime Lead Information Tracker</div>
       <div class="headline">Lead status,<br><span class="accent">in real time</span></div>
-      <div class="sub">Upload your assigned-lead list — get the latest LSQ status, owner & enrollment flag in one Excel.</div>
+      <div class="sub">Upload your Assigned-Lead List — Get the latest LSQ information & Enrollment leads mapped in one Excel Sheet.</div>
     </div>
     </body></html>"""
     st.iframe(html_hero, height=420)
