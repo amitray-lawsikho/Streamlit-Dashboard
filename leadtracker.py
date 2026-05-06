@@ -1161,7 +1161,7 @@ def run_lead_tracker():
         <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:.75rem;">
             <div>
                 <div class="lt-title">🎯 REALTIME LEAD INFORMATION TRACKER</div>
-                <div class="lt-subtitle">UPLOAD &middot; FETCH &middot; MAP &middot; DOWNLOAD</div>
+                <div class="lt-subtitle">UPLOAD &middot; FETCH & MAP &middot; DOWNLOAD &middot; CHECK INSIGHTS</div>
             </div>
             <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.25rem;">
                 <span class="lt-badge"><span class="lt-pulse"></span>LSQ & REVENUE DATA LIVE</span>
