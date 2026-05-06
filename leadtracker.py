@@ -154,6 +154,43 @@ def load_auth_sheet() -> pd.DataFrame:
     return df
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def load_owner_meta() -> dict:
+    """Build a lower-cased Owner-name → {Team Name, Vertical, Analyst, Sales Leader} map
+    from the auth sheet so the report Excel can be enriched with team metadata."""
+    df = load_auth_sheet()
+    if df is None or df.empty or _COL_NAME not in df.columns:
+        return {}
+    has_team   = 'Team Name'    in df.columns
+    has_vert   = 'Vertical'     in df.columns
+    has_anal   = 'Analyst'      in df.columns
+    has_lead   = 'Sales Leader' in df.columns
+    out = {}
+    for _, r in df.iterrows():
+        name = str(r.get(_COL_NAME, '')).strip()
+        if not name:
+            continue
+        key = name.lower()
+        if key in out:
+            continue
+        def _v(col, present):
+            if not present: return ''
+            val = r.get(col)
+            try:
+                if pd.isna(val): return ''
+            except (TypeError, ValueError):
+                pass
+            s = str(val).strip()
+            return '' if s.lower() in ('nan', 'none') else s
+        out[key] = {
+            'Team_Name':    _v('Team Name',    has_team),
+            'Vertical':     _v('Vertical',     has_vert),
+            'Analyst':      _v('Analyst',      has_anal),
+            'Sales_Leader': _v('Sales Leader', has_lead),
+        }
+    return out
+
+
 def _extract_trainer_email(cell: str):
     m = re.search(r'\(([^)\s]+@[^)\s]+)\)', str(cell))
     return m.group(1).strip().lower() if m else None
@@ -690,6 +727,7 @@ OUTPUT_COLS = [
     'Follow_up_date', 'Campaign_Name', 'Enquired_Course',
     'Phone_call_counter', 'LastCalledDate', 'AssignedBy', 'AssignedOn',
     'Assigned_On_Call_Counter',
+    'Team_Name', 'Vertical', 'Analyst', 'Sales_Leader',
 ]
 
 
@@ -804,6 +842,122 @@ def map_user_to_lsq(df_user, df_lsq, mapping, phone_map_rev, email_map_rev):
 
 
 # ════════════════════════════════════════════════════════════════════════════
+# OWNER META ENRICHMENT
+# ════════════════════════════════════════════════════════════════════════════
+
+def enrich_with_owner_meta(df_out: pd.DataFrame, owner_meta: dict) -> pd.DataFrame:
+    """Populate Team_Name, Vertical, Analyst, Sales_Leader by matching Owner against
+    the auth-sheet's 'Caller Name' column."""
+    if df_out is None or df_out.empty:
+        return df_out
+    blank = {'Team_Name': '', 'Vertical': '', 'Analyst': '', 'Sales_Leader': ''}
+
+    def _row(owner):
+        m = owner_meta.get(str(owner).strip().lower(), blank)
+        return pd.Series({
+            'Team_Name':    m.get('Team_Name', ''),
+            'Vertical':     m.get('Vertical', ''),
+            'Analyst':      m.get('Analyst', ''),
+            'Sales_Leader': m.get('Sales_Leader', ''),
+        })
+
+    meta_df = df_out['Owner'].apply(_row)
+    for c in ('Team_Name', 'Vertical', 'Analyst', 'Sales_Leader'):
+        df_out[c] = meta_df[c]
+    return df_out
+
+
+# ════════════════════════════════════════════════════════════════════════════
+# INSIGHTS
+# ════════════════════════════════════════════════════════════════════════════
+
+def compute_lead_insights(df_out: pd.DataFrame):
+    """Six summary cards for the Insights tab. Filters out 'Not Found in LSQ' rows first."""
+    cards = []
+    if df_out is None or df_out.empty:
+        return cards
+    df = df_out[df_out['_Match_Type'] != 'Not Found in LSQ'].copy()
+    if df.empty:
+        return cards
+
+    df['_stage'] = df['ContactStage'].astype(str).str.strip()
+    df['_owner'] = df['Owner'].astype(str).str.strip()
+    df['_aoc']   = pd.to_numeric(df['Assigned_On_Call_Counter'], errors='coerce')
+
+    is_followup = df['_stage'].str.lower() == 'follow up for closure'
+    is_callback = df['_stage'].str.lower() == 'call back later'
+    is_low_dial = (
+        df['_stage'].str.lower().isin(['call not picking up', 'call not connected'])
+        & (df['_aoc'] < 4)
+    )
+
+    fu_count = int(is_followup.sum())
+    cards.append({
+        'type': 'info', 'icon': '📞',
+        'title': 'Follow Ups Made',
+        'body': f"{fu_count} leads with Contact Stage = <b>Follow Up For Closure</b>."
+    })
+
+    cb_count = int(is_callback.sum())
+    cards.append({
+        'type': 'info', 'icon': '⏰',
+        'title': 'Call Back Later',
+        'body': f"{cb_count} leads with Contact Stage = <b>Call Back Later</b>."
+    })
+
+    ld_count = int(is_low_dial.sum())
+    cards.append({
+        'type': 'warn', 'icon': '⚠️',
+        'title': 'Less Dialled CNPU & CNC',
+        'body': f"{ld_count} less dialled CNPU and CNC leads dialled less than 4 times after lead assignment."
+    })
+
+    fu_top = df.loc[is_followup & (df['_owner'] != ''), '_owner'].value_counts()
+    if not fu_top.empty and int(fu_top.iloc[0]) > 0:
+        cards.append({
+            'type': 'good', 'icon': '🏆',
+            'title': f"Top Follow Ups: {fu_top.index[0]}",
+            'body': f"{fu_top.index[0]} has <b>{int(fu_top.iloc[0])}</b> Follow Up For Closure leads — highest among all owners."
+        })
+    else:
+        cards.append({
+            'type': 'good', 'icon': '🏆',
+            'title': "Top Follow Ups",
+            'body': "No Follow Up For Closure leads found."
+        })
+
+    cb_top = df.loc[is_callback & (df['_owner'] != ''), '_owner'].value_counts()
+    if not cb_top.empty and int(cb_top.iloc[0]) > 0:
+        cards.append({
+            'type': 'good', 'icon': '🥇',
+            'title': f"Top Call Back Later: {cb_top.index[0]}",
+            'body': f"{cb_top.index[0]} has <b>{int(cb_top.iloc[0])}</b> Call Back Later leads — highest among all owners."
+        })
+    else:
+        cards.append({
+            'type': 'good', 'icon': '🥇',
+            'title': "Top Call Back Later",
+            'body': "No Call Back Later leads found."
+        })
+
+    ld_top = df.loc[is_low_dial & (df['_owner'] != ''), '_owner'].value_counts()
+    if not ld_top.empty and int(ld_top.iloc[0]) > 0:
+        cards.append({
+            'type': 'bad', 'icon': '🚨',
+            'title': f"Most Less-Dialled: {ld_top.index[0]}",
+            'body': f"{ld_top.index[0]} has <b>{int(ld_top.iloc[0])}</b> less dialled CNPU and CNC leads dialled less than 4 times after lead assignment."
+        })
+    else:
+        cards.append({
+            'type': 'bad', 'icon': '🚨',
+            'title': "Most Less-Dialled Owner",
+            'body': "No CNPU/CNC leads with call counter under 4."
+        })
+
+    return cards
+
+
+# ════════════════════════════════════════════════════════════════════════════
 # EXCEL OUTPUT
 # ════════════════════════════════════════════════════════════════════════════
 
@@ -829,9 +983,12 @@ def build_output_xlsx(df_out, days_back) -> bytes:
         'EMAIL', 'FUNNEL NAME', 'BOOTCAMP ATTENDANCE', 'OWNER', 'CONTACT STAGE',
         'FOLLOW UP DATE', 'CAMPAIGN NAME', 'ENQUIRED COURSE',
         'PHONE CALL COUNTER', 'LAST CALLED DATE', 'ASSIGNED BY', 'ASSIGNED ON',
-        'ASSIGNED ON CALL COUNTER', 'MATCH TYPE',
+        'ASSIGNED ON CALL COUNTER',
+        'TEAM NAME', 'VERTICAL', 'ANALYST', 'SALES LEADER',
+        'MATCH TYPE',
     ]
-    col_widths = [22, 18, 18, 16, 16, 32, 24, 16, 22, 22, 14, 24, 28, 14, 14, 22, 14, 14, 18]
+    col_widths = [22, 18, 18, 16, 16, 32, 24, 16, 22, 22, 14, 24, 28, 14, 14, 22, 14, 14,
+                  22, 18, 18, 32, 18]
 
     wb = Workbook()
     ws = wb.active
@@ -869,7 +1026,7 @@ def build_output_xlsx(df_out, days_back) -> bytes:
                 val = val.strftime('%Y-%m-%d')
             cell = ws.cell(r_idx, ci, val)
             cell.fill = base_fill; cell.font = DATA_FONT; cell.border = BORDER
-            cell.alignment = LEFT if col in ('FirstName', 'LastName', 'Email', 'Owner', 'ContactStage', 'Funnel_name', 'Campaign_Name', 'Enquired_Course', 'AssignedBy', '_Match_Type') else CENTER
+            cell.alignment = LEFT if col in ('FirstName', 'LastName', 'Email', 'Owner', 'ContactStage', 'Funnel_name', 'Campaign_Name', 'Enquired_Course', 'AssignedBy', 'Team_Name', 'Vertical', 'Analyst', 'Sales_Leader', '_Match_Type') else CENTER
 
     for ci, w in enumerate(col_widths, 1):
         ws.column_dimensions[get_column_letter(ci)].width = w
@@ -962,6 +1119,38 @@ def run_lead_tracker():
         font-size: .72rem !important; font-weight: 700 !important;
         text-transform: uppercase; letter-spacing: .5px;
         text-align: center !important; padding: 8px !important;
+    }
+
+    .lt-section-header { display: flex; align-items: center; gap: .6rem; margin: 1.5rem 0 .8rem; }
+    .lt-section-line   { flex: 1; height: 1px; background: linear-gradient(90deg, #A855F7, transparent); opacity: .4; }
+    .lt-section-line.r { background: linear-gradient(90deg, transparent, #A855F7); }
+    .lt-section-title  { font-size: .8rem; font-weight: 700; text-transform: uppercase;
+                         letter-spacing: 1.2px; color: #A855F7; white-space: nowrap; text-align: center; }
+
+    .insight-card {
+        background: #fff;
+        border: 1px solid rgba(168,85,247,.15);
+        border-radius: 12px; padding: 1rem 1.1rem;
+        margin-bottom: .6rem; box-shadow: 0 1px 3px rgba(0,0,0,.05);
+        transition: all .2s ease;
+    }
+    .insight-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+    .insight-card.good  { border-left: 3px solid #16A34A; }
+    .insight-card.warn  { border-left: 3px solid #F59E0B; }
+    .insight-card.bad   { border-left: 3px solid #EF4444; }
+    .insight-card.info  { border-left: 3px solid #A855F7; }
+    .insight-icon  { font-size: 1.1rem; }
+    .insight-title { font-size: .82rem; font-weight: 700; color: #111827; margin: .2rem 0; text-align: center; }
+    .insight-body  { font-size: .76rem; color: #6B7280; line-height: 1.5; text-align: center; }
+
+    [data-testid="stTabs"] [role="tablist"] { gap: .3rem; border-bottom: 1px solid rgba(168,85,247,.15); }
+    [data-testid="stTabs"] button[role="tab"] {
+        font-family: 'DM Sans', sans-serif !important; font-size: .85rem !important;
+        font-weight: 600 !important; letter-spacing: .3px;
+        border-radius: 8px 8px 0 0; padding: .55rem 1.1rem !important;
+    }
+    [data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
+        color: #6B21A8 !important; border-bottom: 2px solid #A855F7 !important;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -1058,28 +1247,28 @@ def run_lead_tracker():
 
         with c1:
             sel_pid = st.selectbox(
-                "🆔 Prospect ID column",
+                "🆔 Prospect ID",
                 col_options,
                 index=_idx(detected['ProspectID']),
                 key='map_pid',
             )
         with c2:
             sel_email = st.selectbox(
-                "📧 Email column",
+                "📧 Email",
                 col_options,
                 index=_idx(detected['Email']),
                 key='map_email',
             )
         with c3:
             sel_phone = st.selectbox(
-                "📱 Phone Number column",
+                "📱 Phone Number",
                 col_options,
                 index=_idx(detected['PhoneNumber']),
                 key='map_phone',
             )
         with c4:
             sel_alt = st.selectbox(
-                "📞 Alternate Number column",
+                "📞 Alternate Number",
                 col_options,
                 index=_idx(detected['AlternatePhoneNumber']),
                 key='map_alt',
@@ -1188,6 +1377,13 @@ def run_lead_tracker():
                 st.write(f"   ✓ Matched **{int(matched):,} of {len(df_out):,}** rows.")
                 st.write(f"   ✓ **{int(enrolled):,}** rows flagged 'Actually Enrolled' from revenue data.")
 
+                # Step E.1 — Enrich with Team / Vertical / Analyst / Sales Leader from auth sheet
+                st.write("🔹 Mapping owner → Team / Vertical / Analyst / Sales Leader…")
+                owner_meta = load_owner_meta()
+                df_out = enrich_with_owner_meta(df_out, owner_meta)
+                tagged = int((df_out['Team_Name'].astype(str).str.strip() != '').sum())
+                st.write(f"   ✓ {tagged:,} of {len(df_out):,} rows enriched with team metadata.")
+
                 # Step F — Build Excel
                 st.write("🔹 Building Excel output…")
                 xlsx_bytes = build_output_xlsx(df_out, days_back)
@@ -1223,21 +1419,58 @@ def run_lead_tracker():
         with m3:
             st.metric("Actually Enrolled",  f"{summary.get('enrolled', 0):,}")
 
-        st.download_button(
-            "📥 Download Realtime Lead Report (.xlsx)",
-            data=st.session_state['lt_output_bytes'],
-            file_name=f"Realtime_Lead_Report_{datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%d-%m-%Y_%H%M')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            key="dl_final",
-            use_container_width=True,
-        )
+        tab_report, tab_insights = st.tabs(["📄 Lead Tracker Report", "🧠 Insights"])
 
-        with st.expander("👁️ Preview first 20 rows of output", expanded=False):
-            preview_cols = ['ProspectID', 'FirstName', 'LastName', 'Email', 'PhoneNumber',
-                            'Owner', 'ContactStage', 'AssignedOn', 'Phone_call_counter',
-                            'Assigned_On_Call_Counter', '_Match_Type']
-            preview_cols = [c for c in preview_cols if c in df_out.columns]
-            st.dataframe(df_out[preview_cols].head(20), width='stretch', hide_index=True)
+        with tab_report:
+            st.download_button(
+                "📥 Download Realtime Lead Report (.xlsx)",
+                data=st.session_state['lt_output_bytes'],
+                file_name=f"Realtime_Lead_Report_{datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%d-%m-%Y_%H%M')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                key="dl_final",
+                use_container_width=True,
+            )
+
+            with st.expander("👁️ Preview first 20 rows of output", expanded=False):
+                preview_cols = ['ProspectID', 'FirstName', 'LastName', 'Email', 'PhoneNumber',
+                                'Owner', 'ContactStage', 'AssignedOn', 'Phone_call_counter',
+                                'Assigned_On_Call_Counter',
+                                'Team_Name', 'Vertical', 'Analyst', 'Sales_Leader',
+                                '_Match_Type']
+                preview_cols = [c for c in preview_cols if c in df_out.columns]
+                st.dataframe(df_out[preview_cols].head(20), width='stretch', hide_index=True)
+
+        with tab_insights:
+            st.markdown("""
+            <div style='text-align:center;margin-bottom:1rem;'>
+                <span style='font-size:.72rem;font-weight:600;color:#A855F7;
+                             background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.2);
+                             border-radius:20px;padding:4px 14px;font-family:DM Mono,monospace;'>
+                    ⚡ AUTO-GENERATED FROM LEAD TRACKER REPORT
+                </span>
+            </div>
+            <div class="lt-section-header">
+                <div class="lt-section-line"></div>
+                <span class="lt-section-title">🧠 GENERATED INSIGHTS</span>
+                <div class="lt-section-line r"></div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            insights = compute_lead_insights(df_out)
+            if insights:
+                cols_ins = st.columns(2)
+                for i, ins in enumerate(insights):
+                    with cols_ins[i % 2]:
+                        st.markdown(f"""
+                        <div class="insight-card {ins['type']}">
+                            <div style='display:flex;align-items:center;justify-content:center;gap:.4rem;'>
+                                <span class="insight-icon">{ins['icon']}</span>
+                                <span class="insight-title">{ins['title']}</span>
+                            </div>
+                            <div class="insight-body">{ins['body']}</div>
+                        </div>""", unsafe_allow_html=True)
+            else:
+                st.info("Not enough matched data to generate insights — every row was 'Not Found in LSQ'.")
 
 
 # ════════════════════════════════════════════════════════════════════════════
