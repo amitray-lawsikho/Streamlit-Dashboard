@@ -1171,257 +1171,260 @@ def run_lead_tracker():
     </div>
     """, unsafe_allow_html=True)
 
-    # ─── STEP 1 — File upload + days input + sample CSV ─────────────────────
-    st.markdown("""
-    <div class="lt-step-card">
-        <span class="lt-step-num">1</span>
-        <span style="font-weight:700;font-size:1rem;color:#111111;">Upload your assigned-lead list</span>
-        <div style="font-size:.78rem;color:#6B7280;margin-top:.3rem;margin-left:2.2rem;">
-            Accepted formats: <b>.csv</b> &middot; <b>.xlsx</b>. The file should contain at least one of:
-            Prospect ID, Email, Phone Number or Alternate Number field to process.
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    tab1, tab2 = st.tabs(["📄 Upload & Download Data", "🧠 Insights"])
 
-    col_a, col_b = st.columns([2, 1])
-    with col_a:
-        uploaded = st.file_uploader(
-            "Upload CSV or Excel",
-            type=['csv', 'xlsx', 'xls'],
-            key='lt_upload',
-            label_visibility='collapsed'
-        )
-    with col_b:
-        st.download_button(
-            "📥 Download Sample CSV",
-            data=get_sample_csv_bytes(),
-            file_name="sample_leads.csv",
-            mime="text/csv",
-            key="dl_sample",
-            width='stretch',
-        )
-
-    days_back = st.number_input(
-        "📅 When were these leads assigned to counsellors? (days ago — between 1 and 60)",
-        min_value=1, max_value=60, value=1, step=1, key='lt_days'
-    )
-
-    # Parse uploaded file
-    df_user = None
-    if uploaded is not None:
-        try:
-            if uploaded.name.lower().endswith('.csv'):
-                df_user = pd.read_csv(uploaded, dtype=str)
-            else:
-                df_user = pd.read_excel(uploaded, dtype=str)
-            df_user.columns = df_user.columns.str.strip()
-        except Exception as ex:
-            st.error(f"❌ Could not read the file: {ex}")
-            df_user = None
-
-    # ─── STEP 2 — Field mapping ─────────────────────────────────────────────
-    mapping = None
-    if df_user is not None and not df_user.empty:
+    # ════════════════════════════════════════════════════════════════════════
+    # TAB 1 — Upload, Map, Generate, Download
+    # ════════════════════════════════════════════════════════════════════════
+    with tab1:
+        # ─── STEP 1 — File upload + days input + sample CSV ─────────────────
         st.markdown("""
-        <div class="lt-step-card" style="margin-top:1rem;">
-            <span class="lt-step-num">2</span>
-            <span style="font-weight:700;font-size:1rem;color:#111111;">Confirm field mapping</span>
+        <div class="lt-step-card">
+            <span class="lt-step-num">1</span>
+            <span style="font-weight:700;font-size:1rem;color:#111111;">Upload your assigned-lead list</span>
             <div style="font-size:.78rem;color:#6B7280;margin-top:.3rem;margin-left:2.2rem;">
-                We auto-detect the columns. Adjust below if anything looks wrong.
+                Accepted formats: <b>.csv</b> &middot; <b>.xlsx</b>. The file should contain at least one of:
+                Prospect ID, Email, Phone Number or Alternate Number field to process.
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        st.caption(f"📄 File loaded: **{uploaded.name}** &middot; {len(df_user):,} rows &middot; {len(df_user.columns)} columns")
-
-        with st.expander("👁️ Preview first 5 rows", expanded=False):
-            st.dataframe(df_user.head(5), width='stretch', hide_index=True)
-
-        detected = detect_fields(list(df_user.columns))
-        col_options = ['(none)'] + list(df_user.columns)
-
-        c1, c2, c3, c4 = st.columns(4)
-
-        def _idx(value):
-            return col_options.index(value) if value in col_options else 0
-
-        with c1:
-            sel_pid = st.selectbox(
-                "🆔 Prospect ID",
-                col_options,
-                index=_idx(detected['ProspectID']),
-                key='map_pid',
+        col_a, col_b = st.columns([2, 1])
+        with col_a:
+            uploaded = st.file_uploader(
+                "Upload CSV or Excel",
+                type=['csv', 'xlsx', 'xls'],
+                key='lt_upload',
+                label_visibility='collapsed'
             )
-        with c2:
-            sel_email = st.selectbox(
-                "📧 Email",
-                col_options,
-                index=_idx(detected['Email']),
-                key='map_email',
-            )
-        with c3:
-            sel_phone = st.selectbox(
-                "📱 Phone Number",
-                col_options,
-                index=_idx(detected['PhoneNumber']),
-                key='map_phone',
-            )
-        with c4:
-            sel_alt = st.selectbox(
-                "📞 Alternate Number",
-                col_options,
-                index=_idx(detected['AlternatePhoneNumber']),
-                key='map_alt',
+        with col_b:
+            st.download_button(
+                "📥 Download Sample CSV",
+                data=get_sample_csv_bytes(),
+                file_name="sample_leads.csv",
+                mime="text/csv",
+                key="dl_sample",
+                width='stretch',
             )
 
-        mapping = {
-            'ProspectID':           None if sel_pid   == '(none)' else sel_pid,
-            'Email':                None if sel_email == '(none)' else sel_email,
-            'PhoneNumber':          None if sel_phone == '(none)' else sel_phone,
-            'AlternatePhoneNumber': None if sel_alt   == '(none)' else sel_alt,
-        }
+        days_back = st.number_input(
+            "📅 When were these leads assigned to counsellors? (days ago — between 1 and 60)",
+            min_value=1, max_value=60, value=1, step=1, key='lt_days'
+        )
 
-        if not any(mapping.values()):
-            st.error("❌ At least one field must be mapped (Prospect ID, Email, Phone, or Alt Phone).")
-            mapping = None
-
-        # Sanity check for non-empty values
-        if mapping:
-            non_empty = {}
-            for k, c in mapping.items():
-                if c is None:
-                    non_empty[k] = 0
+        # Parse uploaded file
+        df_user = None
+        if uploaded is not None:
+            try:
+                if uploaded.name.lower().endswith('.csv'):
+                    df_user = pd.read_csv(uploaded, dtype=str)
                 else:
-                    s = df_user[c].astype(str).str.strip().str.lower()
-                    mask = (~s.isin(['', 'nan', 'none', 'null', 'na', '<na>'])) & df_user[c].notna()
-                    non_empty[k] = int(mask.sum())
-            cap = " &middot; ".join(
-                f"<span style='font-family:DM Mono,monospace;font-size:.72rem;color:#6B21A8;'>"
-                f"{k}: <b>{v:,}</b></span>"
-                for k, v in non_empty.items() if mapping[k]
-            )
+                    df_user = pd.read_excel(uploaded, dtype=str)
+                df_user.columns = df_user.columns.str.strip()
+            except Exception as ex:
+                st.error(f"❌ Could not read the file: {ex}")
+                df_user = None
+
+        # ─── STEP 2 — Field mapping ─────────────────────────────────────────
+        mapping = None
+        if df_user is not None and not df_user.empty:
+            st.markdown("""
+            <div class="lt-step-card" style="margin-top:1rem;">
+                <span class="lt-step-num">2</span>
+                <span style="font-weight:700;font-size:1rem;color:#111111;">Confirm field mapping</span>
+                <div style="font-size:.78rem;color:#6B7280;margin-top:.3rem;margin-left:2.2rem;">
+                    We auto-detect the columns. Adjust below if anything looks wrong.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            st.caption(f"📄 File loaded: **{uploaded.name}** &middot; {len(df_user):,} rows &middot; {len(df_user.columns)} columns")
+
+            with st.expander("👁️ Preview first 5 rows", expanded=False):
+                st.dataframe(df_user.head(5), width='stretch', hide_index=True)
+
+            detected = detect_fields(list(df_user.columns))
+            col_options = ['(none)'] + list(df_user.columns)
+
+            c1, c2, c3, c4 = st.columns(4)
+
+            def _idx(value):
+                return col_options.index(value) if value in col_options else 0
+
+            with c1:
+                sel_pid = st.selectbox(
+                    "🆔 Prospect ID",
+                    col_options,
+                    index=_idx(detected['ProspectID']),
+                    key='map_pid',
+                )
+            with c2:
+                sel_email = st.selectbox(
+                    "📧 Email",
+                    col_options,
+                    index=_idx(detected['Email']),
+                    key='map_email',
+                )
+            with c3:
+                sel_phone = st.selectbox(
+                    "📱 Phone Number",
+                    col_options,
+                    index=_idx(detected['PhoneNumber']),
+                    key='map_phone',
+                )
+            with c4:
+                sel_alt = st.selectbox(
+                    "📞 Alternate Number",
+                    col_options,
+                    index=_idx(detected['AlternatePhoneNumber']),
+                    key='map_alt',
+                )
+
+            mapping = {
+                'ProspectID':           None if sel_pid   == '(none)' else sel_pid,
+                'Email':                None if sel_email == '(none)' else sel_email,
+                'PhoneNumber':          None if sel_phone == '(none)' else sel_phone,
+                'AlternatePhoneNumber': None if sel_alt   == '(none)' else sel_alt,
+            }
+
+            if not any(mapping.values()):
+                st.error("❌ At least one field must be mapped (Prospect ID, Email, Phone, or Alt Phone).")
+                mapping = None
+
+            # Sanity check for non-empty values
+            if mapping:
+                non_empty = {}
+                for k, c in mapping.items():
+                    if c is None:
+                        non_empty[k] = 0
+                    else:
+                        s = df_user[c].astype(str).str.strip().str.lower()
+                        mask = (~s.isin(['', 'nan', 'none', 'null', 'na', '<na>'])) & df_user[c].notna()
+                        non_empty[k] = int(mask.sum())
+                cap = " &middot; ".join(
+                    f"<span style='font-family:DM Mono,monospace;font-size:.72rem;color:#6B21A8;'>"
+                    f"{k}: <b>{v:,}</b></span>"
+                    for k, v in non_empty.items() if mapping[k]
+                )
+                st.markdown(
+                    f"<div style='margin-top:.4rem;padding:.5rem .75rem;background:#FAF5FF;"
+                    f"border-left:3px solid #A855F7;border-radius:6px;color:#111111;'>"
+                    f"<b style='font-size:.78rem;color:#111111;'>Non-empty values:</b>&nbsp;{cap}</div>",
+                    unsafe_allow_html=True
+                )
+
+        # ─── STEP 3 — Generate ──────────────────────────────────────────────
+        st.markdown("""
+        <div class="lt-step-card" style="margin-top:1rem;">
+            <span class="lt-step-num">3</span>
+            <span style="font-weight:700;font-size:1rem;color:#111111;">Generate the report</span>
+        </div>
+        """, unsafe_allow_html=True)
+
+        btn_disabled = (df_user is None) or (mapping is None) or (df_user.empty)
+        gen = st.button(
+            "🚀 Generate Realtime Lead Report",
+            disabled=btn_disabled,
+            key='lt_gen',
+            use_container_width=True,
+        )
+
+        # ─── PROCESSING ─────────────────────────────────────────────────────
+        if gen:
+            ak, sk = get_lsq_creds()
+            if not ak or not sk:
+                st.error("❌ LSQ credentials missing. Add `LSQ_ACCESS_KEY` and `LSQ_SECRET_KEY` to secrets.toml.")
+                return
+            if client is None:
+                st.error("❌ BigQuery client not configured. Check `gcp_service_account` in secrets.toml.")
+                return
+
             st.markdown(
-                f"<div style='margin-top:.4rem;padding:.5rem .75rem;background:#FAF5FF;"
-                f"border-left:3px solid #A855F7;border-radius:6px;color:#111111;'>"
-                f"<b style='font-size:.78rem;color:#111111;'>Non-empty values:</b>&nbsp;{cap}</div>",
+                "<div style='text-align:center;padding:.6rem 1rem;background:#FAF5FF;border-radius:8px;"
+                "border:1px solid #E9D5FF;font-weight:600;color:#6B21A8;margin:1rem 0;'>"
+                "⏳ Your file is getting processed! Please wait…</div>",
                 unsafe_allow_html=True
             )
 
-    # ─── STEP 3 — Generate ──────────────────────────────────────────────────
-    st.markdown("""
-    <div class="lt-step-card" style="margin-top:1rem;">
-        <span class="lt-step-num">3</span>
-        <span style="font-weight:700;font-size:1rem;color:#111111;">Generate the report</span>
-    </div>
-    """, unsafe_allow_html=True)
+            with st.status("Processing…", expanded=True) as status:
+                try:
+                    # Step A — Fetch users
+                    st.write("🔹 Fetching users from LSQ…")
+                    owner_map = fetch_lsq_users(ak, sk)
+                    st.write(f"   ✓ {len(owner_map):,} users loaded.")
 
-    btn_disabled = (df_user is None) or (mapping is None) or (df_user.empty)
-    gen = st.button(
-        "🚀 Generate Realtime Lead Report",
-        disabled=btn_disabled,
-        key='lt_gen',
-        use_container_width=True,
-    )
+                    # Step B — Fetch leads (cutoff = days_back + 5)
+                    lookup_days = int(days_back) + 5
+                    st.write(f"🔹 Fetching leads from LSQ (assigned in last {lookup_days} days)…")
+                    lead_status = st.empty()
 
-    # ─── PROCESSING ─────────────────────────────────────────────────────────
-    if gen:
-        ak, sk = get_lsq_creds()
-        if not ak or not sk:
-            st.error("❌ LSQ credentials missing. Add `LSQ_ACCESS_KEY` and `LSQ_SECRET_KEY` to secrets.toml.")
-            return
-        if client is None:
-            st.error("❌ BigQuery client not configured. Check `gcp_service_account` in secrets.toml.")
-            return
+                    def _cb(total, page):
+                        lead_status.write(f"   📥 Fetched **{total:,}** leads so far (page {page})…")
 
-        st.markdown(
-            "<div style='text-align:center;padding:.6rem 1rem;background:#FAF5FF;border-radius:8px;"
-            "border:1px solid #E9D5FF;font-weight:600;color:#6B21A8;margin:1rem 0;'>"
-            "⏳ Your file is getting processed! Please wait…</div>",
-            unsafe_allow_html=True
-        )
+                    raw_leads, cutoff_str = fetch_lsq_leads(ak, sk, lookup_days, status_callback=_cb)
+                    st.write(f"   ✓ Total leads fetched: **{len(raw_leads):,}** (cutoff: {cutoff_str}).")
 
-        with st.status("Processing…", expanded=True) as status:
-            try:
-                # Step A — Fetch users
-                st.write("🔹 Fetching users from LSQ…")
-                owner_map = fetch_lsq_users(ak, sk)
-                st.write(f"   ✓ {len(owner_map):,} users loaded.")
+                    # Step C — Build LSQ DataFrame
+                    st.write("🔹 Cleaning LSQ data…")
+                    df_lsq = build_lsq_df(raw_leads, owner_map)
+                    st.write(f"   ✓ {len(df_lsq):,} rows ready for matching.")
 
-                # Step B — Fetch leads (cutoff = days_back + 5)
-                lookup_days = int(days_back) + 5
-                st.write(f"🔹 Fetching leads from LSQ (assigned in last {lookup_days} days)…")
-                lead_status = st.empty()
+                    # Step D — Fetch revenue maps
+                    st.write("🔹 Fetching enrollment data from BigQuery…")
+                    phone_map_rev, email_map_rev = fetch_revenue_maps()
+                    st.write(f"   ✓ {len(phone_map_rev):,} phones & {len(email_map_rev):,} emails for enrollment match.")
 
-                def _cb(total, page):
-                    lead_status.write(f"   📥 Fetched **{total:,}** leads so far (page {page})…")
+                    # Step E — Map user → LSQ
+                    st.write("🔹 Mapping your leads to LSQ records…")
+                    df_out = map_user_to_lsq(df_user, df_lsq, mapping, phone_map_rev, email_map_rev)
 
-                raw_leads, cutoff_str = fetch_lsq_leads(ak, sk, lookup_days, status_callback=_cb)
-                st.write(f"   ✓ Total leads fetched: **{len(raw_leads):,}** (cutoff: {cutoff_str}).")
+                    matched = (df_out['_Match_Type'] != 'Not Found in LSQ').sum()
+                    enrolled = (df_out['ContactStage'].astype(str).str.strip().str.lower() == 'actually enrolled').sum()
+                    st.write(f"   ✓ Matched **{int(matched):,} of {len(df_out):,}** rows.")
+                    st.write(f"   ✓ **{int(enrolled):,}** rows flagged 'Actually Enrolled' from revenue data.")
 
-                # Step C — Build LSQ DataFrame
-                st.write("🔹 Cleaning LSQ data…")
-                df_lsq = build_lsq_df(raw_leads, owner_map)
-                st.write(f"   ✓ {len(df_lsq):,} rows ready for matching.")
+                    # Step E.1 — Enrich with Team / Vertical / Analyst / Sales Leader from auth sheet
+                    st.write("🔹 Mapping owner → Team / Vertical / Analyst / Sales Leader…")
+                    owner_meta = load_owner_meta()
+                    df_out = enrich_with_owner_meta(df_out, owner_meta)
+                    tagged = int((df_out['Team_Name'].astype(str).str.strip() != '').sum())
+                    st.write(f"   ✓ {tagged:,} of {len(df_out):,} rows enriched with team metadata.")
 
-                # Step D — Fetch revenue maps
-                st.write("🔹 Fetching enrollment data from BigQuery…")
-                phone_map_rev, email_map_rev = fetch_revenue_maps()
-                st.write(f"   ✓ {len(phone_map_rev):,} phones & {len(email_map_rev):,} emails for enrollment match.")
+                    # Step F — Build Excel
+                    st.write("🔹 Building Excel output…")
+                    xlsx_bytes = build_output_xlsx(df_out, days_back)
+                    st.write("   ✓ Excel ready.")
 
-                # Step E — Map user → LSQ
-                st.write("🔹 Mapping your leads to LSQ records…")
-                df_out = map_user_to_lsq(df_user, df_lsq, mapping, phone_map_rev, email_map_rev)
+                    status.update(label="✅ Your processed file is ready to download.", state="complete", expanded=False)
 
-                matched = (df_out['_Match_Type'] != 'Not Found in LSQ').sum()
-                enrolled = (df_out['ContactStage'].astype(str).str.strip().str.lower() == 'actually enrolled').sum()
-                st.write(f"   ✓ Matched **{int(matched):,} of {len(df_out):,}** rows.")
-                st.write(f"   ✓ **{int(enrolled):,}** rows flagged 'Actually Enrolled' from revenue data.")
+                    st.session_state['lt_output_bytes'] = xlsx_bytes
+                    st.session_state['lt_output_df']    = df_out
+                    st.session_state['lt_summary']      = {
+                        'rows_in':  len(df_user),
+                        'matched':  int(matched),
+                        'enrolled': int(enrolled),
+                    }
 
-                # Step E.1 — Enrich with Team / Vertical / Analyst / Sales Leader from auth sheet
-                st.write("🔹 Mapping owner → Team / Vertical / Analyst / Sales Leader…")
-                owner_meta = load_owner_meta()
-                df_out = enrich_with_owner_meta(df_out, owner_meta)
-                tagged = int((df_out['Team_Name'].astype(str).str.strip() != '').sum())
-                st.write(f"   ✓ {tagged:,} of {len(df_out):,} rows enriched with team metadata.")
+                except Exception as ex:
+                    status.update(label=f"❌ Processing failed: {ex}", state="error")
+                    st.exception(ex)
+                    return
 
-                # Step F — Build Excel
-                st.write("🔹 Building Excel output…")
-                xlsx_bytes = build_output_xlsx(df_out, days_back)
-                st.write("   ✓ Excel ready.")
+        # ─── RESULT DOWNLOAD ────────────────────────────────────────────────
+        if 'lt_output_bytes' in st.session_state and 'lt_output_df' in st.session_state:
+            df_out  = st.session_state['lt_output_df']
+            summary = st.session_state.get('lt_summary', {})
 
-                status.update(label="✅ Your processed file is ready to download.", state="complete", expanded=False)
+            st.divider()
+            st.markdown("#### ✨ Result")
+            m1, m2, m3 = st.columns(3)
+            with m1:
+                st.metric("Rows Uploaded",      f"{summary.get('rows_in', 0):,}")
+            with m2:
+                st.metric("Matched in LSQ",     f"{summary.get('matched', 0):,}")
+            with m3:
+                st.metric("Actually Enrolled",  f"{summary.get('enrolled', 0):,}")
 
-                st.session_state['lt_output_bytes'] = xlsx_bytes
-                st.session_state['lt_output_df']    = df_out
-                st.session_state['lt_summary']      = {
-                    'rows_in':  len(df_user),
-                    'matched':  int(matched),
-                    'enrolled': int(enrolled),
-                }
-
-            except Exception as ex:
-                status.update(label=f"❌ Processing failed: {ex}", state="error")
-                st.exception(ex)
-                return
-
-    # ─── RESULT DOWNLOAD ────────────────────────────────────────────────────
-    if 'lt_output_bytes' in st.session_state and 'lt_output_df' in st.session_state:
-        df_out  = st.session_state['lt_output_df']
-        summary = st.session_state.get('lt_summary', {})
-
-        st.divider()
-        st.markdown("#### ✨ Result")
-        m1, m2, m3 = st.columns(3)
-        with m1:
-            st.metric("Rows Uploaded",      f"{summary.get('rows_in', 0):,}")
-        with m2:
-            st.metric("Matched in LSQ",     f"{summary.get('matched', 0):,}")
-        with m3:
-            st.metric("Actually Enrolled",  f"{summary.get('enrolled', 0):,}")
-
-        tab_report, tab_insights = st.tabs(["📄 Lead Tracker Report", "🧠 Insights"])
-
-        with tab_report:
             st.download_button(
                 "📥 Download Realtime Lead Report (.xlsx)",
                 data=st.session_state['lt_output_bytes'],
@@ -1440,9 +1443,14 @@ def run_lead_tracker():
                 preview_cols = [c for c in preview_cols if c in df_out.columns]
                 st.dataframe(df_out[preview_cols].head(20), width='stretch', hide_index=True)
 
-        with tab_insights:
+    # ════════════════════════════════════════════════════════════════════════
+    # TAB 2 — Insights (auto-populated after report generation)
+    # ════════════════════════════════════════════════════════════════════════
+    with tab2:
+        if 'lt_output_df' in st.session_state:
+            df_out_ins = st.session_state['lt_output_df']
             st.markdown("""
-            <div style='text-align:center;margin-bottom:1rem;'>
+            <div style='text-align:center;margin-bottom:1rem;margin-top:.5rem;'>
                 <span style='font-size:.72rem;font-weight:600;color:#A855F7;
                              background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.2);
                              border-radius:20px;padding:4px 14px;font-family:DM Mono,monospace;'>
@@ -1456,7 +1464,7 @@ def run_lead_tracker():
             </div>
             """, unsafe_allow_html=True)
 
-            insights = compute_lead_insights(df_out)
+            insights = compute_lead_insights(df_out_ins)
             if insights:
                 cols_ins = st.columns(2)
                 for i, ins in enumerate(insights):
@@ -1471,6 +1479,22 @@ def run_lead_tracker():
                         </div>""", unsafe_allow_html=True)
             else:
                 st.info("Not enough matched data to generate insights — every row was 'Not Found in LSQ'.")
+        else:
+            st.markdown("""
+            <div style='text-align:center;padding:3rem 2rem;margin-top:1.5rem;
+                        background:#FAF5FF;border:1px dashed rgba(168,85,247,.3);
+                        border-radius:14px;'>
+                <div style='font-size:2.6rem;margin-bottom:.6rem;'>🧠</div>
+                <div style='font-size:1.05rem;font-weight:700;color:#6B21A8;margin-bottom:.4rem;'>
+                    No Insights Yet
+                </div>
+                <div style='font-size:.85rem;color:#6B7280;line-height:1.6;'>
+                    Head to the <b>📄 Upload &amp; Download Data</b> tab and click
+                    <b>🚀 Generate Realtime Lead Report</b> first.<br>
+                    Insights will be auto-generated here once your report is ready.
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
 
 
 # ════════════════════════════════════════════════════════════════════════════
