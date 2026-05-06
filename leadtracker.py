@@ -989,7 +989,7 @@ def run_lead_tracker():
         <span style="font-weight:700;font-size:1rem;color:#111111;">Upload your assigned-lead list</span>
         <div style="font-size:.78rem;color:#6B7280;margin-top:.3rem;margin-left:2.2rem;">
             Accepted formats: <b>.csv</b> &middot; <b>.xlsx</b>. The file should contain at least one of:
-            Prospect ID, Email, Phone Number, or Alternate Number.
+            Prospect ID, Email, Phone Number or Alternate Number field to process.
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -1014,7 +1014,7 @@ def run_lead_tracker():
 
     days_back = st.number_input(
         "📅 When were these leads assigned to counsellors? (days ago — between 1 and 60)",
-        min_value=1, max_value=60, value=30, step=1, key='lt_days'
+        min_value=1, max_value=60, value=1, step=1, key='lt_days'
     )
 
     # Parse uploaded file
