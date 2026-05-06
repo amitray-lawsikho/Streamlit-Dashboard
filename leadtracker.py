@@ -975,7 +975,7 @@ def run_lead_tracker():
                 <div class="lt-subtitle">UPLOAD &middot; FETCH &middot; MAP &middot; DOWNLOAD</div>
             </div>
             <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.25rem;">
-                <span class="lt-badge"><span class="lt-pulse"></span>LSQ + REVENUE LIVE</span>
+                <span class="lt-badge"><span class="lt-pulse"></span>LSQ & REVENUE DATA LIVE</span>
                 <span class="lt-badge">🕐 {datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%d-%b-%Y %I:%M %p')}</span>
             </div>
         </div>
