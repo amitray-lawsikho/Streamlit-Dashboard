@@ -348,6 +348,8 @@ def get_stats():
                 SELECT updated_at, updated_at_ampm FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`
                 UNION ALL
                 SELECT StartTime AS updated_at, updated_at_ampm FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls`
+                UNION ALL
+                SELECT updated_at, updated_at_ampm FROM `studious-apex-488820-c3.crm_dashboard.mcube_calls`
             ) WHERE updated_at_ampm IS NOT NULL ORDER BY updated_at DESC LIMIT 1
         """).to_dataframe()
         call_time = str(r1["updated_at_ampm"].iloc[0]) if not r1.empty else "N/A"
@@ -357,6 +359,8 @@ def get_stats():
                 SELECT COUNT(*) AS c FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`
                 UNION ALL
                 SELECT COUNT(*) AS c FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls`
+                UNION ALL
+                SELECT COUNT(*) AS c FROM `studious-apex-488820-c3.crm_dashboard.mcube_calls`
             )
         """).to_dataframe()
         call_cnt = "{:,}".format(int(r2["t"].iloc[0])) if not r2.empty else "—"
@@ -521,10 +525,11 @@ def generate_consolidated_metrics_guide() -> bytes:
         ]), SP(1,6*mm),
 
         BAN("📊","SECTION 3 — SUMMARY METRICS (KPI CARDS)", O_DARK), SP(1,3*mm),
-        Paragraph("Eight KPI cards — aggregate numbers across ALL agents for the selected date range.", S_BOD), SP(1,2*mm),
+        Paragraph("Nine KPI cards — aggregate numbers across ALL agents for the selected date range.", S_BOD), SP(1,2*mm),
         olt([
             ("Acefone Calls","Count of rows where source = 'Acefone'."),
             ("Ozonetel Calls","Count of rows where source = 'Ozonetel'."),
+            ("MCube Calls","Count of rows where source = 'MCube'."),
             ("Manual Calls","Count of rows where source = 'Manual'. Calls logged manually and approved."),
             ("Unique Leads","Count of distinct phone numbers across all sources."),
             ("Avg Prod Hrs","Average Productive Hours = (10 hrs x active days) - total break time >= 15 mins."),
@@ -577,7 +582,7 @@ def generate_consolidated_metrics_guide() -> bytes:
             ("Stage_Changed_By","Agent who changed the stage. Mapped to Caller Name via team sheet merge key."),
             ("call_duration","Call duration in seconds. Zero-duration answered calls excluded."),
             ("call_owner","Agent name after team sheet normalisation."),
-            ("source","Data source: 'Acefone', 'Ozonetel', or 'Manual'."),
+            ("source","Data source: 'Acefone', 'Ozonetel', 'MCube', or 'Manual'."),
         ]), SP(1,6*mm),
 
         BAN("⚠️","SECTION 8 — MANUAL CALLS TABLE (DYNAMIC DASHBOARD)", O_DARK), SP(1,3*mm),
@@ -1063,8 +1068,8 @@ def show_homepage_with_login():
         <div class="dc dc-o">
           <div class="dh"><div class="di">🔔</div></div>
           <div class="dt">Calling Metrics</div>
-          <div class="dd">Full CDR analysis across Ozonetel, Acefone &amp; Manual. Agent performance, break tracking, productive hours &amp; leaderboards.</div>
-          <div class="tags"><span class="tag">Ozonetel</span><span class="tag">Acefone</span><span class="tag">Manual</span><span class="tag">Teams</span></div>
+          <div class="dd">Full CDR analysis across Ozonetel, Acefone, MCube &amp; Manual. Agent performance, break tracking, productive hours &amp; leaderboards.</div>
+          <div class="tags"><span class="tag">Ozonetel</span><span class="tag">Acefone</span><span class="tag">MCube</span><span class="tag">Manual</span><span class="tag">Teams</span></div>
         </div>
         <div class="dc dc-g">
           <div class="dh"><div class="di">💰</div></div>
@@ -1415,6 +1420,8 @@ def run_calling_dashboard():
             SELECT updated_at, updated_at_ampm FROM `studious-apex-488820-c3.crm_dashboard.acefone_calls`
             UNION ALL
             SELECT StartTime as updated_at, updated_at_ampm FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls`
+            UNION ALL
+            SELECT updated_at, updated_at_ampm FROM `studious-apex-488820-c3.crm_dashboard.mcube_calls`
         )
         SELECT updated_at_ampm FROM combined WHERE updated_at IS NOT NULL ORDER BY updated_at DESC LIMIT 1
         """
@@ -1433,6 +1440,9 @@ def run_calling_dashboard():
             UNION ALL
             SELECT MIN(CallDate) as min_d, MAX(CallDate) as max_d
             FROM `studious-apex-488820-c3.crm_dashboard.ozonetel_calls`
+            UNION ALL
+            SELECT MIN(`Call Date`) as min_d, MAX(`Call Date`) as max_d
+            FROM `studious-apex-488820-c3.crm_dashboard.mcube_calls`
         )
         """
         df_dates = client.query(query).to_dataframe()
@@ -1483,7 +1493,13 @@ def run_calling_dashboard():
             df_man['source'] = 'Manual'
             df_man['call_datetime'] = pd.NaT
 
-        df = pd.concat([df_ace, df_ozo, df_man], ignore_index=True)
+        q_mcube = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.mcube_calls` WHERE `Call Date` BETWEEN '{start_date}' AND '{end_date}'"
+        df_mcube = client.query(q_mcube).to_dataframe()
+        if not df_mcube.empty:
+            df_mcube['source'] = 'MCube'
+            df_mcube['unique_lead_id'] = df_mcube['client_number']
+
+        df = pd.concat([df_ace, df_ozo, df_man, df_mcube], ignore_index=True)
         if not df.empty:
             df['call_endtime'] = pd.to_datetime(df['call_datetime'], utc=True).dt.tz_convert('Asia/Kolkata')
             df['call_duration'] = pd.to_numeric(df['call_duration'], errors='coerce').fillna(0)
@@ -1796,10 +1812,11 @@ def run_calling_dashboard():
                 ("🗺️ Highest Roadmap Done","Agent with the highest count of Roadmap Done stage changes in the stage_changed table for the selected date range."),
             ]),SP(1,6*mm),
             BAN("📊","SECTION 3 — SUMMARY METRICS (KPI CARDS)"),SP(1,3*mm),
-            Paragraph("Eight KPI cards shown below the Top 6 highlights. Aggregate numbers across ALL agents and sources for the selected date range.",S['body']),SP(1,2*mm),
+            Paragraph("Nine KPI cards shown below the Top 6 highlights. Aggregate numbers across ALL agents and sources for the selected date range.",S['body']),SP(1,2*mm),
             ltable([
                 ("Acefone Calls","Count of rows where source = 'Acefone'."),
                 ("Ozonetel Calls","Count of rows where source = 'Ozonetel'."),
+                ("MCube Calls","Count of rows where source = 'MCube'."),
                 ("Manual Calls","Count of rows where source = 'Manual'. Calls logged manually by agents and approved — not system-generated CDR."),
                 ("Unique Leads","Count of distinct phone numbers across all sources. One lead dialled multiple times still counts as 1 unique lead."),
                 ("Avg Prod Hrs","Average Productive Hours across all active agents. Productive Hours = (10 hrs x active days) - total break time >= 15 mins. Shown as Xh Ym."),
@@ -1866,9 +1883,9 @@ def run_calling_dashboard():
             Paragraph("The CDR columns are as follows:",S['body']),SP(1,2*mm),
             btable([
                 ("client_number","Lead phone number. Unique lead identifier."),
-                ("call_datetime","Original timestamp from the source system (UTC). For Ozonetel: call start. For Acefone: call end."),
+                ("call_datetime","Original timestamp from the source system (UTC). For Ozonetel: call start. For Acefone / MCube: call end."),
                 ("call_starttime_clean","Call start time in IST, timezone stripped. Used for break and productive hours calculations."),
-                ("call_endtime_clean","Call end time in IST, timezone stripped. For Acefone: call_datetime. For Ozonetel: start + duration."),
+                ("call_endtime_clean","Call end time in IST, timezone stripped. For Acefone / MCube: call_datetime. For Ozonetel: start + duration."),
                 ("call_duration","Call duration in seconds. Zero-duration answered calls from Ozonetel are excluded before ingestion."),
                 ("status","Call outcome: 'answered' or 'missed'. Ozonetel 'unanswered' mapped to 'missed'."),
                 ("direction","Call direction: 'outbound' or 'inbound'. Ozonetel 'manual' mapped to 'outbound'."),
@@ -1880,7 +1897,7 @@ def run_calling_dashboard():
                 ("Team Name","Team name from the team sheet, merged on lowercase agent name."),
                 ("Vertical","Business vertical from the team sheet (e.g. Lawsikho, Skill Arbitrage)."),
                 ("Analyst","Analyst name from the team sheet, if populated."),
-                ("source","Data source: 'Acefone', 'Ozonetel', or 'Manual'."),
+                ("source","Data source: 'Acefone', 'Ozonetel', 'MCube', or 'Manual'."),
             ],cw=[46*mm,114*mm]),SP(1,6*mm),
             BAN("⚠️","SECTION 8 — HIGHEST MANUAL CALLS TABLE (DYNAMIC DASHBOARD)"),SP(1,3*mm),
             Paragraph("Appears below the CDR download button in the Dynamic Dashboard when manual calls exist in the selected date range. Shows agent-level manual call activity sorted by count descending. No medal ranking — manual calls are a flag, not an achievement.",S['body']),SP(1,2*mm),
@@ -2198,6 +2215,7 @@ def run_calling_dashboard():
                         kpis = [
                             ("Acefone Calls",  len(df[df['source'] == 'Acefone']),              "🔵"),
                             ("Ozonetel Calls", len(df[df['source'] == 'Ozonetel']),             "🟠"),
+                            ("MCube Calls",    len(df[df['source'] == 'MCube']),                "🟢"),
                             ("Manual Calls",   len(df[df['source'] == 'Manual']),               "✏️"),
                             ("Unique Leads",   df['unique_lead_id'].nunique(),                  "👤"),
                             ("Avg Prod Hrs",   format_dur_hm(report_df["raw_prod_sec"].mean()), "⏱"),
