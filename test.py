@@ -2028,7 +2028,7 @@ def run_calling_dashboard():
                 <div class="cw-subtitle">DURATION PERIOD&nbsp;·&nbsp; {display_start} to {display_end}</div>
             </div>
             <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.25rem;">
-                <span class="cw-badge"><span class="cw-pulse"></span>OZONETEL &amp; ACEFONE</span>
+                <span class="cw-badge"><span class="cw-pulse"></span>OZONETEL, ACEFONE &amp; MCUBE</span>
                 <span class="cw-badge">🕐 UPDATED AT: {last_update_str}</span>
             </div>
         </div>
