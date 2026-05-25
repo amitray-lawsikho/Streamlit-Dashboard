@@ -1505,11 +1505,11 @@ def run_calling_dashboard():
             df['call_duration'] = pd.to_numeric(df['call_duration'], errors='coerce').fillna(0)
             df['call_starttime'] = df['call_endtime'] - pd.to_timedelta(df['call_duration'], unit='s')
 
-            ozo_mask = df['source'] == 'Ozonetel'
-            df.loc[ozo_mask, 'call_starttime'] = df.loc[ozo_mask, 'call_endtime']
-            df.loc[ozo_mask, 'call_endtime']   = (
-                df.loc[ozo_mask, 'call_starttime']
-                + pd.to_timedelta(df.loc[ozo_mask, 'call_duration'], unit='s')
+            start_based_mask = df['source'].isin(['Ozonetel', 'MCube'])
+            df.loc[start_based_mask, 'call_starttime'] = df.loc[start_based_mask, 'call_endtime']
+            df.loc[start_based_mask, 'call_endtime']   = (
+                df.loc[start_based_mask, 'call_starttime']
+                + pd.to_timedelta(df.loc[start_based_mask, 'call_duration'], unit='s')
             )
 
             df['call_starttime_clean'] = df['call_starttime'].dt.tz_localize(None)
