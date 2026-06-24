@@ -1493,7 +1493,9 @@ def run_calling_dashboard():
             df_man['source'] = 'Manual'
             df_man['call_datetime'] = pd.NaT
 
-        q_mcube = f"SELECT * FROM `studious-apex-488820-c3.crm_dashboard.mcube_calls` WHERE `Call Date` BETWEEN '{start_date}' AND '{end_date}'"
+        q_mcube = f"""SELECT * FROM `studious-apex-488820-c3.crm_dashboard.mcube_calls`
+                      WHERE `Call Date` BETWEEN '{start_date}' AND '{end_date}'
+                        AND (dialstatus IS NULL OR UPPER(TRIM(dialstatus)) != 'EXECUTIVE BUSY')"""
         df_mcube = client.query(q_mcube).to_dataframe()
         if not df_mcube.empty:
             df_mcube['source'] = 'MCube'
