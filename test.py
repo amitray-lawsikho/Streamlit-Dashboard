@@ -1532,7 +1532,7 @@ def run_calling_dashboard():
             total_ans, total_miss, total_calls = 0, 0, 0
             total_above_3min, total_mid_calls, total_long_calls, agent_valid_dur = 0, 0, 0, 0
             total_break_sec_all_days, total_active_days = 0, 0
-            daily_io_list, daily_break_list, all_issues = [], [], []
+            daily_io_list, daily_break_list, daily_break_timing_list, all_issues = [], [], [], []
 
             for c_date, day_group in agent_group.groupby('Call Date'):
                 timed_group = day_group[day_group['call_starttime'].notna()].sort_values('call_starttime')
@@ -1568,7 +1568,7 @@ def run_calling_dashboard():
 
                 if first_call_start > start_office:
                     g = get_display_gap_seconds(start_office, first_call_start)
-                    if g >= 900:
+                    if g >= 300:
                         day_breaks.append({'s': start_office, 'e': first_call_start, 'dur': g})
                         day_break_sec += g
 
@@ -1580,7 +1580,7 @@ def run_calling_dashboard():
                         act_e = min(nxt_start, end_office)
                         if act_e > act_s:
                             g = get_display_gap_seconds(act_s, act_e)
-                            if g >= 900:
+                            if g >= 300:
                                 day_breaks.append({'s': act_s, 'e': act_e, 'dur': g})
                                 day_break_sec += g
 
@@ -1593,7 +1593,7 @@ def run_calling_dashboard():
                 if c_date != today_ist:
                     if last_call_end < end_office:
                         g = get_display_gap_seconds(last_call_end, end_office)
-                        if g >= 900:
+                        if g >= 300:
                             day_breaks.append({'s': last_call_end, 'e': end_office, 'dur': g})
                             day_break_sec += g
 
@@ -1603,10 +1603,13 @@ def run_calling_dashboard():
                 total_break_sec_all_days += day_break_sec
                 if day_breaks:
                     display_break_sec = sum(b['dur'] for b in day_breaks)
-                    b_str = f"{c_date.strftime('%d/%m')}: {len(day_breaks)} breaks : {format_dur_hm(display_break_sec)}"
+                    daily_break_list.append(
+                        f"{c_date.strftime('%d/%m')}: {len(day_breaks)} breaks : {format_dur_hm(display_break_sec)}"
+                    )
+                    t_str = f"{c_date.strftime('%d/%m')}:"
                     for b in day_breaks:
-                        b_str += f"\n  {b['s'].strftime('%I:%M %p')}→{b['e'].strftime('%I:%M %p')} ({format_dur_hm(b['dur'])})"
-                    daily_break_list.append(b_str)
+                        t_str += f"\n  {b['s'].strftime('%I:%M %p')}→{b['e'].strftime('%I:%M %p')} ({format_dur_hm(b['dur'])})"
+                    daily_break_timing_list.append(t_str)
 
                 day_prod_sec = 36000 - day_break_sec
                 if len(day_group[day_group['call_duration'] >= 180]) < 40: all_issues.append("Low Calls")
@@ -1629,7 +1632,8 @@ def run_calling_dashboard():
                 "20+ MIN CALLS": int(total_long_calls),
                 "CALL DURATION > 3 MINS": format_dur_hm(agent_valid_dur),
                 "PRODUCTIVE HOURS": format_dur_hm(prod_sec_total),
-                "BREAKS (>=15 MINS)": "\n---\n".join(daily_break_list) if daily_break_list else "0",
+                "BREAKS (>=5 MINS)": "\n".join(daily_break_list) if daily_break_list else "0",
+                "BREAK TIMINGS (>=5 MINS)": "\n---\n".join(daily_break_timing_list) if daily_break_timing_list else "-",
                 "REMARKS": ", ".join(sorted(set(all_issues))) if all_issues else "None",
                 "raw_prod_sec": prod_sec_total,
                 "raw_dur_sec": agent_valid_dur,
@@ -2130,7 +2134,8 @@ def run_calling_dashboard():
                                 "DISCOVERY DONE"        : sc_vals.get('DISCOVERY DONE', 0),
                                 "ROADMAPS DONE"         : sc_vals.get('ROADMAPS DONE', 0),
                                 "PRODUCTIVE HOURS"      : format_dur_hm(0),
-                                "BREAKS (>=15 MINS)"    : "-",
+                                "BREAKS (>=5 MINS)"     : "-",
+                                "BREAK TIMINGS (>=5 MINS)": "-",
                                 "REMARKS"               : "-",
                                 "raw_prod_sec"          : 0,
                                 "raw_dur_sec"           : 0,
@@ -2263,7 +2268,7 @@ def run_calling_dashboard():
                             "DISCOVERY DONE":  int(report_df["DISCOVERY DONE"].sum()),
                             "ROADMAPS DONE":   int(report_df["ROADMAPS DONE"].sum()),
                             "PRODUCTIVE HOURS": format_dur_hm(report_df["raw_prod_sec"].sum()),
-                            "BREAKS (>=15 MINS)": "-", "REMARKS": "-"
+                            "BREAKS (>=5 MINS)": "-", "BREAK TIMINGS (>=5 MINS)": "-", "REMARKS": "-"
                         }])
 
                         display_cols = [
@@ -2271,7 +2276,7 @@ def run_calling_dashboard():
                             "PICK UP RATIO %", "CALLS > 3 MINS", "CALLS 15-20 MINS",
                             "20+ MIN CALLS", "CALL DURATION > 3 MINS",
                             "FOLLOW UPS DONE", "DISCOVERY DONE", "ROADMAPS DONE",
-                            "PRODUCTIVE HOURS", "BREAKS (>=15 MINS)", "REMARKS"
+                            "PRODUCTIVE HOURS", "BREAKS (>=5 MINS)", "BREAK TIMINGS (>=5 MINS)", "REMARKS"
                         ]
 
                         final_df = pd.concat([report_df, total_row], ignore_index=True)
