@@ -89,7 +89,7 @@ ADMIN_EMAILS = {
     "rinku@lawsikho.in",
     "karunakarareddy@lawsikho.in",
     "kunaal@lawsikho.in",
-    "kanishka.da@lawsikho.in"
+    "kanishka@addictivelearn.com"
 }
 
 VERTICAL_HEAD_TEAMS = {
