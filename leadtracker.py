@@ -606,7 +606,7 @@ LSQ_FIELDS = (
     "mx_Funnel_name,mx_Bootcamp_Attendance,OwnerId,ProspectStage,"
     "mx_Follow_up_date_and_time,mx_Course_Fees,mx_Campaign_Name,mx_Enquired_Course,"
     "mx_Phone_call_counter,mx_Last_Call_new,mx_Report_Type,ModifiedByName,"
-    "mx_Assigned_By,mx_Assigned_On,mx_Assigned_On_Call_Counter"
+    "mx_Assigned_By,mx_Assigned_On,mx_Assigned_On_Call_Counter,mx_Zip_Intent"
 )
 
 
@@ -726,7 +726,7 @@ OUTPUT_COLS = [
     'Email', 'Funnel_name', 'Bootcamp_Attendance', 'Owner', 'ContactStage',
     'Follow_up_date', 'Campaign_Name', 'Enquired_Course',
     'Phone_call_counter', 'LastCalledDate', 'AssignedBy', 'AssignedOn',
-    'Assigned_On_Call_Counter',
+    'Assigned_On_Call_Counter', 'Zip_Intent',
     'Team_Name', 'Vertical', 'Analyst', 'Sales_Leader',
 ]
 
@@ -819,6 +819,7 @@ def map_user_to_lsq(df_user, df_lsq, mapping, phone_map_rev, email_map_rev):
                 'AssignedBy':              lrow.get('mx_Assigned_By', '')          or '',
                 'AssignedOn':              lrow.get('AssignedOn', '')              or '',
                 'Assigned_On_Call_Counter': lrow.get('mx_Assigned_On_Call_Counter', '') or '',
+                'Zip_Intent':              lrow.get('mx_Zip_Intent', '')           or '',
             })
 
         # Revenue override — applies to BOTH matched and unmatched rows
@@ -983,11 +984,11 @@ def build_output_xlsx(df_out, days_back) -> bytes:
         'EMAIL', 'FUNNEL NAME', 'BOOTCAMP ATTENDANCE', 'OWNER', 'CONTACT STAGE',
         'FOLLOW UP DATE', 'CAMPAIGN NAME', 'ENQUIRED COURSE',
         'PHONE CALL COUNTER', 'LAST CALLED DATE', 'ASSIGNED BY', 'ASSIGNED ON',
-        'ASSIGNED ON CALL COUNTER',
+        'ASSIGNED ON CALL COUNTER', 'ZIP INTENT',
         'TEAM NAME', 'VERTICAL', 'ANALYST', 'SALES LEADER',
         'MATCH TYPE',
     ]
-    col_widths = [22, 18, 18, 16, 16, 32, 24, 16, 22, 22, 14, 24, 28, 14, 14, 22, 14, 14,
+    col_widths = [22, 18, 18, 16, 16, 32, 24, 16, 22, 22, 14, 24, 28, 14, 14, 22, 14, 14, 16,
                   22, 18, 18, 32, 18]
 
     wb = Workbook()
@@ -1437,7 +1438,7 @@ def run_lead_tracker():
             with st.expander("👁️ Preview first 20 rows of output", expanded=False):
                 preview_cols = ['ProspectID', 'FirstName', 'LastName', 'Email', 'PhoneNumber',
                                 'Owner', 'ContactStage', 'AssignedOn', 'Phone_call_counter',
-                                'Assigned_On_Call_Counter',
+                                'Assigned_On_Call_Counter', 'Zip_Intent',
                                 'Team_Name', 'Vertical', 'Analyst', 'Sales_Leader',
                                 '_Match_Type']
                 preview_cols = [c for c in preview_cols if c in df_out.columns]
